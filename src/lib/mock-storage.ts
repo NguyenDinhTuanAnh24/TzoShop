@@ -5,6 +5,7 @@ export type StoredPurchasedPlan = {
   credits: string;
   amount?: string;
   duration?: string;
+  apiKeyLimit?: number;
   paidAt?: string;
 };
 
@@ -13,6 +14,7 @@ export type StoredApiKey = {
   name: string;
   family: string;
   keyPreview: string;
+  fullKey?: string;
   status: "Đang hoạt động" | "Đã thu hồi";
   createdAt: string;
   lastUsed: string;
@@ -201,4 +203,34 @@ export function formatDateVi(date: Date | string) {
     month: "2-digit",
     year: "numeric",
   });
+}
+
+export function getPlanTier(planName: string) {
+  const normalized = planName.toLowerCase();
+
+  if (normalized.includes("trial")) return "Trial";
+  if (normalized.includes("mini")) return "Mini";
+  if (normalized.includes("plus")) return "Plus";
+  if (normalized.includes("pro")) return "Pro";
+  if (normalized.includes("max")) return "Max";
+  if (normalized.includes("ultra")) return "Ultra";
+  if (normalized.includes("enterprise")) return "Enterprise";
+
+  return "Mini";
+}
+
+export function getApiKeyLimitForPlan(planName: string) {
+  const tier = getPlanTier(planName);
+
+  const limits: Record<string, number> = {
+    Trial: 1,
+    Mini: 2,
+    Plus: 3,
+    Pro: 5,
+    Max: 10,
+    Ultra: 20,
+    Enterprise: 50,
+  };
+
+  return limits[tier] ?? 2;
 }

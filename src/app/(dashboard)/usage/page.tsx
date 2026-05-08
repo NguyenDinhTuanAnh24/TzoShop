@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   getApiKeys,
+  getUsageLogs,
   saveUsageLogs,
+  parseCreditAmount,
+  getTotalUsedCredits,
+  formatCredits,
   type StoredApiKey,
   type StoredUsageLog,
 } from "@/lib/mock-storage";
@@ -97,47 +101,41 @@ export default function UsagePage() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [storedApiKeys, setStoredApiKeys] = useState<StoredApiKey[]>([]);
+  const [usageLogs, setUsageLogs] = useState<StoredUsageLog[]>([]);
 
   useEffect(() => {
     setStoredApiKeys(getApiKeys());
+    setUsageLogs(getUsageLogs());
   }, []);
 
-  const generatedUsageLogs = useMemo<StoredUsageLog[]>(() => {
-    return storedApiKeys
-      .filter((key) => key.status === "Đang hoạt động")
-      .flatMap((key, index) => {
-        const model = modelByFamily[key.family] ?? "model-default";
+  const displayedUsageLogs = usageLogs;
 
-        return [
-          {
-            id: `USE-${key.id}-001`,
-            family: key.family,
-            model,
-            apiKey: key.name,
-            credits: "-12.500",
-            status: "Thành công",
-            time: "Hôm nay, 10:24",
-          },
-          {
-            id: `USE-${key.id}-002`,
-            family: key.family,
-            model,
-            apiKey: key.name,
-            credits: "-8.200",
-            status: "Thành công",
-            time: index === 0 ? "Hôm nay, 09:12" : "Hôm qua, 21:40",
-          },
-        ];
-      });
-  }, [storedApiKeys]);
+  function handleMockApiCall() {
+    const activeKeys = storedApiKeys.filter(
+      (key) => key.status === "Đang hoạt động"
+    );
 
-  useEffect(() => {
-    if (generatedUsageLogs.length === 0) return;
+    if (activeKeys.length === 0) return;
 
-    saveUsageLogs(generatedUsageLogs);
-  }, [generatedUsageLogs]);
+    const selectedKey = activeKeys[0];
 
-  const displayedUsageLogs = generatedUsageLogs;
+    const randomCredits = Math.floor(Math.random() * 9000) + 1000;
+
+    const newLog: StoredUsageLog = {
+      id: `USE-${selectedKey.id}-${Date.now()}`,
+      family: selectedKey.family,
+      model: modelByFamily[selectedKey.family] ?? "model-default",
+      apiKey: selectedKey.name,
+      credits: `-${randomCredits.toLocaleString("vi-VN")}`,
+      status: "Thành công",
+      time: "Vừa xong",
+    };
+
+    const nextLogs = [newLog, ...usageLogs];
+
+    setUsageLogs(nextLogs);
+    saveUsageLogs(nextLogs);
+  }
 
   const successLogs = displayedUsageLogs.filter(
     (item) => item.status === "Thành công",
@@ -154,9 +152,9 @@ export default function UsagePage() {
   const mostUsedFamily =
     successLogs.length > 0
       ? successLogs.reduce<Record<string, number>>((acc, item) => {
-          acc[item.family] = (acc[item.family] ?? 0) + 1;
-          return acc;
-        }, {})
+        acc[item.family] = (acc[item.family] ?? 0) + 1;
+        return acc;
+      }, {})
       : {};
 
   const topFamily =
@@ -165,7 +163,7 @@ export default function UsagePage() {
   const dynamicSummaryCards = [
     {
       label: "Credits đã dùng hôm nay",
-      value: totalUsedCredits.toLocaleString("vi-VN"),
+      value: formatCredits(totalUsedCredits),
       desc: "Tính trên các request thành công",
     },
     {
@@ -232,12 +230,26 @@ export default function UsagePage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="rounded-full border border-[#dfe5e1] bg-white px-5 py-3 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
-        >
-          Xuất báo cáo
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleMockApiCall}
+            disabled={
+              storedApiKeys.filter((key) => key.status === "Đang hoạt động")
+                .length === 0
+            }
+            className="inline-flex h-11 items-center justify-center rounded-full bg-[#0b0f0d] px-5 text-sm font-bold text-white transition hover:bg-black/80 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+          >
+            Gọi thử API
+          </button>
+
+          <button
+            type="button"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-[#dfe5e1] bg-white px-5 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+          >
+            Xuất báo cáo
+          </button>
+        </div>
       </div>
 
       {storedApiKeys.length === 0 && (
@@ -403,6 +415,16 @@ export default function UsagePage() {
                 >
                   Tạo API key
                 </Link>
+              </div>
+            ) : usageLogs.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
+                <p className="text-base font-semibold text-slate-900">
+                  Chưa có lịch sử sử dụng
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Bấm “Gọi thử API” để tạo một request giả lập và kiểm tra luồng
+                  trừ credits.
+                </p>
               </div>
             ) : filteredUsageItems.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">

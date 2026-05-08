@@ -166,6 +166,32 @@ export default function DashboardPage() {
 
   const latestPurchasedPlan = purchasedPlans[0] ?? null;
 
+  const [showActivatedNotice, setShowActivatedNotice] = useState(false);
+
+  useEffect(() => {
+    if (!latestPurchasedPlan) {
+      setShowActivatedNotice(false);
+      return;
+    }
+
+    const noticeKey = `tzoshop_seen_notice_${latestPurchasedPlan.id}`;
+    const hasSeen = window.sessionStorage.getItem(noticeKey);
+
+    if (hasSeen) {
+      setShowActivatedNotice(false);
+      return;
+    }
+
+    setShowActivatedNotice(true);
+
+    const timer = window.setTimeout(() => {
+      setShowActivatedNotice(false);
+      window.sessionStorage.setItem(noticeKey, "true");
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [latestPurchasedPlan]);
+
   const dynamicStats = [
     {
       label: "Credits còn lại",
@@ -208,38 +234,55 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {latestPurchasedPlan && (
+      {latestPurchasedPlan && showActivatedNotice && (
         <div className="mt-8 rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
-          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700">
                 Gói vừa kích hoạt
               </p>
 
-              <h2 className="mt-2 text-xl font-bold text-[#0b0f0d]">
+              <h2 className="mt-2 text-lg font-bold text-slate-950">
                 {latestPurchasedPlan.name}
               </h2>
 
-              <p className="mt-2 text-sm leading-6 text-emerald-800">
-                {latestPurchasedPlan.credits} credits đã được cộng vào tài khoản.
-                Bạn có thể tạo API key hoặc bắt đầu sử dụng với key hiện có.
+              <p className="mt-1 text-sm text-emerald-900">
+                {latestPurchasedPlan.credits} credits đã được cộng vào tài
+                khoản. Bạn có thể tạo API key hoặc bắt đầu sử dụng với key hiện
+                có.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex shrink-0 items-center gap-3">
               <Link
                 href="/my-plans"
-                className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-200 bg-white px-5 text-sm font-bold text-[#08745e] transition hover:bg-emerald-50"
+                className="rounded-full border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-50"
               >
                 Xem gói của tôi
               </Link>
 
               <Link
                 href="/api-keys"
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
+                className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
               >
                 Tạo API key
               </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (latestPurchasedPlan) {
+                    window.sessionStorage.setItem(
+                      `tzoshop_seen_notice_${latestPurchasedPlan.id}`,
+                      "true",
+                    );
+                  }
+                  setShowActivatedNotice(false);
+                }}
+                className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-emerald-50"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>

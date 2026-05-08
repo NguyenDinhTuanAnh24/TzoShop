@@ -6,6 +6,7 @@ import {
   getPurchasedPlans,
   getApiKeys,
   saveApiKeys as saveApiKeysToStorage,
+  getApiKeyLimitForPlan,
   type StoredPurchasedPlan,
   type StoredApiKey,
 } from "@/lib/mock-storage";
@@ -68,6 +69,22 @@ export default function ApiKeysPage() {
     return Array.from(new Set(families));
   }, [purchasedPlans]);
 
+  const apiKeyLimitByFamily = useMemo(() => {
+    return purchasedPlans.reduce<Record<string, number>>((acc, plan) => {
+      const limit = plan.apiKeyLimit ?? getApiKeyLimitForPlan(plan.name);
+      acc[plan.family] = Math.max(acc[plan.family] ?? 0, limit);
+      return acc;
+    }, {});
+  }, [purchasedPlans]);
+
+  const activeApiKeyCountByFamily = useMemo(() => {
+    return apiKeys.reduce<Record<string, number>>((acc, key) => {
+      if (key.status !== "Đang hoạt động") return acc;
+      acc[key.family] = (acc[key.family] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [apiKeys]);
+
   const hasAnyPlan = availableFamilies.length > 0;
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
@@ -76,6 +93,7 @@ export default function ApiKeysPage() {
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<StoredApiKey | null>(null);
+  const [createError, setCreateError] = useState("");
 
   useEffect(() => {
     if (!selectedFamily && availableFamilies.length > 0) {
@@ -84,7 +102,19 @@ export default function ApiKeysPage() {
   }, [availableFamilies, selectedFamily]);
 
   function handleCreateApiKey() {
+    setCreateError("");
+
     if (!keyName.trim() || !selectedFamily) {
+      return;
+    }
+
+    const keyLimit = apiKeyLimitByFamily[selectedFamily] ?? 0;
+    const activeKeyCount = activeApiKeyCountByFamily[selectedFamily] ?? 0;
+
+    if (activeKeyCount >= keyLimit) {
+      setCreateError(
+        `Dòng ${selectedFamily} đã đạt giới hạn ${keyLimit} API key của gói hiện tại.`,
+      );
       return;
     }
 
@@ -421,6 +451,12 @@ export default function ApiKeysPage() {
               </button>
             </div>
 
+            {createError && (
+              <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {createError}
+              </div>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -462,11 +498,18 @@ export default function ApiKeysPage() {
                   onChange={(event) => setSelectedFamily(event.target.value)}
                   className="mt-2 h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-[#0d8f73]"
                 >
-                  {availableFamilies.map((family) => (
-                    <option key={family} value={family}>
-                      {family}
-                    </option>
-                  ))}
+                  {availableFamilies.map((family) => {
+                    const activeCount = activeApiKeyCountByFamily[family] ?? 0;
+                    const limit = apiKeyLimitByFamily[family] ?? 0;
+                    const isFull = activeCount >= limit;
+
+                    return (
+                      <option key={family} value={family} disabled={isFull}>
+                        {family} - {activeCount}/{limit} keys{" "}
+                        {isFull ? "(đã đầy)" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

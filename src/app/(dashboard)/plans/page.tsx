@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { getApiKeyLimitForPlan } from "@/lib/mock-storage";
 
 type PlanCategory = "main" | "long";
 
@@ -23,6 +24,7 @@ type PlanItem = {
   tier: PlanTier;
   popular?: boolean;
   models?: string[];
+  apiKeyLimit?: number;
 };
 
 type ProductGroup = {
@@ -433,14 +435,16 @@ function PlanCard({
       <div className="flex-1">
         <p className="pr-20 text-lg font-bold text-[#0b0f0d]">{plan.name}</p>
 
-        <div className="mt-5">
-          <p className="text-sm text-[#5f6b66]">Giá gói</p>
-          <p className="mt-1 text-3xl font-extrabold text-[#0b0f0d]">
-            {plan.price}
-          </p>
-        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-2xl bg-[#f6f8f7] p-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
+              Giá gói
+            </p>
+            <p className="mt-1 text-lg font-bold text-[#0b0f0d]">
+              {plan.price}
+            </p>
+          </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-[#f6f8f7] p-3">
             <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
               Credits
@@ -456,6 +460,17 @@ function PlanCard({
             </p>
             <p className="mt-1 text-lg font-bold text-[#0b0f0d]">
               {plan.duration}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-[#f6f8f7] p-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
+              API keys
+            </p>
+            <p className="mt-1 text-lg font-bold text-[#0b0f0d]">
+              {plan.apiKeyLimit && plan.apiKeyLimit >= 50
+                ? "Tối đa 50 key"
+                : `Tối đa ${plan.apiKeyLimit} key`}
             </p>
           </div>
         </div>
@@ -511,16 +526,27 @@ export default function PlansPage() {
   )!;
 
   const filteredPlans = useMemo(() => {
-    return selectedGroup.plans.filter((plan) => {
-      const matchCategory = plan.category === selectedCategory;
-      const matchTier = selectedTier === "all" || plan.tier === selectedTier;
+    return selectedGroup.plans
+      .filter((plan) => {
+        const matchCategory = plan.category === selectedCategory;
+        const matchTier = selectedTier === "all" || plan.tier === selectedTier;
 
-      return matchCategory && matchTier;
-    });
+        return matchCategory && matchTier;
+      })
+      .map((plan) => ({
+        ...plan,
+        apiKeyLimit: getApiKeyLimitForPlan(plan.name),
+      }));
   }, [selectedGroup, selectedCategory, selectedTier]);
 
-  const recommendedPlan =
-    selectedGroup.plans.find((plan) => plan.popular) ?? selectedGroup.plans[0];
+  const recommendedPlan = useMemo(() => {
+    const raw =
+      selectedGroup.plans.find((plan) => plan.popular) ?? selectedGroup.plans[0];
+    return {
+      ...raw,
+      apiKeyLimit: getApiKeyLimitForPlan(raw.name),
+    };
+  }, [selectedGroup]);
 
   return (
     <>
@@ -804,12 +830,32 @@ export default function PlansPage() {
 
               <div className="rounded-2xl bg-[#f6f8f7] p-4">
                 <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-                  Giá
+                  Giới hạn key
                 </p>
                 <p className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                  {selectedPlan.price}
+                  {selectedPlan.apiKeyLimit && selectedPlan.apiKeyLimit >= 50
+                    ? "Tối đa 50 key"
+                    : `Tối đa ${selectedPlan.apiKeyLimit} key`}
                 </p>
               </div>
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-[#f6f8f7] p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
+                Giá thanh toán
+              </p>
+              <p className="mt-2 text-3xl font-extrabold text-[#0b0f0d]">
+                {selectedPlan.price}
+              </p>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-black/5 bg-[#f7f8f6] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7a8782]">
+                API keys
+              </p>
+              <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                Gói này cho phép tạo tối đa {selectedPlan.apiKeyLimit} API key.
+              </p>
             </div>
 
             {selectedPlan.models && selectedPlan.models.length > 0 && (
@@ -858,12 +904,14 @@ export default function PlansPage() {
               ) : (
                 <Link
                   href={`/billing?plan=${encodeURIComponent(
-                    selectedPlan.name
+                    selectedPlan.name,
                   )}&credits=${encodeURIComponent(
-                    selectedPlan.credits
+                    selectedPlan.credits,
                   )}&duration=${encodeURIComponent(
-                    selectedPlan.duration
-                  )}&price=${encodeURIComponent(selectedPlan.price)}`}
+                    selectedPlan.duration,
+                  )}&price=${encodeURIComponent(
+                    selectedPlan.price,
+                  )}&apiKeyLimit=${selectedPlan.apiKeyLimit}`}
                   className="flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
                 >
                   Tiếp tục thanh toán

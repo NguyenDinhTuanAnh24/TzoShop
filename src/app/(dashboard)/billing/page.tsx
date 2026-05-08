@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { getApiKeyLimitForPlan } from "@/lib/mock-storage";
 
 type OrderItem = {
   id: string;
@@ -130,6 +131,7 @@ export default function BillingPage() {
   const selectedCreditsFromUrl = searchParams.get("credits");
   const selectedDurationFromUrl = searchParams.get("duration");
   const selectedPriceFromUrl = searchParams.get("price");
+  const apiKeyLimitFromUrl = searchParams.get("apiKeyLimit");
 
   const pendingOrderFromSelectedPlan =
     selectedPlanFromUrl && selectedCreditsFromUrl && selectedPriceFromUrl
@@ -193,6 +195,9 @@ export default function BillingPage() {
         family: order.family,
         credits: order.credits,
         amount: order.amount,
+        duration: selectedDurationFromUrl ?? "-",
+        apiKeyLimit:
+          Number(apiKeyLimitFromUrl) || getApiKeyLimitForPlan(order.plan),
         paidAt: new Date().toISOString(),
       };
 

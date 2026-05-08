@@ -5,17 +5,50 @@ import Link from "next/link";
 import {
   getPurchasedPlans,
   getUsageLogs,
+  getApiKeys,
   getUsedCreditsByFamily,
   parseCreditAmount,
   formatCredits,
   getModelsForPlan,
   getExpiryDate,
   formatDateVi,
+  getApiKeyLimitForPlan,
   type StoredPurchasedPlan,
   type StoredUsageLog,
+  type StoredApiKey,
 } from "@/lib/mock-storage";
 
-const activePlans = [
+type MyPlan = {
+  id?: string;
+  name: string;
+  family: string;
+  status: string;
+  credits?: string;
+  creditsTotal?: string;
+  creditsLeft?: string;
+  usedPercent?: number;
+  expiresAt?: string;
+  duration?: string;
+  paidAt?: string;
+  apiKeyLimit?: number;
+  amount?: string;
+  models?: string[];
+  usedCredits?: number;
+  remainingCredits?: number;
+  activeApiKeys?: number;
+};
+
+type MyPlanWithUsage = MyPlan & {
+  usedCredits: number;
+  remainingCredits: number;
+  usedPercent: number;
+  apiKeyLimit: number;
+  activeApiKeys: number;
+  totalCreditsNum: number;
+  models: string[];
+};
+
+const activePlans: MyPlan[] = [
   {
     name: "CodexAI Plus",
     family: "CodexAI",
@@ -73,15 +106,27 @@ export default function MyPlansPage() {
     [],
   );
   const [usageLogs, setUsageLogs] = useState<StoredUsageLog[]>([]);
+  const [apiKeys, setApiKeys] = useState<StoredApiKey[]>([]);
 
   useEffect(() => {
     setPurchasedPlans(getPurchasedPlans());
     setUsageLogs(getUsageLogs());
+    setApiKeys(getApiKeys());
   }, []);
 
   const usedCreditsByFamily = useMemo(() => {
     return getUsedCreditsByFamily(usageLogs);
   }, [usageLogs]);
+
+  const apiKeyCountByFamily = useMemo(() => {
+    return apiKeys.reduce<Record<string, number>>((acc, key) => {
+      if (key.status !== "Đang hoạt động") return acc;
+
+      acc[key.family] = (acc[key.family] ?? 0) + 1;
+
+      return acc;
+    }, {});
+  }, [apiKeys]);
 
   const purchasedActivePlans = purchasedPlans.map((plan) => ({
     name: plan.name,
@@ -106,12 +151,15 @@ export default function MyPlansPage() {
     ),
   ];
 
-  const plansWithRemainingCredits = useMemo(() => {
-    return displayedActivePlans.map((plan) => {
-      const total = parseCreditAmount(plan.creditsTotal);
+  const plansWithRemainingCredits = useMemo<MyPlanWithUsage[]>(() => {
+    return (displayedActivePlans as MyPlan[]).map((plan) => {
+      const total = parseCreditAmount(plan.creditsTotal ?? plan.credits ?? "0");
       const used = usedCreditsByFamily[plan.family] ?? 0;
       const remaining = Math.max(total - used, 0);
       const percent = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+
+      const apiKeyLimit = plan.apiKeyLimit ?? getApiKeyLimitForPlan(plan.name);
+      const activeApiKeys = apiKeyCountByFamily[plan.family] ?? 0;
 
       return {
         ...plan,
@@ -122,11 +170,39 @@ export default function MyPlansPage() {
         totalCreditsNum: total,
         creditsLeft: formatCredits(remaining),
         usedPercent: percent,
+        apiKeyLimit,
+        activeApiKeys,
       };
     });
-  }, [displayedActivePlans, usedCreditsByFamily]);
+  }, [displayedActivePlans, usedCreditsByFamily, apiKeyCountByFamily]);
 
   const latestPurchasedPlan = purchasedPlans[0] ?? null;
+
+  const [showActivatedNotice, setShowActivatedNotice] = useState(false);
+
+  useEffect(() => {
+    if (!latestPurchasedPlan) {
+      setShowActivatedNotice(false);
+      return;
+    }
+
+    const noticeKey = `tzoshop_seen_notice_${latestPurchasedPlan.id}`;
+    const hasSeen = window.sessionStorage.getItem(noticeKey);
+
+    if (hasSeen) {
+      setShowActivatedNotice(false);
+      return;
+    }
+
+    setShowActivatedNotice(true);
+
+    const timer = window.setTimeout(() => {
+      setShowActivatedNotice(false);
+      window.sessionStorage.setItem(noticeKey, "true");
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [latestPurchasedPlan]);
 
   const dynamicSummaryCards = [
     {
@@ -138,7 +214,7 @@ export default function MyPlansPage() {
       label: "Tổng credits còn lại",
       value: formatCredits(
         plansWithRemainingCredits.reduce(
-          (sum, p) => sum + p.remainingCredits,
+          (sum, p) => sum + (p.remainingCredits ?? 0),
           0,
         ),
       ),
@@ -180,7 +256,7 @@ export default function MyPlansPage() {
         </Link>
       </div>
 
-      {latestPurchasedPlan && (
+      {latestPurchasedPlan && showActivatedNotice && (
         <div className="mb-8 rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
@@ -193,13 +269,13 @@ export default function MyPlansPage() {
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-emerald-800">
-                {latestPurchasedPlan.credits} credits đã được cộng vào tài khoản.
-                Bạn có thể bắt đầu sử dụng gói này với API key hiện có hoặc tạo
-                API key mới.
+                {latestPurchasedPlan.credits} credits đã được cộng vào tài
+                khoản. Bạn có thể bắt đầu sử dụng gói này với API key hiện có
+                hoặc tạo API key mới.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-wrap items-center gap-3">
               <Link
                 href="/dashboard"
                 className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-200 bg-white px-5 text-sm font-bold text-[#08745e] transition hover:bg-emerald-50"
@@ -213,6 +289,22 @@ export default function MyPlansPage() {
               >
                 Tạo API key
               </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (latestPurchasedPlan) {
+                    window.sessionStorage.setItem(
+                      `tzoshop_seen_notice_${latestPurchasedPlan.id}`,
+                      "true",
+                    );
+                  }
+                  setShowActivatedNotice(false);
+                }}
+                className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-emerald-50"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>
@@ -255,6 +347,9 @@ export default function MyPlansPage() {
             <div className="space-y-5">
               {plansWithRemainingCredits.map((plan, index) => {
                 const isWarning = plan.status === "Sắp hết hạn";
+                const models = plan.models ?? [];
+                const visibleModels = models.slice(0, 4);
+                const hiddenModelCount = Math.max(models.length - 4, 0);
 
                 return (
                   <div
@@ -292,13 +387,13 @@ export default function MyPlansPage() {
                       </Link>
                     </div>
 
-                    <div className="mt-5 grid gap-4 md:grid-cols-3">
+                    <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                       <div className="rounded-2xl bg-[#f7f8f6] p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
                           Credits còn lại
                         </p>
                         <p className="mt-1 text-2xl font-bold text-[#0b0f0d]">
-                          {formatCredits(plan.remainingCredits)}
+                          {formatCredits(plan.remainingCredits ?? 0)}
                         </p>
                       </div>
 
@@ -307,7 +402,7 @@ export default function MyPlansPage() {
                           Đã sử dụng
                         </p>
                         <p className="mt-1 text-xl font-bold text-[#47524d]">
-                          {formatCredits(plan.usedCredits)}
+                          {formatCredits(plan.usedCredits ?? 0)}
                         </p>
                       </div>
 
@@ -316,8 +411,23 @@ export default function MyPlansPage() {
                           Tổng credits
                         </p>
                         <p className="mt-1 text-xl font-bold text-[#47524d]">
-                          {formatCredits(plan.totalCreditsNum)}
+                          {formatCredits(plan.totalCreditsNum ?? 0)}
                         </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-[#f7f8f6] p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                          API keys
+                        </p>
+                        <p className="mt-1 text-xl font-bold text-[#47524d]">
+                          {plan.activeApiKeys ?? 0}/{plan.apiKeyLimit ?? 0}
+                        </p>
+
+                        {(plan.activeApiKeys ?? 0) >= (plan.apiKeyLimit ?? 0) && (
+                          <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-[#b42318]">
+                            Đã đạt giới hạn
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -328,7 +438,7 @@ export default function MyPlansPage() {
                         </p>
 
                         <p className="text-sm font-bold text-[#057a60]">
-                          {plan.usedPercent.toFixed(1)}%
+                          {(plan.usedPercent ?? 0).toFixed(1)}%
                         </p>
                       </div>
 
@@ -339,7 +449,7 @@ export default function MyPlansPage() {
                               ? "h-full rounded-full bg-[#f59e0b]"
                               : "h-full rounded-full bg-[#00d4a4]"
                           }
-                          style={{ width: `${plan.usedPercent}%` }}
+                          style={{ width: `${plan.usedPercent ?? 0}%` }}
                         />
                       </div>
                     </div>
@@ -351,7 +461,7 @@ export default function MyPlansPage() {
                         </p>
 
                         <div className="flex flex-wrap gap-2">
-                          {plan.models.slice(0, 4).map((model) => (
+                          {visibleModels.map((model) => (
                             <span
                               key={model}
                               className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 font-mono text-xs text-[#47524d]"
@@ -360,9 +470,9 @@ export default function MyPlansPage() {
                             </span>
                           ))}
 
-                          {plan.models.length > 4 && (
+                          {hiddenModelCount > 0 && (
                             <span className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 text-xs font-bold text-[#47524d]">
-                              +{plan.models.length - 4} model
+                              +{hiddenModelCount} model
                             </span>
                           )}
                         </div>
