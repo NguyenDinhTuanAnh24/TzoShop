@@ -85,6 +85,25 @@ export default function ApiKeysPage() {
     }, {});
   }, [apiKeys]);
 
+  const totalActiveKeys = useMemo(() => {
+    return apiKeys.filter((key) => key.status === "Đang hoạt động").length;
+  }, [apiKeys]);
+
+  const totalKeyLimit = useMemo(() => {
+    return Object.values(apiKeyLimitByFamily).reduce((total, limit) => {
+      return total + limit;
+    }, 0);
+  }, [apiKeyLimitByFamily]);
+
+  const availableFamiliesCanCreateKey = useMemo(() => {
+    return availableFamilies.filter((family) => {
+      const limit = apiKeyLimitByFamily[family] ?? 0;
+      const activeCount = activeApiKeyCountByFamily[family] ?? 0;
+
+      return activeCount < limit;
+    });
+  }, [availableFamilies, apiKeyLimitByFamily, activeApiKeyCountByFamily]);
+
   const hasAnyPlan = availableFamilies.length > 0;
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
@@ -96,10 +115,19 @@ export default function ApiKeysPage() {
   const [createError, setCreateError] = useState("");
 
   useEffect(() => {
-    if (!selectedFamily && availableFamilies.length > 0) {
-      setSelectedFamily(availableFamilies[0]);
+    if (!selectedFamily && availableFamiliesCanCreateKey.length > 0) {
+      setSelectedFamily(availableFamiliesCanCreateKey[0]);
     }
-  }, [availableFamilies, selectedFamily]);
+  }, [availableFamiliesCanCreateKey, selectedFamily]);
+
+  function handleOpenCreateModal() {
+    setCreateError("");
+    setKeyName("");
+    if (availableFamiliesCanCreateKey.length > 0) {
+      setSelectedFamily(availableFamiliesCanCreateKey[0]);
+    }
+    setOpenCreateModal(true);
+  }
 
   function handleCreateApiKey() {
     setCreateError("");
@@ -182,13 +210,21 @@ export default function ApiKeysPage() {
             tương thích. Không chia sẻ key công khai để tránh phát sinh sử dụng
             ngoài ý muốn.
           </p>
+
+          {availableFamilies.length > 0 &&
+            availableFamiliesCanCreateKey.length === 0 && (
+              <p className="mt-3 text-sm font-bold text-amber-700">
+                Tất cả dòng credits hiện tại đã đạt giới hạn API key. Hãy thu hồi
+                key cũ hoặc nâng cấp gói.
+              </p>
+            )}
         </div>
 
         <button
           type="button"
-          onClick={() => setOpenCreateModal(true)}
-          disabled={!hasAnyPlan}
-          className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e] disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={handleOpenCreateModal}
+          disabled={!hasAnyPlan || availableFamiliesCanCreateKey.length === 0}
+          className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e] disabled:cursor-not-allowed disabled:bg-[#dfe5e1] disabled:text-[#9aa6a0] disabled:opacity-100"
         >
           Tạo API key
         </button>
@@ -263,6 +299,20 @@ export default function ApiKeysPage() {
           </div>
         </div>
       )}
+
+      <section className="mb-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-3xl border border-[#dfe5e1] bg-white p-6">
+          <p className="text-sm font-semibold text-[#66736d]">
+            Giới hạn API keys
+          </p>
+          <p className="mt-3 text-3xl font-bold tracking-[-0.8px] text-[#0b0f0d]">
+            {totalActiveKeys}/{totalKeyLimit}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[#66736d]">
+            Tổng key đang hoạt động / tổng key được phép tạo
+          </p>
+        </div>
+      </section>
 
       <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
         <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
@@ -406,9 +456,11 @@ export default function ApiKeysPage() {
 
             <button
               type="button"
-              onClick={() => setOpenCreateModal(true)}
-              disabled={!hasAnyPlan}
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full !bg-white px-5 py-3 text-sm font-bold !text-[#0b0f0d] disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleOpenCreateModal}
+              disabled={
+                !hasAnyPlan || availableFamiliesCanCreateKey.length === 0
+              }
+              className="mt-5 inline-flex w-full items-center justify-center rounded-full !bg-white px-5 py-3 text-sm font-bold !text-[#0b0f0d] transition hover:bg-[#f6f8f7] disabled:cursor-not-allowed disabled:bg-white/50 disabled:text-[#0b0f0d]/50 disabled:opacity-100"
             >
               Tạo API key
             </button>
