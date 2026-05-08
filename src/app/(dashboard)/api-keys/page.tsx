@@ -1,59 +1,44 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  getPurchasedPlans,
+  getApiKeys,
+  saveApiKeys as saveApiKeysToStorage,
+  type StoredPurchasedPlan,
+  type StoredApiKey,
+} from "@/lib/mock-storage";
 
-type PurchasedPlan = {
-  id: string;
-  name: string;
-  family: string;
-  credits: string;
-  amount: string;
-  paidAt: string;
-};
-
-type ApiKeyItem = {
-  id: string;
-  name: string;
-  family: string;
-  keyPreview: string;
-  fullKey?: string;
-  status: "Đang hoạt động" | "Đã thu hồi";
-  createdAt: string;
-  lastUsed: string;
-};
+// Using StoredApiKey as the primary type
 
 
 
 export default function ApiKeysPage() {
-  const [purchasedPlans, setPurchasedPlans] = useState<PurchasedPlan[]>([]);
+  const [purchasedPlans, setPurchasedPlans] = useState<StoredPurchasedPlan[]>(
+    [],
+  );
 
   useEffect(() => {
-    const storedPlans = JSON.parse(
-      window.localStorage.getItem("tzoshop_purchased_plans") ?? "[]"
-    );
-
-    setPurchasedPlans(storedPlans);
+    setPurchasedPlans(getPurchasedPlans());
   }, []);
 
-  const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
+  const [apiKeys, setApiKeys] = useState<StoredApiKey[]>([]);
 
-  function saveApiKeys(nextKeys: ApiKeyItem[]) {
+  function saveApiKeys(nextKeys: StoredApiKey[]) {
     setApiKeys(nextKeys);
-    window.localStorage.setItem("tzoshop_api_keys", JSON.stringify(nextKeys));
+    saveApiKeysToStorage(nextKeys);
   }
 
   useEffect(() => {
-    const storedKeys = JSON.parse(
-      window.localStorage.getItem("tzoshop_api_keys") ?? "[]",
-    );
+    const storedKeys = getApiKeys();
 
     if (storedKeys.length > 0) {
       setApiKeys(storedKeys);
       return;
     }
 
-    setApiKeys([
+    const defaultKeys: StoredApiKey[] = [
       {
         id: "key_001",
         name: "Extension chính",
@@ -72,7 +57,10 @@ export default function ApiKeysPage() {
         createdAt: "01/05/2026",
         lastUsed: "03/05/2026",
       },
-    ]);
+    ];
+
+    setApiKeys(defaultKeys);
+    saveApiKeysToStorage(defaultKeys);
   }, []);
 
   const availableFamilies = useMemo(() => {
@@ -87,7 +75,7 @@ export default function ApiKeysPage() {
   const [selectedFamily, setSelectedFamily] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [revokeTarget, setRevokeTarget] = useState<ApiKeyItem | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<StoredApiKey | null>(null);
 
   useEffect(() => {
     if (!selectedFamily && availableFamilies.length > 0) {
@@ -103,7 +91,7 @@ export default function ApiKeysPage() {
     const randomPart = Math.random().toString(36).slice(2, 18);
     const fullKey = `tz_live_${randomPart}_${Date.now().toString(36)}`;
 
-    const newKey: ApiKeyItem = {
+    const newKey: StoredApiKey = {
       id: `key_${Date.now()}`,
       name: keyName.trim(),
       family: selectedFamily,

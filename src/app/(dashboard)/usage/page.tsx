@@ -1,28 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  getApiKeys,
+  saveUsageLogs,
+  type StoredApiKey,
+  type StoredUsageLog,
+} from "@/lib/mock-storage";
 
-type ApiKeyItem = {
-  id: string;
-  name: string;
-  family: string;
-  keyPreview: string;
-  fullKey?: string;
-  status: "Đang hoạt động" | "Đã thu hồi";
-  createdAt: string;
-  lastUsed: string;
+const modelByFamily: Record<string, string> = {
+  CodexAI: "gpt-5.3-codex",
+  Claude: "claude-sonnet-4.5",
+  Gemini: "gemini-2.5-pro",
+  DeepSeek: "deepseek-chat",
 };
 
-type UsageLogItem = {
-  id: string;
-  family: string;
-  model: string;
-  apiKey: string;
-  credits: string;
-  status: "Thành công" | "Thất bại";
-  time: string;
-};
+function parseUsedCredits(value: string) {
+  return Number(value.replace("-", "").replace(/\./g, "")) || 0;
+}
 
 const summaryCards = [
   {
@@ -47,7 +43,7 @@ const summaryCards = [
   },
 ];
 
-const usageItems = [
+const sampleUsageLogs = [
   {
     id: "USG-1001",
     family: "CodexAI",
@@ -100,49 +96,48 @@ export default function UsagePage() {
   const [familyFilter, setFamilyFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
+  const [storedApiKeys, setStoredApiKeys] = useState<StoredApiKey[]>([]);
 
   useEffect(() => {
-    const storedKeys = JSON.parse(
-      window.localStorage.getItem("tzoshop_api_keys") ?? "[]",
-    );
-
-    setApiKeys(storedKeys);
+    setStoredApiKeys(getApiKeys());
   }, []);
 
-  const generatedUsageLogs: UsageLogItem[] = useMemo(() => {
-    const activeKeys = apiKeys.filter((key) => key.status === "Đang hoạt động");
+  const generatedUsageLogs = useMemo<StoredUsageLog[]>(() => {
+    return storedApiKeys
+      .filter((key) => key.status === "Đang hoạt động")
+      .flatMap((key, index) => {
+        const model = modelByFamily[key.family] ?? "model-default";
 
-    const modelByFamily: Record<string, string> = {
-      CodexAI: "gpt-5.3-codex",
-      Claude: "claude-sonnet-4.5",
-      Gemini: "gemini-3-flash-preview",
-      DeepSeek: "deepseek-v4-flash",
-    };
+        return [
+          {
+            id: `USE-${key.id}-001`,
+            family: key.family,
+            model,
+            apiKey: key.name,
+            credits: "-12.500",
+            status: "Thành công",
+            time: "Hôm nay, 10:24",
+          },
+          {
+            id: `USE-${key.id}-002`,
+            family: key.family,
+            model,
+            apiKey: key.name,
+            credits: "-8.200",
+            status: "Thành công",
+            time: index === 0 ? "Hôm nay, 09:12" : "Hôm qua, 21:40",
+          },
+        ];
+      });
+  }, [storedApiKeys]);
 
-    return activeKeys.flatMap((key, index) => [
-      {
-        id: `USE-${key.id}-001`,
-        family: key.family,
-        model: modelByFamily[key.family] ?? "model-default",
-        apiKey: key.name,
-        credits: index % 2 === 0 ? "-12.500" : "-8.200",
-        status: "Thành công",
-        time: "Hôm nay, 10:24",
-      },
-      {
-        id: `USE-${key.id}-002`,
-        family: key.family,
-        model: modelByFamily[key.family] ?? "model-default",
-        apiKey: key.name,
-        credits: "-3.900",
-        status: "Thành công",
-        time: "Hôm nay, 09:12",
-      },
-    ]);
-  }, [apiKeys]);
+  useEffect(() => {
+    if (generatedUsageLogs.length === 0) return;
 
-  const displayedUsageLogs = [...generatedUsageLogs, ...usageItems];
+    saveUsageLogs(generatedUsageLogs);
+  }, [generatedUsageLogs]);
+
+  const displayedUsageLogs = generatedUsageLogs;
 
   const successLogs = displayedUsageLogs.filter(
     (item) => item.status === "Thành công",
@@ -153,8 +148,7 @@ export default function UsagePage() {
   );
 
   const totalUsedCredits = successLogs.reduce((total, item) => {
-    const numberValue = Number(item.credits.replace(/[^\d]/g, ""));
-    return total + numberValue;
+    return total + parseUsedCredits(item.credits);
   }, 0);
 
   const mostUsedFamily =
@@ -246,7 +240,7 @@ export default function UsagePage() {
         </button>
       </div>
 
-      {apiKeys.length === 0 && (
+      {storedApiKeys.length === 0 && (
         <div className="mb-8 rounded-3xl border border-amber-200 bg-amber-50 p-6">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
@@ -393,101 +387,117 @@ export default function UsagePage() {
           </div>
 
           <div className="space-y-4">
-            {filteredUsageItems.map((item) => {
-              const isSuccess = item.status === "Thành công";
-
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <p className="font-mono text-xs font-bold text-[#9aa6a0]">
-                          {item.id}
-                        </p>
-
-                        <span
-                          className={
-                            isSuccess
-                              ? "rounded-full bg-[#e9fbf6] px-3 py-1 text-xs font-bold text-[#057a60]"
-                              : "rounded-full bg-[#fff5f5] px-3 py-1 text-xs font-bold text-[#b42318]"
-                          }
-                        >
-                          {item.status}
-                        </span>
-                      </div>
-
-                      <h3 className="mt-3 text-lg font-bold text-[#0b0f0d]">
-                        {item.family}
-                      </h3>
-
-                      <p className="mt-1 font-mono text-sm text-[#66736d]">
-                        {item.model}
-                      </p>
-                    </div>
-
-                    <div className="text-left md:text-right">
-                      <p
-                        className={
-                          isSuccess
-                            ? "text-lg font-bold text-[#057a60]"
-                            : "text-lg font-bold text-[#b42318]"
-                        }
-                      >
-                        {isSuccess ? "-" : ""}
-                        {item.credits} credits
-                      </p>
-
-                      <p className="mt-2 text-sm text-[#9aa6a0]">
-                        {item.time}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 rounded-2xl bg-[#f7f8f6] p-4 md:grid-cols-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        API key
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                        {item.apiKey}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        Model
-                      </p>
-                      <p className="mt-1 font-mono text-xs font-bold text-[#0b0f0d]">
-                        {item.model}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        Thời gian
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                        {item.time}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {filteredUsageItems.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-[#cfd8d3] bg-[#f7f8f6] p-8 text-center">
-                <p className="font-semibold text-[#0b0f0d]">
-                  Không tìm thấy lịch sử phù hợp
+            {storedApiKeys.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
+                <p className="text-base font-semibold text-slate-900">
+                  Chưa có API key
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Bạn cần tạo API key trước khi hệ thống có thể ghi nhận lịch sử
+                  sử dụng.
                 </p>
 
-                <p className="mt-2 text-sm text-[#66736d]">
-                  Hãy thử đổi từ khóa, dòng credits hoặc trạng thái lọc.
+                <Link
+                  href="/api-keys"
+                  className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  Tạo API key
+                </Link>
+              </div>
+            ) : filteredUsageItems.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
+                <p className="text-base font-semibold text-slate-900">
+                  Chưa có lịch sử phù hợp
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Hãy thử đổi bộ lọc dòng AI hoặc trạng thái.
                 </p>
               </div>
+            ) : (
+              filteredUsageItems.map((item) => {
+                const isSuccess = item.status === "Thành công";
+
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <p className="font-mono text-xs font-bold text-[#9aa6a0]">
+                            {item.id}
+                          </p>
+
+                          <span
+                            className={
+                              isSuccess
+                                ? "rounded-full bg-[#e9fbf6] px-3 py-1 text-xs font-bold text-[#057a60]"
+                                : "rounded-full bg-[#fff5f5] px-3 py-1 text-xs font-bold text-[#b42318]"
+                            }
+                          >
+                            {item.status}
+                          </span>
+                        </div>
+
+                        <h3 className="mt-3 text-lg font-bold text-[#0b0f0d]">
+                          {item.family}
+                        </h3>
+
+                        <p className="mt-1 font-mono text-sm text-[#66736d]">
+                          {item.model}
+                        </p>
+                      </div>
+
+                      <div className="text-left md:text-right">
+                        <p
+                          className={
+                            isSuccess
+                              ? "text-lg font-bold text-[#057a60]"
+                              : "text-lg font-bold text-[#b42318]"
+                          }
+                        >
+                          {isSuccess ? "-" : ""}
+                          {item.credits} credits
+                        </p>
+
+                        <p className="mt-2 text-sm text-[#9aa6a0]">
+                          {item.time}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 rounded-2xl bg-[#f7f8f6] p-4 md:grid-cols-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                          API key
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                          {item.apiKey}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                          Model
+                        </p>
+                        <p className="mt-1 font-mono text-xs font-bold text-[#0b0f0d]">
+                          {item.model}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                          Thời gian
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                          {item.time}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

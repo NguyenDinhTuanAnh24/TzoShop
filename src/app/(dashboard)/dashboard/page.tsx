@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  getPurchasedPlans,
+  getUsageLogs,
+  getTotalUsedCredits,
+  parseCreditAmount,
+  formatCredits,
+  type StoredPurchasedPlan,
+  type StoredUsageLog,
+} from "@/lib/mock-storage";
 
 const stats = [
   {
@@ -99,15 +108,19 @@ function getPlanBadgeClass(family: string) {
 }
 
 export default function DashboardPage() {
-  const [purchasedPlans, setPurchasedPlans] = useState<any[]>([]);
+  const [purchasedPlans, setPurchasedPlans] = useState<StoredPurchasedPlan[]>(
+    [],
+  );
+  const [usageLogs, setUsageLogs] = useState<StoredUsageLog[]>([]);
 
   useEffect(() => {
-    const storedPlans = JSON.parse(
-      window.localStorage.getItem("tzoshop_purchased_plans") ?? "[]"
-    );
-
-    setPurchasedPlans(storedPlans);
+    setPurchasedPlans(getPurchasedPlans());
+    setUsageLogs(getUsageLogs());
   }, []);
+
+  const totalUsedCredits = useMemo(() => {
+    return getTotalUsedCredits(usageLogs);
+  }, [usageLogs]);
 
   const searchParams = useSearchParams();
 
@@ -141,36 +154,28 @@ export default function DashboardPage() {
     ),
   ];
 
-  function parseCreditsLabel(value: string | null) {
-    if (!value) return 0;
+  const purchasedCreditsTotal = useMemo(() => {
+    return purchasedPlans.reduce((total, plan) => {
+      return total + parseCreditAmount(plan.credits);
+    }, 0);
+  }, [purchasedPlans]);
 
-    const normalized = value.toUpperCase().replace(/\s/g, "");
-
-    if (normalized.endsWith("K")) {
-      return Number(normalized.replace("K", "")) * 1000;
-    }
-
-    if (normalized.endsWith("M")) {
-      return Number(normalized.replace("M", "")) * 1000000;
-    }
-
-    return Number(normalized.replace(/[^\d]/g, "")) || 0;
-  }
-
-  const purchasedCreditsTotal = purchasedPlans.reduce((total, plan) => {
-    return total + parseCreditsLabel(plan.credits);
-  }, 0);
-
-  const baseCredits = 1250000;
+  const baseCredits = 1350000;
   const totalCredits = baseCredits + purchasedCreditsTotal;
+  const remainingCredits = Math.max(totalCredits - totalUsedCredits, 0);
 
   const latestPurchasedPlan = purchasedPlans[0] ?? null;
 
   const dynamicStats = [
     {
       label: "Credits còn lại",
-      value: totalCredits.toLocaleString("vi-VN"),
+      value: formatCredits(remainingCredits),
       desc: "Tổng credits khả dụng trong tài khoản",
+    },
+    {
+      label: "Đã sử dụng",
+      value: formatCredits(totalUsedCredits),
+      desc: "Tổng credits đã tiêu tốn gần đây",
     },
     {
       label: "API Keys",
@@ -179,7 +184,7 @@ export default function DashboardPage() {
     },
     {
       label: "Lượt dùng hôm nay",
-      value: "128",
+      value: usageLogs.length.toString(),
       desc: "Cập nhật theo thời gian sử dụng",
     },
   ];

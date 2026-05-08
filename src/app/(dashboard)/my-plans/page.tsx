@@ -1,154 +1,53 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
-
-type PurchasedPlan = {
-  id: string;
-  name: string;
-  family: string;
-  credits: string;
-  amount: string;
-  paidAt: string;
-};
-
-function getModelsForPlan(planName: string, family: string) {
-  const normalizedName = planName.toLowerCase();
-
-  if (family === "CodexAI") {
-    if (normalizedName.includes("trial") || normalizedName.includes("mini")) {
-      return ["gpt-5.3-codex", "gpt-5.1-codex", "gpt-5-codex"];
-    }
-
-    if (normalizedName.includes("plus")) {
-      return [
-        "gpt-5.3-codex",
-        "gpt-5.1-codex",
-        "gpt-5-codex",
-        "gpt-5.4-mini",
-        "gpt-5.1",
-        "gpt-5-mini",
-      ];
-    }
-
-    if (normalizedName.includes("pro")) {
-      return [
-        "gpt-5.3-codex",
-        "gpt-5.1-codex",
-        "gpt-5-codex",
-        "gpt-5.5",
-        "gpt-5.4",
-        "gpt-5.2",
-        "gpt-5",
-      ];
-    }
-
-    if (normalizedName.includes("max")) {
-      return ["gpt-5.4-pro", "gpt-5.2-pro", "gpt-5-pro", "gpt-5.5"];
-    }
-
-    if (normalizedName.includes("ultra")) {
-      return ["gpt-5.5-pro", "gpt-5.4-pro", "gpt-5.2-pro", "gpt-5-pro"];
-    }
-  }
-
-  if (family === "Claude") {
-    if (normalizedName.includes("trial")) {
-      return ["claude-haiku-4.5"];
-    }
-
-    if (normalizedName.includes("mini")) {
-      return ["claude-haiku-4.5", "claude-sonnet-4.5"];
-    }
-
-    if (normalizedName.includes("plus")) {
-      return ["claude-haiku-4.5", "claude-sonnet-4.5", "claude-sonnet-4.6"];
-    }
-
-    if (normalizedName.includes("pro")) {
-      return ["claude-opus-4.5", "claude-sonnet-4.6"];
-    }
-
-    if (normalizedName.includes("max")) {
-      return ["claude-opus-4.5", "claude-opus-4.6"];
-    }
-
-    if (normalizedName.includes("ultra")) {
-      return ["claude-opus-4.7", "claude-opus-4.6", "claude-sonnet-4.6"];
-    }
-  }
-
-  if (family === "Gemini") {
-    if (normalizedName.includes("trial")) {
-      return ["gemini-3.1-flash-lite-preview"];
-    }
-
-    if (normalizedName.includes("mini")) {
-      return ["gemini-3.1-flash-lite-preview", "gemini-3-flash-preview"];
-    }
-
-    if (normalizedName.includes("plus")) {
-      return [
-        "gemini-3.1-flash-lite-preview",
-        "gemini-3-flash-preview",
-        "gemini-2.5-pro",
-      ];
-    }
-
-    if (normalizedName.includes("pro")) {
-      return ["gemini-2.5-pro", "gemini-3.1-pro-preview"];
-    }
-
-    if (normalizedName.includes("max") || normalizedName.includes("ultra")) {
-      return ["Tất cả Gemini model"];
-    }
-  }
-
-  if (family === "DeepSeek") {
-    if (normalizedName.includes("trial") || normalizedName.includes("mini")) {
-      return ["deepseek-v4-flash"];
-    }
-
-    return ["deepseek-v4-flash", "deepseek-v4-pro"];
-  }
-
-  return ["Model sẽ được cập nhật theo gói"];
-}
+import Link from "next/link";
+import {
+  getPurchasedPlans,
+  getUsageLogs,
+  getUsedCreditsByFamily,
+  parseCreditAmount,
+  formatCredits,
+  getModelsForPlan,
+  getExpiryDate,
+  formatDateVi,
+  type StoredPurchasedPlan,
+  type StoredUsageLog,
+} from "@/lib/mock-storage";
 
 const activePlans = [
   {
     name: "CodexAI Plus",
     family: "CodexAI",
-    status: "Đang hoạt động",
+    status: "Đang hoạt động" as const,
     creditsTotal: "1.000.000",
-    creditsLeft: "620.000",
-    usedPercent: 38,
-    expiresAt: "22/06/2026",
-    duration: "45 ngày",
-    models: ["gpt-5.3-codex", "gpt-5.1-codex", "gpt-5-codex", "gpt-5.4-mini"],
+    creditsLeft: "824.500",
+    usedPercent: 17.5,
+    expiresAt: "12/06/2026",
+    duration: "30 ngày",
+    paidAt: "2026-05-13", // Mock date
   },
   {
     name: "Claude Mini",
     family: "Claude",
-    status: "Sắp hết hạn",
-    creditsTotal: "1.000.000",
-    creditsLeft: "120.000",
-    usedPercent: 88,
-    expiresAt: "14/05/2026",
+    status: "Sắp hết hạn" as const,
+    creditsTotal: "200.000",
+    creditsLeft: "12.400",
+    usedPercent: 93.8,
+    expiresAt: "15/05/2026",
     duration: "30 ngày",
-    models: ["claude-haiku-4.5", "claude-sonnet-4.5"],
+    paidAt: "2026-04-15", // Mock date
   },
   {
     name: "Gemini Trial",
     family: "Gemini",
-    status: "Đang hoạt động",
-    creditsTotal: "500.000",
-    creditsLeft: "410.000",
-    usedPercent: 18,
-    expiresAt: "12/05/2026",
-    duration: "7 ngày",
-    models: ["gemini-3-flash-preview", "gemini-3.1-flash-lite-preview"],
+    status: "Đang hoạt động" as const,
+    creditsTotal: "50.000",
+    creditsLeft: "42.000",
+    usedPercent: 16,
+    expiresAt: "28/05/2026",
+    duration: "14 ngày",
+    paidAt: "2026-05-14", // Mock date
   },
 ];
 
@@ -169,34 +68,20 @@ const expiredPlans = [
   },
 ];
 
-const summaryCards = [
-  {
-    label: "Tổng gói đang dùng",
-    value: "3",
-    desc: "Gói còn hiệu lực",
-  },
-  {
-    label: "Tổng credits còn lại",
-    value: "1.150.000",
-    desc: "Tính trên các gói còn hạn",
-  },
-  {
-    label: "Gói sắp hết hạn",
-    value: "1",
-    desc: "Nên kiểm tra để mua thêm nếu cần",
-  },
-];
-
 export default function MyPlansPage() {
-  const [purchasedPlans, setPurchasedPlans] = useState<PurchasedPlan[]>([]);
+  const [purchasedPlans, setPurchasedPlans] = useState<StoredPurchasedPlan[]>(
+    [],
+  );
+  const [usageLogs, setUsageLogs] = useState<StoredUsageLog[]>([]);
 
   useEffect(() => {
-    const storedPlans = JSON.parse(
-      window.localStorage.getItem("tzoshop_purchased_plans") ?? "[]"
-    );
-
-    setPurchasedPlans(storedPlans);
+    setPurchasedPlans(getPurchasedPlans());
+    setUsageLogs(getUsageLogs());
   }, []);
+
+  const usedCreditsByFamily = useMemo(() => {
+    return getUsedCreditsByFamily(usageLogs);
+  }, [usageLogs]);
 
   const purchasedActivePlans = purchasedPlans.map((plan) => ({
     name: plan.name,
@@ -206,7 +91,8 @@ export default function MyPlansPage() {
     creditsLeft: plan.credits,
     usedPercent: 0,
     expiresAt: "Theo thời hạn gói",
-    duration: "-",
+    duration: plan.duration || "-",
+    paidAt: plan.paidAt || new Date().toISOString(),
     models: getModelsForPlan(plan.name, plan.family),
   }));
 
@@ -215,28 +101,56 @@ export default function MyPlansPage() {
     ...activePlans.filter(
       (samplePlan) =>
         !purchasedActivePlans.some(
-          (purchasedPlan) => purchasedPlan.name === samplePlan.name
-        )
+          (purchasedPlan) => purchasedPlan.name === samplePlan.name,
+        ),
     ),
   ];
+
+  const plansWithRemainingCredits = useMemo(() => {
+    return displayedActivePlans.map((plan) => {
+      const total = parseCreditAmount(plan.creditsTotal);
+      const used = usedCreditsByFamily[plan.family] ?? 0;
+      const remaining = Math.max(total - used, 0);
+      const percent = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+
+      return {
+        ...plan,
+        models: getModelsForPlan(plan.name, plan.family),
+        expiresAt: formatDateVi(getExpiryDate(plan.paidAt, plan.duration)),
+        remainingCredits: remaining,
+        usedCredits: used,
+        totalCreditsNum: total,
+        creditsLeft: formatCredits(remaining),
+        usedPercent: percent,
+      };
+    });
+  }, [displayedActivePlans, usedCreditsByFamily]);
 
   const latestPurchasedPlan = purchasedPlans[0] ?? null;
 
   const dynamicSummaryCards = [
     {
       label: "Tổng gói đang dùng",
-      value: String(displayedActivePlans.length),
+      value: String(plansWithRemainingCredits.length),
       desc: "Gói còn hiệu lực",
     },
     {
       label: "Tổng credits còn lại",
-      value: "1.150.000",
+      value: formatCredits(
+        plansWithRemainingCredits.reduce(
+          (sum, p) => sum + p.remainingCredits,
+          0,
+        ),
+      ),
       desc: "Tính trên các gói còn hạn",
     },
     {
       label: "Gói sắp hết hạn",
-      value: "1",
-      desc: "Nên kiểm tra để mua thêm nếu cần",
+      value: String(
+        plansWithRemainingCredits.filter((p) => p.status === "Sắp hết hạn")
+          .length,
+      ),
+      desc: "Nên kiểm tra để mua thêm",
     },
   ];
 
@@ -334,12 +248,12 @@ export default function MyPlansPage() {
               </h2>
 
               <p className="mt-1 text-sm text-[#66736d]">
-                Đây là dữ liệu mẫu. Sau này sẽ lấy theo tài khoản người dùng.
+                Dữ liệu được cập nhật dựa trên lịch sử sử dụng thực tế.
               </p>
             </div>
 
             <div className="space-y-5">
-              {displayedActivePlans.map((plan, index) => {
+              {plansWithRemainingCredits.map((plan, index) => {
                 const isWarning = plan.status === "Sắp hết hạn";
 
                 return (
@@ -384,7 +298,16 @@ export default function MyPlansPage() {
                           Credits còn lại
                         </p>
                         <p className="mt-1 text-2xl font-bold text-[#0b0f0d]">
-                          {plan.creditsLeft}
+                          {formatCredits(plan.remainingCredits)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-[#f7f8f6] p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                          Đã sử dụng
+                        </p>
+                        <p className="mt-1 text-xl font-bold text-[#47524d]">
+                          {formatCredits(plan.usedCredits)}
                         </p>
                       </div>
 
@@ -392,17 +315,8 @@ export default function MyPlansPage() {
                         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
                           Tổng credits
                         </p>
-                        <p className="mt-1 text-2xl font-bold text-[#0b0f0d]">
-                          {plan.creditsTotal}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-[#f7f8f6] p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                          Hết hạn
-                        </p>
-                        <p className="mt-1 text-2xl font-bold text-[#0b0f0d]">
-                          {plan.expiresAt}
+                        <p className="mt-1 text-xl font-bold text-[#47524d]">
+                          {formatCredits(plan.totalCreditsNum)}
                         </p>
                       </div>
                     </div>
@@ -414,7 +328,7 @@ export default function MyPlansPage() {
                         </p>
 
                         <p className="text-sm font-bold text-[#057a60]">
-                          {plan.usedPercent}%
+                          {plan.usedPercent.toFixed(1)}%
                         </p>
                       </div>
 
@@ -430,26 +344,37 @@ export default function MyPlansPage() {
                       </div>
                     </div>
 
-                    <div className="mt-5">
-                      <p className="mb-3 text-sm font-semibold text-[#0b0f0d]">
-                        Model hỗ trợ
-                      </p>
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <div>
+                        <p className="mb-3 text-sm font-semibold text-[#0b0f0d]">
+                          Model hỗ trợ
+                        </p>
 
-                      <div className="flex flex-wrap gap-2">
-                        {plan.models.slice(0, 4).map((model) => (
-                          <span
-                            key={model}
-                            className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 font-mono text-xs text-[#47524d]"
-                          >
-                            {model}
-                          </span>
-                        ))}
+                        <div className="flex flex-wrap gap-2">
+                          {plan.models.slice(0, 4).map((model) => (
+                            <span
+                              key={model}
+                              className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 font-mono text-xs text-[#47524d]"
+                            >
+                              {model}
+                            </span>
+                          ))}
 
-                        {plan.models.length > 4 && (
-                          <span className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 text-xs font-bold text-[#47524d]">
-                            +{plan.models.length - 4} model
-                          </span>
-                        )}
+                          {plan.models.length > 4 && (
+                            <span className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 text-xs font-bold text-[#47524d]">
+                              +{plan.models.length - 4} model
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                          Hết hạn vào
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                          {plan.expiresAt}
+                        </p>
                       </div>
                     </div>
                   </div>
