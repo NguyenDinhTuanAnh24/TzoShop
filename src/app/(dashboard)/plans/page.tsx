@@ -3,17 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { getApiKeyLimitForPlan } from "@/lib/mock-storage";
+import {
+  getModelsForPlanTier,
+  type ModelFamily,
+  type PlanTier,
+} from "@/lib/model-registry";
+import { buttonStyles } from "@/lib/ui-styles";
 
 type PlanCategory = "main" | "long";
-
-type PlanTier =
-  | "trial"
-  | "mini"
-  | "plus"
-  | "pro"
-  | "max"
-  | "ultra"
-  | "enterprise";
 
 type PlanItem = {
   name: string;
@@ -21,6 +18,7 @@ type PlanItem = {
   duration: string;
   price: string;
   category: PlanCategory;
+  family: ModelFamily;
   tier: PlanTier;
   popular?: boolean;
   models?: string[];
@@ -28,7 +26,7 @@ type PlanItem = {
 };
 
 type ProductGroup = {
-  family: string;
+  family: ModelFamily;
   description: string;
   accent: string;
   plans: PlanItem[];
@@ -47,8 +45,9 @@ const productGroups: ProductGroup[] = [
         duration: "7 ngày",
         price: "19.000đ",
         category: "main",
-        tier: "trial",
-        models: ["gpt-5.3-codex", "gpt-5.1-codex", "gpt-5-codex"],
+        family: "CodexAI",
+        tier: "Trial",
+        models: getModelsForPlanTier("CodexAI", "Trial"),
       },
       {
         name: "CodexAI Mini",
@@ -56,8 +55,9 @@ const productGroups: ProductGroup[] = [
         duration: "30 ngày",
         price: "39.000đ",
         category: "main",
-        tier: "mini",
-        models: ["gpt-5.3-codex", "gpt-5.1-codex", "gpt-5-codex"],
+        family: "CodexAI",
+        tier: "Mini",
+        models: getModelsForPlanTier("CodexAI", "Mini"),
       },
       {
         name: "CodexAI Plus",
@@ -65,16 +65,10 @@ const productGroups: ProductGroup[] = [
         duration: "45 ngày",
         price: "139.000đ",
         category: "main",
-        tier: "plus",
+        family: "CodexAI",
+        tier: "Plus",
         popular: true,
-        models: [
-          "gpt-5.3-codex",
-          "gpt-5.1-codex",
-          "gpt-5-codex",
-          "gpt-5.4-mini",
-          "gpt-5.1",
-          "gpt-5-mini",
-        ],
+        models: getModelsForPlanTier("CodexAI", "Plus"),
       },
       {
         name: "CodexAI Pro",
@@ -82,8 +76,9 @@ const productGroups: ProductGroup[] = [
         duration: "60 ngày",
         price: "249.000đ",
         category: "main",
-        tier: "pro",
-        models: ["gpt-5.5", "gpt-5.4", "gpt-5.2", "gpt-5"],
+        family: "CodexAI",
+        tier: "Pro",
+        models: getModelsForPlanTier("CodexAI", "Pro"),
       },
       {
         name: "CodexAI Max",
@@ -91,8 +86,9 @@ const productGroups: ProductGroup[] = [
         duration: "90 ngày",
         price: "699.000đ",
         category: "main",
-        tier: "max",
-        models: ["gpt-5.4-pro", "gpt-5.2-pro", "gpt-5-pro"],
+        family: "CodexAI",
+        tier: "Max",
+        models: getModelsForPlanTier("CodexAI", "Max"),
       },
       {
         name: "CodexAI Ultra",
@@ -100,8 +96,9 @@ const productGroups: ProductGroup[] = [
         duration: "180 ngày",
         price: "2.199.000đ",
         category: "main",
-        tier: "ultra",
-        models: ["gpt-5.5-pro", "gpt-5.4-pro", "gpt-5.2-pro", "gpt-5-pro"],
+        family: "CodexAI",
+        tier: "Ultra",
+        models: getModelsForPlanTier("CodexAI", "Ultra"),
       },
       {
         name: "CodexAI Pro 3M",
@@ -109,7 +106,9 @@ const productGroups: ProductGroup[] = [
         duration: "90 ngày",
         price: "710.000đ",
         category: "long",
-        tier: "pro",
+        family: "CodexAI",
+        tier: "Pro",
+        models: getModelsForPlanTier("CodexAI", "Pro"),
       },
       {
         name: "CodexAI Pro 6M",
@@ -117,7 +116,9 @@ const productGroups: ProductGroup[] = [
         duration: "180 ngày",
         price: "1.345.000đ",
         category: "long",
-        tier: "pro",
+        family: "CodexAI",
+        tier: "Pro",
+        models: getModelsForPlanTier("CodexAI", "Pro"),
       },
       {
         name: "CodexAI Pro Year",
@@ -125,7 +126,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "2.540.000đ",
         category: "long",
-        tier: "pro",
+        family: "CodexAI",
+        tier: "Pro",
+        models: getModelsForPlanTier("CodexAI", "Pro"),
       },
       {
         name: "CodexAI Max Year",
@@ -133,7 +136,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "7.130.000đ",
         category: "long",
-        tier: "max",
+        family: "CodexAI",
+        tier: "Max",
+        models: getModelsForPlanTier("CodexAI", "Max"),
       },
       {
         name: "CodexAI Enterprise",
@@ -141,7 +146,9 @@ const productGroups: ProductGroup[] = [
         duration: "Tùy chỉnh",
         price: "Liên hệ",
         category: "long",
-        tier: "enterprise",
+        family: "CodexAI",
+        tier: "Enterprise",
+        models: getModelsForPlanTier("CodexAI", "Enterprise"),
       },
     ],
   },
@@ -157,8 +164,9 @@ const productGroups: ProductGroup[] = [
         duration: "7 ngày",
         price: "19.000đ",
         category: "main",
-        tier: "trial",
-        models: ["claude-haiku-4.5"],
+        family: "Claude",
+        tier: "Trial",
+        models: getModelsForPlanTier("Claude", "Trial"),
       },
       {
         name: "Claude Mini",
@@ -166,8 +174,9 @@ const productGroups: ProductGroup[] = [
         duration: "30 ngày",
         price: "69.000đ",
         category: "main",
-        tier: "mini",
-        models: ["claude-haiku-4.5", "claude-sonnet-4.5"],
+        family: "Claude",
+        tier: "Mini",
+        models: getModelsForPlanTier("Claude", "Mini"),
       },
       {
         name: "Claude Plus",
@@ -175,9 +184,10 @@ const productGroups: ProductGroup[] = [
         duration: "45 ngày",
         price: "149.000đ",
         category: "main",
-        tier: "plus",
+        family: "Claude",
+        tier: "Plus",
         popular: true,
-        models: ["claude-haiku-4.5", "claude-sonnet-4.5", "claude-sonnet-4.6"],
+        models: getModelsForPlanTier("Claude", "Plus"),
       },
       {
         name: "Claude Pro",
@@ -185,8 +195,9 @@ const productGroups: ProductGroup[] = [
         duration: "90 ngày",
         price: "399.000đ",
         category: "main",
-        tier: "pro",
-        models: ["claude-opus-4.5", "claude-sonnet-4.6"],
+        family: "Claude",
+        tier: "Pro",
+        models: getModelsForPlanTier("Claude", "Pro"),
       },
       {
         name: "Claude Ultra",
@@ -194,8 +205,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "3.299.000đ",
         category: "main",
-        tier: "ultra",
-        models: ["claude-opus-4.7", "claude-opus-4.6"],
+        family: "Claude",
+        tier: "Ultra",
+        models: getModelsForPlanTier("Claude", "Ultra"),
       },
       {
         name: "Claude Plus Year",
@@ -203,7 +215,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "1.520.000đ",
         category: "long",
-        tier: "plus",
+        family: "Claude",
+        tier: "Plus",
+        models: getModelsForPlanTier("Claude", "Plus"),
       },
       {
         name: "Claude Pro Year",
@@ -211,7 +225,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "4.070.000đ",
         category: "long",
-        tier: "pro",
+        family: "Claude",
+        tier: "Pro",
+        models: getModelsForPlanTier("Claude", "Pro"),
       },
       {
         name: "Claude Ultra Year",
@@ -219,7 +235,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "Liên hệ",
         category: "long",
-        tier: "ultra",
+        family: "Claude",
+        tier: "Ultra",
+        models: getModelsForPlanTier("Claude", "Ultra"),
       },
     ],
   },
@@ -235,8 +253,9 @@ const productGroups: ProductGroup[] = [
         duration: "7 ngày",
         price: "9.000đ",
         category: "main",
-        tier: "trial",
-        models: ["gemini-3.1-flash-lite-preview"],
+        family: "Gemini",
+        tier: "Trial",
+        models: getModelsForPlanTier("Gemini", "Trial"),
       },
       {
         name: "Gemini Mini",
@@ -244,8 +263,9 @@ const productGroups: ProductGroup[] = [
         duration: "30 ngày",
         price: "29.000đ",
         category: "main",
-        tier: "mini",
-        models: ["gemini-3.1-flash-lite-preview", "gemini-3-flash-preview"],
+        family: "Gemini",
+        tier: "Mini",
+        models: getModelsForPlanTier("Gemini", "Mini"),
       },
       {
         name: "Gemini Plus",
@@ -253,13 +273,10 @@ const productGroups: ProductGroup[] = [
         duration: "60 ngày",
         price: "99.000đ",
         category: "main",
-        tier: "plus",
+        family: "Gemini",
+        tier: "Plus",
         popular: true,
-        models: [
-          "gemini-3.1-flash-lite-preview",
-          "gemini-3-flash-preview",
-          "gemini-2.5-pro",
-        ],
+        models: getModelsForPlanTier("Gemini", "Plus"),
       },
       {
         name: "Gemini Pro",
@@ -267,8 +284,9 @@ const productGroups: ProductGroup[] = [
         duration: "90 ngày",
         price: "179.000đ",
         category: "main",
-        tier: "pro",
-        models: ["gemini-2.5-pro", "gemini-3.1-pro-preview"],
+        family: "Gemini",
+        tier: "Pro",
+        models: getModelsForPlanTier("Gemini", "Pro"),
       },
       {
         name: "Gemini Ultra",
@@ -276,8 +294,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "1.499.000đ",
         category: "main",
-        tier: "ultra",
-        models: ["Tất cả Gemini model"],
+        family: "Gemini",
+        tier: "Ultra",
+        models: getModelsForPlanTier("Gemini", "Ultra"),
       },
       {
         name: "Gemini Plus Year",
@@ -285,7 +304,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "1.010.000đ",
         category: "long",
-        tier: "plus",
+        family: "Gemini",
+        tier: "Plus",
+        models: getModelsForPlanTier("Gemini", "Plus"),
       },
       {
         name: "Gemini Pro Year",
@@ -293,7 +314,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "2.099.000đ",
         category: "long",
-        tier: "pro",
+        family: "Gemini",
+        tier: "Pro",
+        models: getModelsForPlanTier("Gemini", "Pro"),
       },
       {
         name: "Gemini Ultra Year",
@@ -301,7 +324,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "3.499.000đ",
         category: "long",
-        tier: "ultra",
+        family: "Gemini",
+        tier: "Ultra",
+        models: getModelsForPlanTier("Gemini", "Ultra"),
       },
     ],
   },
@@ -317,8 +342,9 @@ const productGroups: ProductGroup[] = [
         duration: "7 ngày",
         price: "19.000đ",
         category: "main",
-        tier: "trial",
-        models: ["deepseek-v4-flash"],
+        family: "DeepSeek",
+        tier: "Trial",
+        models: getModelsForPlanTier("DeepSeek", "Trial"),
       },
       {
         name: "DeepSeek Mini",
@@ -326,8 +352,9 @@ const productGroups: ProductGroup[] = [
         duration: "30 ngày",
         price: "79.000đ",
         category: "main",
-        tier: "mini",
-        models: ["deepseek-v4-flash"],
+        family: "DeepSeek",
+        tier: "Mini",
+        models: getModelsForPlanTier("DeepSeek", "Mini"),
       },
       {
         name: "DeepSeek Plus",
@@ -335,9 +362,10 @@ const productGroups: ProductGroup[] = [
         duration: "60 ngày",
         price: "139.000đ",
         category: "main",
-        tier: "plus",
+        family: "DeepSeek",
+        tier: "Plus",
         popular: true,
-        models: ["deepseek-v4-flash", "deepseek-v4-pro"],
+        models: getModelsForPlanTier("DeepSeek", "Plus"),
       },
       {
         name: "DeepSeek Pro",
@@ -345,8 +373,9 @@ const productGroups: ProductGroup[] = [
         duration: "90 ngày",
         price: "399.000đ",
         category: "main",
-        tier: "pro",
-        models: ["deepseek-v4-flash", "deepseek-v4-pro"],
+        family: "DeepSeek",
+        tier: "Pro",
+        models: getModelsForPlanTier("DeepSeek", "Pro"),
       },
       {
         name: "DeepSeek Ultra",
@@ -354,8 +383,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "3.699.000đ",
         category: "main",
-        tier: "ultra",
-        models: ["deepseek-v4-flash", "deepseek-v4-pro"],
+        family: "DeepSeek",
+        tier: "Ultra",
+        models: getModelsForPlanTier("DeepSeek", "Ultra"),
       },
       {
         name: "DeepSeek Plus Year",
@@ -363,7 +393,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "1.418.000đ",
         category: "long",
-        tier: "plus",
+        family: "DeepSeek",
+        tier: "Plus",
+        models: getModelsForPlanTier("DeepSeek", "Plus"),
       },
       {
         name: "DeepSeek Pro Year",
@@ -371,7 +403,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "2.035.000đ",
         category: "long",
-        tier: "pro",
+        family: "DeepSeek",
+        tier: "Pro",
+        models: getModelsForPlanTier("DeepSeek", "Pro"),
       },
       {
         name: "DeepSeek Ultra Year",
@@ -379,7 +413,9 @@ const productGroups: ProductGroup[] = [
         duration: "365 ngày",
         price: "7.028.000đ",
         category: "long",
-        tier: "ultra",
+        family: "DeepSeek",
+        tier: "Ultra",
+        models: getModelsForPlanTier("DeepSeek", "Ultra"),
       },
     ],
   },
@@ -400,13 +436,13 @@ const tierTabs: {
   value: "all" | PlanTier;
 }[] = [
   { label: "Tất cả", value: "all" },
-  { label: "Trial", value: "trial" },
-  { label: "Mini", value: "mini" },
-  { label: "Plus", value: "plus" },
-  { label: "Pro", value: "pro" },
-  { label: "Max", value: "max" },
-  { label: "Ultra", value: "ultra" },
-  { label: "Enterprise", value: "enterprise" },
+  { label: "Trial", value: "Trial" },
+  { label: "Mini", value: "Mini" },
+  { label: "Plus", value: "Plus" },
+  { label: "Pro", value: "Pro" },
+  { label: "Max", value: "Max" },
+  { label: "Ultra", value: "Ultra" },
+  { label: "Enterprise", value: "Enterprise" },
 ];
 
 function PlanCard({
@@ -480,18 +516,18 @@ function PlanCard({
             <p className="text-sm font-bold text-[#0b0f0d]">Model hỗ trợ</p>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {plan.models.slice(0, 3).map((model) => (
+              {plan.models.slice(0, 4).map((model) => (
                 <span
                   key={model}
-                  className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-[#5f6b66]"
+                  className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
                 >
                   {model}
                 </span>
               ))}
 
-              {plan.models.length > 3 && (
-                <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-[#5f6b66]">
-                  +{plan.models.length - 3} model
+              {plan.models.length > 4 && (
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  +{plan.models.length - 4} model
                 </span>
               )}
             </div>
@@ -502,10 +538,8 @@ function PlanCard({
       <button
         type="button"
         onClick={() => onSelect(plan)}
-        className={`mt-6 flex h-11 w-full items-center justify-center rounded-full text-sm font-bold transition ${
-          isContact
-            ? "border border-black/10 bg-white text-[#0b0f0d] hover:bg-[#f6f8f7]"
-            : "bg-[#0d8f73] text-white hover:bg-[#08745e]"
+        className={`mt-6 flex h-11 w-full items-center justify-center transition ${
+          isContact ? buttonStyles.secondary : buttonStyles.primary
         }`}
       >
         {isContact ? "Liên hệ tư vấn" : "Chọn gói này"}
@@ -570,7 +604,7 @@ export default function PlansPage() {
 
           <Link
             href="/my-plans"
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/10 bg-white px-5 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f6f8f7]"
+            className={`inline-flex items-center justify-center ${buttonStyles.secondary}`}
           >
             Xem gói của tôi
           </Link>
@@ -735,7 +769,7 @@ export default function PlansPage() {
             <button
               type="button"
               onClick={() => setSelectedPlan(recommendedPlan)}
-              className="mt-5 flex h-11 w-full items-center justify-center rounded-full bg-[#0d8f73] text-sm font-bold text-white transition hover:bg-[#08745e]"
+              className={`mt-5 flex w-full items-center justify-center transition ${buttonStyles.primary}`}
             >
               Chọn gói đề xuất
             </button>
@@ -859,18 +893,27 @@ export default function PlansPage() {
             </div>
 
             {selectedPlan.models && selectedPlan.models.length > 0 && (
-              <div className="mt-5">
-                <p className="text-sm font-bold text-[#0b0f0d]">Model hỗ trợ</p>
+              <div className="mt-4">
+                <p className="mb-3 text-sm font-bold text-[#0b0f0d]">
+                  Model hỗ trợ trong gói
+                </p>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedPlan.models.map((model) => (
-                    <span
-                      key={model}
-                      className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-[#5f6b66]"
-                    >
-                      {model}
+                <div className="flex flex-wrap gap-2">
+                  {selectedPlan.models &&
+                    selectedPlan.models.slice(0, 6).map((model) => (
+                      <span
+                        key={model}
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
+                      >
+                        {model}
+                      </span>
+                    ))}
+
+                  {selectedPlan.models && selectedPlan.models.length > 6 && (
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      +{selectedPlan.models.length - 6} model
                     </span>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
@@ -889,7 +932,7 @@ export default function PlansPage() {
               <button
                 type="button"
                 onClick={() => setSelectedPlan(null)}
-                className="flex h-11 items-center justify-center rounded-full border border-black/10 bg-white px-5 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f6f8f7]"
+                className={`flex items-center justify-center transition ${buttonStyles.secondary}`}
               >
                 Hủy
               </button>
@@ -897,7 +940,7 @@ export default function PlansPage() {
               {selectedPlan.price === "Liên hệ" ? (
                 <Link
                   href="/settings"
-                  className="flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
+                  className={`flex items-center justify-center transition ${buttonStyles.primary}`}
                 >
                   Liên hệ tư vấn
                 </Link>
@@ -912,7 +955,7 @@ export default function PlansPage() {
                   )}&price=${encodeURIComponent(
                     selectedPlan.price,
                   )}&apiKeyLimit=${selectedPlan.apiKeyLimit}`}
-                  className="flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
+                  className={`flex items-center justify-center transition ${buttonStyles.primary}`}
                 >
                   Tiếp tục thanh toán
                 </Link>

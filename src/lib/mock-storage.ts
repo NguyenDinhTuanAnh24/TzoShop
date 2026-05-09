@@ -1,3 +1,4 @@
+import { getModelsByFamily, type ModelFamily } from "./model-registry";
 export type StoredPurchasedPlan = {
   id: string;
   name: string;
@@ -28,11 +29,26 @@ export type StoredUsageLog = {
   credits: string;
   status: "Thành công" | "Thất bại";
   time: string;
+  errorReason?: string;
+};
+
+export type StoredOrder = {
+  id: string;
+  plan: string;
+  family: string;
+  amount: string;
+  credits: string;
+  duration?: string;
+  apiKeyLimit?: number;
+  status: "Chờ thanh toán" | "Đã thanh toán" | "Đã hủy";
+  createdAt: string;
+  paidAt?: string;
 };
 
 const PURCHASED_PLANS_KEY = "tzoshop_purchased_plans";
 const API_KEYS_KEY = "tzoshop_api_keys";
 const USAGE_LOGS_KEY = "tzoshop_usage_logs";
+const ORDERS_KEY = "tzoshop_orders";
 
 function safeReadArray<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
@@ -84,6 +100,14 @@ export function saveUsageLogs(logs: StoredUsageLog[]) {
   safeWriteArray(USAGE_LOGS_KEY, logs);
 }
 
+export function getOrders() {
+  return safeReadArray<StoredOrder>(ORDERS_KEY);
+}
+
+export function saveOrders(orders: StoredOrder[]) {
+  safeWriteArray(ORDERS_KEY, orders);
+}
+
 export function parseCreditAmount(value: string | number) {
   if (typeof value === "number") return value;
 
@@ -132,42 +156,13 @@ export function getUsedCreditsByFamily(logs: StoredUsageLog[]) {
 }
 
 export function getModelsForPlan(planName: string, family: string) {
-  if (family === "CodexAI") {
-    return [
-      "gpt-5.3-codex",
-      "gpt-5.1-codex",
-      "gpt-5-codex",
-      "gpt-5.4-mini",
-      "gpt-5.1",
-      "gpt-5-mini",
-    ];
+  const models = getModelsByFamily(family as ModelFamily);
+
+  if (models.length === 0) {
+    return [planName];
   }
 
-  if (family === "Claude") {
-    return [
-      "claude-sonnet-4.5",
-      "claude-opus-4.1",
-      "claude-haiku-4.5",
-    ];
-  }
-
-  if (family === "Gemini") {
-    return [
-      "gemini-2.5-pro",
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-    ];
-  }
-
-  if (family === "DeepSeek") {
-    return [
-      "deepseek-chat",
-      "deepseek-reasoner",
-      "deepseek-coder",
-    ];
-  }
-
-  return [planName];
+  return models.map((model) => model.id);
 }
 
 export function getDurationDays(duration?: string) {

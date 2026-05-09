@@ -12,40 +12,20 @@ import {
   type StoredApiKey,
   type StoredUsageLog,
 } from "@/lib/mock-storage";
+import {
+  getAvailableModelsByFamilies,
+  getModelById,
+  type ModelFamily,
+} from "@/lib/model-registry";
+import { buttonStyles } from "@/lib/ui-styles";
 
-const modelByFamily: Record<string, string> = {
-  CodexAI: "gpt-5.3-codex",
-  Claude: "claude-sonnet-4.5",
-  Gemini: "gemini-2.5-pro",
-  DeepSeek: "deepseek-chat",
-};
+
 
 function parseUsedCredits(value: string) {
   return Number(value.replace("-", "").replace(/\./g, "")) || 0;
 }
 
-const summaryCards = [
-  {
-    label: "Credits đã dùng hôm nay",
-    value: "24.600",
-    desc: "Tính trên các request thành công",
-  },
-  {
-    label: "Request hôm nay",
-    value: "128",
-    desc: "Bao gồm nhiều dòng credits",
-  },
-  {
-    label: "Request lỗi",
-    value: "3",
-    desc: "Có thể do key hết hạn hoặc thiếu credits",
-  },
-  {
-    label: "Dòng dùng nhiều nhất",
-    value: "CodexAI",
-    desc: "Theo dữ liệu sử dụng gần đây",
-  },
-];
+
 
 const sampleUsageLogs = [
   {
@@ -99,6 +79,10 @@ export default function UsagePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [familyFilter, setFamilyFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedApiKeyFilter, setSelectedApiKeyFilter] = useState("all");
+  const [selectedApiKeyId, setSelectedApiKeyId] = useState("");
+  const [selectedModelId, setSelectedModelId] = useState("");
+  const [isCallingApi, setIsCallingApi] = useState(false);
 
   const [storedApiKeys, setStoredApiKeys] = useState<StoredApiKey[]>([]);
   const [usageLogs, setUsageLogs] = useState<StoredUsageLog[]>([]);
@@ -108,46 +92,142 @@ export default function UsagePage() {
     setUsageLogs(getUsageLogs());
   }, []);
 
+  const activeApiKeys = useMemo(() => {
+    return storedApiKeys.filter((key) => key.status === "Đang hoạt động");
+  }, [storedApiKeys]);
+
+  useEffect(() => {
+    if (activeApiKeys.length === 0) {
+      setSelectedApiKeyId("");
+      return;
+    }
+
+    setSelectedApiKeyId((current) => {
+      const stillExists = activeApiKeys.some((key) => key.id === current);
+
+      if (stillExists) return current;
+
+      return activeApiKeys[0].id;
+    });
+  }, [activeApiKeys]);
+
+  const selectedApiKey = useMemo(() => {
+    return activeApiKeys.find((key) => key.id === selectedApiKeyId) ?? null;
+  }, [activeApiKeys, selectedApiKeyId]);
+
+  const availableModelsForSelectedKey = useMemo(() => {
+    if (!selectedApiKey) return [];
+    return getAvailableModelsByFamilies([selectedApiKey.family]);
+  }, [selectedApiKey]);
+
+  useEffect(() => {
+    if (availableModelsForSelectedKey.length === 0) {
+      setSelectedModelId("");
+      return;
+    }
+
+    setSelectedModelId((current) => {
+      const stillExists = availableModelsForSelectedKey.some(
+        (model) => model.id === current
+      );
+
+      if (stillExists) return current;
+
+      return availableModelsForSelectedKey[0].id;
+    });
+  }, [availableModelsForSelectedKey]);
+
+  const apiKeyFilterOptions = useMemo(() => {
+    const names = usageLogs.map((log) => log.apiKey);
+    return ["all", ...Array.from(new Set(names))];
+  }, [usageLogs]);
+
   const displayedUsageLogs = usageLogs;
 
-  function handleMockApiCall() {
-    const activeKeys = storedApiKeys.filter(
-      (key) => key.status === "Đang hoạt động"
-    );
+  async function handleMockApiCall() {
+    const selectedModel = getModelById(selectedModelId);
 
-    if (activeKeys.length === 0) return;
+    if (!selectedApiKey || !selectedModel) return;
 
-    const selectedKey = activeKeys[0];
+    if (selectedModel.family !== selectedApiKey.family) {
+      return;
+    }
 
-    const randomCredits = Math.floor(Math.random() * 9000) + 1000;
+    setIsCallingApi(true);
 
-    const newLog: StoredUsageLog = {
-      id: `USE-${selectedKey.id}-${Date.now()}`,
-      family: selectedKey.family,
-      model: modelByFamily[selectedKey.family] ?? "model-default",
-      apiKey: selectedKey.name,
-      credits: `-${randomCredits.toLocaleString("vi-VN")}`,
-      status: "Thành công",
-      time: "Vừa xong",
-    };
+    try {
+      const response = await fetch("/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${selectedApiKey.fullKey ?? selectedApiKey.keyPreview}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: selectedModel.id,
+          messages: [
+            {
+              role: "user",
+              content: "Hello from TzoShop usage test",
+            },
+          ],
+        }),
+      });
 
-    const nextLogs = [newLog, ...usageLogs];
+      const data = await response.json();
 
-    setUsageLogs(nextLogs);
-    saveUsageLogs(nextLogs);
+      const isSuccess = response.ok;
+      const chargedCredits = Number(data?.usage?.charged_credits ?? 0);
+
+      const newLog: StoredUsageLog = {
+        id: `USE-${selectedApiKey.id}-${Date.now()}`,
+        family: selectedModel.family,
+        model: selectedModel.id,
+        apiKey: selectedApiKey.name,
+        credits: isSuccess
+          ? `-${chargedCredits.toLocaleString("vi-VN")}`
+          : "0",
+        status: isSuccess ? "Thành công" : "Thất bại",
+        time: "Vừa xong",
+        errorReason: isSuccess
+          ? undefined
+          : data?.error?.message ?? "Request thất bại",
+      };
+
+      const nextLogs = [newLog, ...usageLogs];
+
+      setUsageLogs(nextLogs);
+      saveUsageLogs(nextLogs);
+    } catch {
+      const newLog: StoredUsageLog = {
+        id: `USE-${selectedApiKey.id}-${Date.now()}`,
+        family: selectedModel.family,
+        model: selectedModel.id,
+        apiKey: selectedApiKey.name,
+        credits: "0",
+        status: "Thất bại",
+        time: "Vừa xong",
+        errorReason: "Không thể kết nối tới API route mock.",
+      };
+
+      const nextLogs = [newLog, ...usageLogs];
+
+      setUsageLogs(nextLogs);
+      saveUsageLogs(nextLogs);
+    } finally {
+      setIsCallingApi(false);
+    }
   }
 
-  const successLogs = displayedUsageLogs.filter(
-    (item) => item.status === "Thành công",
-  );
+  const usedCreditsToday = useMemo(() => {
+    return usageLogs
+      .filter((log) => log.status === "Thành công")
+      .reduce((total, log) => {
+        return total + Math.abs(parseCreditAmount(log.credits));
+      }, 0);
+  }, [usageLogs]);
 
-  const failedLogs = displayedUsageLogs.filter(
-    (item) => item.status === "Thất bại",
-  );
-
-  const totalUsedCredits = successLogs.reduce((total, item) => {
-    return total + parseUsedCredits(item.credits);
-  }, 0);
+  const successLogs = usageLogs.filter((item) => item.status === "Thành công");
+  const totalUsedCredits = usedCreditsToday;
 
   const mostUsedFamily =
     successLogs.length > 0
@@ -160,6 +240,12 @@ export default function UsagePage() {
   const topFamily =
     Object.entries(mostUsedFamily).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
 
+  const todayRequests = usageLogs.length;
+
+  const failedRequestCount = useMemo(() => {
+    return usageLogs.filter((log) => log.status === "Thất bại").length;
+  }, [usageLogs]);
+
   const dynamicSummaryCards = [
     {
       label: "Credits đã dùng hôm nay",
@@ -168,12 +254,12 @@ export default function UsagePage() {
     },
     {
       label: "Request hôm nay",
-      value: displayedUsageLogs.length.toString(),
+      value: todayRequests.toString(),
       desc: "Bao gồm nhiều dòng credits",
     },
     {
       label: "Request lỗi",
-      value: failedLogs.length.toString(),
+      value: failedRequestCount.toString(),
       desc: "Có thể do key hết hạn hoặc thiếu credits",
     },
     {
@@ -183,7 +269,7 @@ export default function UsagePage() {
     },
   ];
 
-  const filteredUsageItems = useMemo(() => {
+  const filteredUsage = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
 
     return displayedUsageLogs.filter((item) => {
@@ -202,14 +288,24 @@ export default function UsagePage() {
         (statusFilter === "success" && item.status === "Thành công") ||
         (statusFilter === "failed" && item.status === "Thất bại");
 
-      return matchesSearch && matchesFamily && matchesStatus;
+      const matchesApiKey =
+        selectedApiKeyFilter === "all" || item.apiKey === selectedApiKeyFilter;
+
+      return matchesSearch && matchesFamily && matchesStatus && matchesApiKey;
     });
-  }, [searchQuery, familyFilter, statusFilter, displayedUsageLogs]);
+  }, [
+    searchQuery,
+    familyFilter,
+    statusFilter,
+    selectedApiKeyFilter,
+    displayedUsageLogs,
+  ]);
 
   function handleResetFilters() {
     setSearchQuery("");
     setFamilyFilter("all");
     setStatusFilter("all");
+    setSelectedApiKeyFilter("all");
   }
 
   return (
@@ -231,21 +327,52 @@ export default function UsagePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={selectedApiKeyId}
+            onChange={(event) => setSelectedApiKeyId(event.target.value)}
+            disabled={activeApiKeys.length === 0}
+            className="h-11 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 outline-none focus:border-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            {activeApiKeys.length === 0 ? (
+              <option value="">Chưa có API key hoạt động</option>
+            ) : (
+              activeApiKeys.map((key) => (
+                <option key={key.id} value={key.id}>
+                  {key.name} - {key.family}
+                </option>
+              ))
+            )}
+          </select>
+
+          <select
+            value={selectedModelId}
+            onChange={(event) => setSelectedModelId(event.target.value)}
+            disabled={availableModelsForSelectedKey.length === 0}
+            className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 outline-none focus:border-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            {availableModelsForSelectedKey.length === 0 ? (
+              <option value="">Chưa có model khả dụng</option>
+            ) : (
+              availableModelsForSelectedKey.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.id}
+                </option>
+              ))
+            )}
+          </select>
+
           <button
             type="button"
             onClick={handleMockApiCall}
-            disabled={
-              storedApiKeys.filter((key) => key.status === "Đang hoạt động")
-                .length === 0
-            }
-            className="inline-flex h-11 items-center justify-center rounded-full bg-[#0b0f0d] px-5 text-sm font-bold text-white transition hover:bg-black/80 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+            disabled={!selectedApiKeyId || !selectedModelId || isCallingApi}
+            className={buttonStyles.primary}
           >
-            Gọi thử API
+            {isCallingApi ? "Đang gọi API..." : "Gọi thử API"}
           </button>
 
           <button
             type="button"
-            className="inline-flex h-11 items-center justify-center rounded-full border border-[#dfe5e1] bg-white px-5 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+            className={`inline-flex items-center justify-center ${buttonStyles.secondary}`}
           >
             Xuất báo cáo
           </button>
@@ -272,7 +399,7 @@ export default function UsagePage() {
 
             <Link
               href="/api-keys"
-              className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
+              className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
             >
               Tạo API key
             </Link>
@@ -312,18 +439,10 @@ export default function UsagePage() {
               Lọc theo dòng credits, trạng thái hoặc từ khóa.
             </p>
           </div>
-
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="rounded-full border border-[#dfe5e1] bg-white px-4 py-2 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
-          >
-            Xóa bộ lọc
-          </button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <div className="md:col-span-2">
+        <div className="grid gap-4 md:grid-cols-5">
+          <div>
             <label
               htmlFor="search"
               className="mb-2 block text-sm font-semibold text-[#0b0f0d]"
@@ -336,7 +455,7 @@ export default function UsagePage() {
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Tìm theo model, API key hoặc mã giao dịch"
+              placeholder="Tìm theo model, API key..."
               className="w-full rounded-2xl border border-[#dfe5e1] bg-[#f7f8f6] px-4 py-3 text-sm font-medium text-[#0b0f0d] outline-none transition placeholder:text-[#9aa6a0] focus:border-[#00d4a4] focus:bg-white focus:ring-4 focus:ring-[#00d4a4]/10"
             />
           </div>
@@ -382,6 +501,38 @@ export default function UsagePage() {
               <option value="failed">Thất bại</option>
             </select>
           </div>
+
+          <div>
+            <label
+              htmlFor="apiKeyFilter"
+              className="mb-2 block text-sm font-semibold text-[#0b0f0d]"
+            >
+              API Key
+            </label>
+
+            <select
+              id="apiKeyFilter"
+              value={selectedApiKeyFilter}
+              onChange={(event) => setSelectedApiKeyFilter(event.target.value)}
+              className="w-full rounded-2xl border border-[#dfe5e1] bg-[#f7f8f6] px-4 py-3 text-sm font-medium text-[#0b0f0d] outline-none transition focus:border-[#00d4a4] focus:bg-white focus:ring-4 focus:ring-[#00d4a4]/10"
+            >
+              {apiKeyFilterOptions.map((apiKey) => (
+                <option key={apiKey} value={apiKey}>
+                  {apiKey === "all" ? "Tất cả API key" : apiKey}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className={`h-11 w-full items-center justify-center transition ${buttonStyles.secondary}`}
+            >
+              Xóa lọc
+            </button>
+          </div>
         </div>
       </section>
 
@@ -392,134 +543,172 @@ export default function UsagePage() {
               Danh sách sử dụng
             </h2>
 
-            <p className="mt-1 text-sm text-[#66736d]">
-              Đây là dữ liệu mẫu. Sau này sẽ lấy từ usage log thật trong hệ
-              thống.
-            </p>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-[#66736d]">
+                Hiển thị {filteredUsage.length} / {displayedUsageLogs.length}{" "}
+                request
+              </p>
+
+              <p className="text-xs font-medium text-[#9aa6a0]">
+                Dữ liệu mẫu từ hệ thống
+              </p>
+            </div>
           </div>
 
           <div className="space-y-4">
             {storedApiKeys.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
-                <p className="text-base font-semibold text-slate-900">
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+                  📊
+                </div>
+
+                <h2 className="mt-5 text-xl font-bold text-slate-950">
                   Chưa có API key
-                </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Bạn cần tạo API key trước khi hệ thống có thể ghi nhận lịch sử
-                  sử dụng.
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                  Bạn cần tạo API key trước khi có thể gọi thử API và ghi nhận
+                  lịch sử sử dụng credits.
                 </p>
 
                 <Link
                   href="/api-keys"
-                  className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+                  className={`mt-6 inline-flex items-center justify-center ${buttonStyles.primary}`}
                 >
                   Tạo API key
                 </Link>
               </div>
-            ) : usageLogs.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
-                <p className="text-base font-semibold text-slate-900">
-                  Chưa có lịch sử sử dụng
+            ) : activeApiKeys.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-10 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl">
+                  ⚠️
+                </div>
+
+                <h2 className="mt-5 text-xl font-bold text-amber-950">
+                  Không có API key đang hoạt động
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-amber-800">
+                  Tất cả API key hiện tại đã bị thu hồi. Hãy tạo key mới để tiếp
+                  tục gọi thử API.
                 </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Bấm “Gọi thử API” để tạo một request giả lập và kiểm tra luồng
-                  trừ credits.
-                </p>
+
+                <Link
+                  href="/api-keys"
+                  className={`mt-6 inline-flex items-center justify-center ${buttonStyles.warning}`}
+                >
+                  Quản lý API key
+                </Link>
               </div>
-            ) : filteredUsageItems.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
-                <p className="text-base font-semibold text-slate-900">
-                  Chưa có lịch sử phù hợp
-                </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Hãy thử đổi bộ lọc dòng AI hoặc trạng thái.
+            ) : filteredUsage.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+                  🧪
+                </div>
+
+                <h2 className="mt-5 text-xl font-bold text-slate-950">
+                  Chưa có lịch sử sử dụng
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                  Chọn một API key rồi bấm “Gọi thử API” để tạo request giả lập.
+                  Request thành công sẽ bị trừ credits, request thất bại sẽ
+                  không bị trừ.
                 </p>
               </div>
             ) : (
-              filteredUsageItems.map((item) => {
-                const isSuccess = item.status === "Thành công";
+              <div className="space-y-4">
+                {filteredUsage.map((item) => {
+                  const isSuccess = item.status === "Thành công";
 
-                return (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <p className="font-mono text-xs font-bold text-[#9aa6a0]">
-                            {item.id}
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <p className="font-mono text-xs font-bold text-[#9aa6a0]">
+                              {item.id}
+                            </p>
+
+                            <span
+                              className={
+                                isSuccess
+                                  ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
+                                  : "rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700"
+                              }
+                            >
+                              {item.status}
+                            </span>
+                          </div>
+
+                          <h3 className="mt-3 text-lg font-bold text-[#0b0f0d]">
+                            {item.family}
+                          </h3>
+
+                          <p className="mt-1 font-mono text-sm text-[#66736d]">
+                            {item.model}
                           </p>
 
-                          <span
-                            className={
-                              isSuccess
-                                ? "rounded-full bg-[#e9fbf6] px-3 py-1 text-xs font-bold text-[#057a60]"
-                                : "rounded-full bg-[#fff5f5] px-3 py-1 text-xs font-bold text-[#b42318]"
-                            }
-                          >
-                            {item.status}
-                          </span>
+                          {!isSuccess && item.errorReason && (
+                            <p className="mt-2 text-sm font-medium text-rose-600">
+                              Lý do: {item.errorReason}
+                            </p>
+                          )}
                         </div>
 
-                        <h3 className="mt-3 text-lg font-bold text-[#0b0f0d]">
-                          {item.family}
-                        </h3>
+                        <div className="text-left md:text-right">
+                          <p
+                            className={
+                              isSuccess
+                                ? "text-lg font-bold text-[#057a60]"
+                                : "text-lg font-bold text-[#b42318]"
+                            }
+                          >
+                            {isSuccess ? "-" : ""}
+                            {item.credits} credits
+                          </p>
 
-                        <p className="mt-1 font-mono text-sm text-[#66736d]">
-                          {item.model}
-                        </p>
+                          <p className="mt-2 text-sm text-[#9aa6a0]">
+                            {item.time}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="text-left md:text-right">
-                        <p
-                          className={
-                            isSuccess
-                              ? "text-lg font-bold text-[#057a60]"
-                              : "text-lg font-bold text-[#b42318]"
-                          }
-                        >
-                          {isSuccess ? "-" : ""}
-                          {item.credits} credits
-                        </p>
+                      <div className="mt-5 grid gap-4 rounded-2xl bg-[#f7f8f6] p-4 md:grid-cols-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            API key
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                            {item.apiKey}
+                          </p>
+                        </div>
 
-                        <p className="mt-2 text-sm text-[#9aa6a0]">
-                          {item.time}
-                        </p>
-                      </div>
-                    </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            Model
+                          </p>
+                          <p className="mt-1 font-mono text-xs font-bold text-[#0b0f0d]">
+                            {item.model}
+                          </p>
+                        </div>
 
-                    <div className="mt-5 grid gap-4 rounded-2xl bg-[#f7f8f6] p-4 md:grid-cols-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                          API key
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                          {item.apiKey}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                          Model
-                        </p>
-                        <p className="mt-1 font-mono text-xs font-bold text-[#0b0f0d]">
-                          {item.model}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                          Thời gian
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                          {item.time}
-                        </p>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            Thời gian
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                            {item.time}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -553,12 +742,12 @@ export default function UsagePage() {
               động và thu hồi key nghi ngờ bị lộ.
             </p>
 
-            <a
+            <Link
               href="/api-keys"
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full !bg-white px-5 py-3 text-sm font-bold !text-[#0b0f0d]"
+              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
             >
               Quản lý API keys
-            </a>
+            </Link>
           </div>
         </aside>
       </section>

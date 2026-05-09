@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import DashboardBrand from "./dashboard-brand";
+import { buttonStyles } from "@/lib/ui-styles";
 
 const menuItems = [
   { href: "/dashboard", label: "Tổng quan" },
   { href: "/plans", label: "Mua credits" },
   { href: "/my-plans", label: "Gói của tôi" },
   { href: "/api-keys", label: "API Keys" },
+  { href: "/api-docs", label: "Tài liệu API" },
   { href: "/usage", label: "Lịch sử sử dụng" },
   { href: "/billing", label: "Thanh toán" },
   { href: "/settings", label: "Cài đặt" },
@@ -58,7 +60,7 @@ export default function DashboardSidebar() {
 
           <Link
             href="/plans"
-            className="mt-4 flex h-10 items-center justify-center rounded-full bg-[#0d8f73] text-sm font-bold text-white transition hover:bg-[#08745e]"
+            className={buttonStyles.primary}
           >
             Xem gói
           </Link>

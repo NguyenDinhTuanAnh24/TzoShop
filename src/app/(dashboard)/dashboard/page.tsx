@@ -12,6 +12,7 @@ import {
   type StoredPurchasedPlan,
   type StoredUsageLog,
 } from "@/lib/mock-storage";
+import { buttonStyles } from "@/lib/ui-styles";
 
 const stats = [
   {
@@ -217,6 +218,34 @@ export default function DashboardPage() {
 
   return (
     <div>
+    {purchasedPlans.length === 0 && (
+        <div className="mb-8 rounded-3xl border border-dashed border-slate-300 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">
+                Bắt đầu sử dụng
+              </p>
+
+              <h2 className="mt-2 text-xl font-bold text-slate-950">
+                Bạn chưa mua gói credits nào
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Hãy chọn một gói credits để tạo API key, gọi API và theo dõi
+                usage trên dashboard.
+              </p>
+            </div>
+
+            <Link
+              href="/plans"
+              className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
+            >
+              Mua credits
+            </Link>
+          </div>
+        </div>
+      )}
+
       <section className="rounded-[28px] bg-[linear-gradient(135deg,#064c3f_0%,#0b7a63_50%,#00b894_100%)] p-8 text-white shadow-[0_20px_60px_rgba(11,122,99,0.18)]">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
@@ -256,14 +285,14 @@ export default function DashboardPage() {
             <div className="flex shrink-0 items-center gap-3">
               <Link
                 href="/my-plans"
-                className="rounded-full border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-50"
+                className={`inline-flex items-center justify-center ${buttonStyles.secondary}`}
               >
                 Xem gói của tôi
               </Link>
 
               <Link
                 href="/api-keys"
-                className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
               >
                 Tạo API key
               </Link>
@@ -279,7 +308,7 @@ export default function DashboardPage() {
                   }
                   setShowActivatedNotice(false);
                 }}
-                className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-emerald-50"
+                className={`inline-flex items-center justify-center ${buttonStyles.secondary}`}
               >
                 Đóng
               </button>
@@ -288,64 +317,72 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <section className="mt-8 grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {dynamicStats.map((item) => (
-          <div
-            key={item.label}
-            className="h-full rounded-2xl border border-black/10 bg-white p-6"
-          >
-            <p className="text-sm text-[#5f6b66]">
-              {item.label}
-            </p>
+      <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Credits còn lại</p>
+          <p className="mt-3 text-2xl font-bold text-slate-950">
+            {formatCredits(remainingCredits)}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">
+            Tổng credits khả dụng
+          </p>
+        </div>
 
-            <p className="mt-3 text-3xl font-bold tracking-[-0.8px] text-[#0b0f0d]">
-              {item.value}
-            </p>
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Đã sử dụng</p>
+          <p className="mt-3 text-2xl font-bold text-slate-950">
+            {formatCredits(totalUsedCredits)}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">
+            Tổng credits đã tiêu tốn
+          </p>
+        </div>
 
-            <p className="mt-2 text-sm text-[#5f6b66]">
-              {item.desc}
-            </p>
-          </div>
-        ))}
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">API Keys</p>
+          <p className="mt-3 text-2xl font-bold text-slate-950">
+            2
+          </p>
+          <p className="mt-2 text-sm text-slate-500">
+            Đang hoạt động
+          </p>
+        </div>
 
-        {/* Card mới: Gói đang dùng */}
-        <div className="h-full rounded-2xl border border-black/10 bg-white p-6">
-          <p className="text-sm text-[#5f6b66]">Gói đang dùng</p>
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Lượt dùng hôm nay</p>
+          <p className="mt-3 text-2xl font-bold text-slate-950">
+            {usageLogs.length}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">
+            Cập nhật theo thời gian
+          </p>
+        </div>
 
-          <div className="mt-3 flex items-end gap-2">
-            <h3 className="text-3xl font-bold leading-none text-[#0b0f0d]">
-              {displayedActivePlans.length}
-            </h3>
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Gói đang dùng</p>
+          <p className="mt-3 text-2xl font-bold text-slate-950">
+            {displayedActivePlans.length}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">
+            gói đang hoạt động
+          </p>
 
-            <span className="pb-1 text-sm font-medium text-[#5f6b66]">
-              gói đang hoạt động
-            </span>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {displayedActivePlans.slice(0, 3).map((plan, index) => (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {displayedActivePlans.slice(0, 2).map((plan, index) => (
               <span
-                key={`${plan.name}-${plan.family}-${index}`}
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${getPlanBadgeClass(
-                  plan.family
-                )}`}
+                key={`${plan.name}-${index}`}
+                className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
               >
                 {plan.name}
               </span>
             ))}
 
-            {displayedActivePlans.length > 3 && (
-              <span className="rounded-full bg-[#f3f5f4] px-3 py-1 text-xs font-semibold text-[#5f6b66]">
-                +{displayedActivePlans.length - 3} gói khác
+            {displayedActivePlans.length > 2 && (
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                +{displayedActivePlans.length - 2} gói khác
               </span>
             )}
           </div>
-
-          <p className="mt-4 text-sm text-[#5f6b66]">
-            {expiringSoonCount > 0
-              ? `${expiringSoonCount} gói sắp hết hạn, nên kiểm tra để mua thêm nếu cần.`
-              : "Tất cả gói hiện tại vẫn còn hiệu lực."}
-          </p>
         </div>
       </section>
 

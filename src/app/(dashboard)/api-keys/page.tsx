@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff, Copy } from "lucide-react";
 import {
   getPurchasedPlans,
   getApiKeys,
@@ -10,10 +11,18 @@ import {
   type StoredPurchasedPlan,
   type StoredApiKey,
 } from "@/lib/mock-storage";
+import { buttonStyles } from "@/lib/ui-styles";
 
 // Using StoredApiKey as the primary type
 
+function maskApiKey(fullKey?: string, keyPreview?: string) {
+  if (!fullKey) return keyPreview ?? "••••••••••••••••";
 
+  const prefix = fullKey.slice(0, 6);
+  const suffix = fullKey.slice(-4);
+
+  return `${prefix}${"•".repeat(18)}${suffix}`;
+}
 
 export default function ApiKeysPage() {
   const [purchasedPlans, setPurchasedPlans] = useState<StoredPurchasedPlan[]>(
@@ -113,12 +122,24 @@ export default function ApiKeysPage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<StoredApiKey | null>(null);
   const [createError, setCreateError] = useState("");
+  const [visibleKeyIds, setVisibleKeyIds] = useState<string[]>([]);
+  const [copiedKeyId, setCopiedKeyId] = useState("");
 
   useEffect(() => {
     if (!selectedFamily && availableFamiliesCanCreateKey.length > 0) {
       setSelectedFamily(availableFamiliesCanCreateKey[0]);
     }
   }, [availableFamiliesCanCreateKey, selectedFamily]);
+
+  function toggleKeyVisibility(keyId: string) {
+    setVisibleKeyIds((current) => {
+      if (current.includes(keyId)) {
+        return current.filter((id) => id !== keyId);
+      }
+
+      return [...current, keyId];
+    });
+  }
 
   function handleOpenCreateModal() {
     setCreateError("");
@@ -147,22 +168,22 @@ export default function ApiKeysPage() {
     }
 
     const randomPart = Math.random().toString(36).slice(2, 18);
-    const fullKey = `tz_live_${randomPart}_${Date.now().toString(36)}`;
+    const rawKey = `tz_${randomPart}_${Date.now()}`;
 
     const newKey: StoredApiKey = {
-      id: `key_${Date.now()}`,
+      id: `KEY-${Date.now()}`,
       name: keyName.trim(),
       family: selectedFamily,
-      keyPreview: `${fullKey.slice(0, 12)}••••••••${fullKey.slice(-4)}`,
-      fullKey,
+      keyPreview: `${rawKey.slice(0, 8)}...${rawKey.slice(-6)}`,
+      fullKey: rawKey,
       status: "Đang hoạt động",
-      createdAt: new Date().toLocaleDateString("vi-VN"),
+      createdAt: "Vừa tạo",
       lastUsed: "Chưa sử dụng",
     };
 
     saveApiKeys([newKey, ...apiKeys]);
 
-    setCreatedKey(fullKey);
+    setCreatedKey(rawKey);
     setKeyName("");
     setOpenCreateModal(false);
   }
@@ -175,6 +196,21 @@ export default function ApiKeysPage() {
     window.setTimeout(() => {
       setCopiedKey(null);
     }, 2000);
+  }
+
+  async function handleCopyApiKey(key: StoredApiKey) {
+    const value = key.fullKey ?? key.keyPreview;
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKeyId(key.id);
+
+      window.setTimeout(() => {
+        setCopiedKeyId("");
+      }, 1500);
+    } catch {
+      setCopiedKeyId("");
+    }
   }
 
   function handleConfirmRevoke() {
@@ -224,61 +260,37 @@ export default function ApiKeysPage() {
           type="button"
           onClick={handleOpenCreateModal}
           disabled={!hasAnyPlan || availableFamiliesCanCreateKey.length === 0}
-          className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e] disabled:cursor-not-allowed disabled:bg-[#dfe5e1] disabled:text-[#9aa6a0] disabled:opacity-100"
+          className={buttonStyles.primary}
         >
           Tạo API key
         </button>
       </div>
 
-      {!hasAnyPlan && (
-        <div className="mb-8 rounded-3xl border border-amber-200 bg-amber-50 p-5">
-          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-amber-700">
-                Chưa có gói credits
-              </p>
 
-              <h2 className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                Bạn cần mua credits trước khi tạo API key
-              </h2>
-
-              <p className="mt-2 text-sm leading-6 text-amber-800">
-                API key sẽ được gắn với dòng credits bạn đang sở hữu như
-                CodexAI, Claude, Gemini hoặc DeepSeek.
-              </p>
-            </div>
-
-            <Link
-              href="/plans"
-              className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
-            >
-              Mua credits
-            </Link>
-          </div>
-        </div>
-      )}
 
       {createdKey && (
         <div className="mb-8 rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700">
-                API key vừa tạo
+                Tạo thành công
               </p>
 
               <h2 className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                Lưu key này ngay
+                API key đã sẵn sàng
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-emerald-800">
-                Vì lý do bảo mật, key đầy đủ chỉ nên hiển thị một lần.
+                API key đã được tạo thành công. Key sẽ được che mặc định trong
+                danh sách, bạn có thể bấm biểu tượng con mắt để xem lại hoặc copy
+                bất cứ lúc nào.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => setCreatedKey(null)}
-              className="rounded-full border border-[#cfd8d3] bg-white px-4 py-2 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+              className={buttonStyles.secondary}
             >
               Đóng
             </button>
@@ -292,7 +304,7 @@ export default function ApiKeysPage() {
             <button
               type="button"
               onClick={() => handleCopy(createdKey)}
-              className="inline-flex h-10 items-center justify-center rounded-full bg-[#0d8f73] px-4 text-sm font-bold text-white transition hover:bg-[#08745e]"
+              className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
             >
               {copiedKey === createdKey ? "Đã sao chép" : "Sao chép"}
             </button>
@@ -314,7 +326,7 @@ export default function ApiKeysPage() {
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-6">
         <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -334,139 +346,237 @@ export default function ApiKeysPage() {
           </div>
 
           <div className="space-y-4">
-            {apiKeys.map((item) => {
-              const isActive = item.status === "Đang hoạt động";
+            {purchasedPlans.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-10 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl">
+                  🔑
+                </div>
 
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
+                <h2 className="mt-5 text-xl font-bold text-amber-950">
+                  Bạn cần mua credits trước
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-amber-800">
+                  API key chỉ có thể được tạo theo dòng credits mà bạn đang sở
+                  hữu. Hãy mua một gói CodexAI, Claude, Gemini hoặc DeepSeek để
+                  bắt đầu.
+                </p>
+
+                <Link
+                  href="/plans"
+                  className={`mt-6 inline-flex items-center justify-center ${buttonStyles.warning}`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-lg font-bold text-[#0b0f0d]">
-                          {item.name}
-                        </h3>
+                  Mua credits
+                </Link>
+              </div>
+            ) : apiKeys.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+                  🔐
+                </div>
 
-                        <span
-                          className={
-                            isActive
-                              ? "rounded-full bg-[#e9fbf6] px-3 py-1 text-xs font-bold text-[#057a60]"
-                              : "rounded-full bg-[#f1f2f1] px-3 py-1 text-xs font-bold text-[#66736d]"
-                          }
-                        >
-                          {item.status}
-                        </span>
+                <h2 className="mt-5 text-xl font-bold text-slate-950">
+                  Chưa có API key nào
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                  Tạo API key để bắt đầu sử dụng credits. Mỗi gói sẽ có giới hạn
+                  số key tối đa theo cấp Trial, Mini, Plus, Pro, Max, Ultra hoặc
+                  Enterprise.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleOpenCreateModal}
+                  disabled={availableFamiliesCanCreateKey.length === 0}
+                  className={`mt-6 inline-flex items-center justify-center ${buttonStyles.primary}`}
+                >
+                  Tạo API key
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {apiKeys.map((item) => {
+                  const isActive = item.status === "Đang hoạt động";
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <h3 className="text-lg font-bold text-[#0b0f0d]">
+                              {item.name}
+                            </h3>
+
+                            <span
+                              className={
+                                isActive
+                                  ? "rounded-full bg-[#e9fbf6] px-3 py-1 text-xs font-bold text-[#057a60]"
+                                  : "rounded-full bg-[#f1f2f1] px-3 py-1 text-xs font-bold text-[#66736d]"
+                              }
+                            >
+                              {item.status}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
+                            <code className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+                              {visibleKeyIds.includes(item.id)
+                                ? item.fullKey ?? item.keyPreview
+                                : maskApiKey(item.fullKey, item.keyPreview)}
+                            </code>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleKeyVisibility(item.id)}
+                              className={buttonStyles.icon}
+                              title={
+                                visibleKeyIds.includes(item.id)
+                                  ? "Ẩn API key"
+                                  : "Hiện API key"
+                              }
+                            >
+                              {visibleKeyIds.includes(item.id) ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyApiKey(item)}
+                              className={buttonStyles.icon}
+                              title="Copy API key"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {copiedKeyId === item.id && (
+                            <p className="mt-2 text-xs font-medium text-emerald-700">
+                              Đã copy API key.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={!isActive}
+                            onClick={() => setRevokeTarget(item)}
+                            className={
+                              isActive
+                                ? buttonStyles.danger
+                                : buttonStyles.secondary
+                            }
+                          >
+                            Thu hồi
+                          </button>
+                        </div>
                       </div>
 
-                      <p className="mt-3 font-mono text-sm font-semibold text-[#47524d]">
-                        {item.keyPreview}
-                      </p>
-                    </div>
+                      <div className="mt-5 grid gap-4 rounded-2xl bg-[#f7f8f6] p-4 md:grid-cols-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            Dòng AI
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                            {item.family}
+                          </p>
+                        </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(item.keyPreview)}
-                        className="rounded-full border border-[#dfe5e1] bg-white px-4 py-2 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
-                      >
-                        {copiedKey === item.keyPreview
-                          ? "Đã sao chép"
-                          : "Sao chép"}
-                      </button>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            Ngày tạo
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                            {item.createdAt}
+                          </p>
+                        </div>
 
-                      <button
-                        type="button"
-                        disabled={!isActive}
-                        onClick={() => setRevokeTarget(item)}
-                        className={
-                          isActive
-                            ? "rounded-full border border-[#ffd7d7] bg-white px-4 py-2 text-sm font-bold text-[#b42318] transition hover:bg-[#fff5f5]"
-                            : "cursor-not-allowed rounded-full border border-[#edf1ee] bg-[#f7f8f6] px-4 py-2 text-sm font-bold text-[#9aa6a0]"
-                        }
-                      >
-                        Thu hồi
-                      </button>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            Sử dụng gần nhất
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                            {item.lastUsed}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 rounded-2xl bg-[#f7f8f6] p-4 md:grid-cols-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        Dòng AI
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                        {item.family}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        Ngày tạo
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                        {item.createdAt}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        Sử dụng gần nhất
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                        {item.lastUsed}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        <aside className="space-y-5">
-          <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
-            <h2 className="text-xl font-bold text-[#0b0f0d]">
-              Lưu ý bảo mật
-            </h2>
+        <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">
+                Cần tích hợp API?
+              </p>
 
-            <div className="mt-5 space-y-4">
-              {[
-                "Không chia sẻ API key công khai.",
-                "Không đưa API key lên GitHub hoặc ảnh chụp màn hình.",
-                "Nếu nghi ngờ key bị lộ, hãy thu hồi và tạo key mới.",
-                "Theo dõi credits thường xuyên để phát hiện sử dụng bất thường.",
-              ].map((note) => (
-                <div key={note} className="flex gap-3">
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#00d4a4]" />
-                  <p className="text-sm leading-6 text-[#47524d]">{note}</p>
-                </div>
-              ))}
+              <h2 className="mt-2 text-lg font-bold text-slate-950">
+                Xem tài liệu API đầy đủ
+              </h2>
+
+              <p className="mt-1 text-sm text-emerald-900">
+                Xem endpoint chung, cách truyền API key, danh sách model và ví
+                dụ gọi API.
+              </p>
             </div>
-          </div>
 
-          <div className="rounded-2xl border border-[#dfe5e1] bg-[#0b0f0d] p-6 text-white">
-            <h2 className="text-xl font-bold">Cần tạo key mới?</h2>
-
-            <p className="mt-3 text-sm leading-6 text-white/72">
-              Mỗi key nên dùng cho một công cụ hoặc một mục đích riêng để dễ
-              quản lý và thu hồi khi cần.
-            </p>
-
-            <button
-              type="button"
-              onClick={handleOpenCreateModal}
-              disabled={
-                !hasAnyPlan || availableFamiliesCanCreateKey.length === 0
-              }
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full !bg-white px-5 py-3 text-sm font-bold !text-[#0b0f0d] transition hover:bg-[#f6f8f7] disabled:cursor-not-allowed disabled:bg-white/50 disabled:text-[#0b0f0d]/50 disabled:opacity-100"
+            <Link
+              href="/api-docs"
+              className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
             >
-              Tạo API key
-            </button>
+              Mở tài liệu API
+            </Link>
           </div>
-        </aside>
-      </section>
+        </section>
+
+        <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
+          <h2 className="text-xl font-bold text-[#0b0f0d]">Lưu ý bảo mật</h2>
+
+          <div className="mt-5 space-y-4">
+            {[
+              "Không chia sẻ API key công khai.",
+              "Không đưa API key lên GitHub hoặc ảnh chụp màn hình.",
+              "Nếu nghi ngờ key bị lộ, hãy thu hồi và tạo key mới.",
+              "Theo dõi credits thường xuyên để phát hiện sử dụng bất thường.",
+            ].map((note) => (
+              <div key={note} className="flex gap-3">
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#00d4a4]" />
+                <p className="text-sm leading-6 text-[#47524d]">{note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[#dfe5e1] bg-[#0b0f0d] p-6 text-white">
+          <h2 className="text-xl font-bold">Cần tạo key mới?</h2>
+
+          <p className="mt-3 text-sm leading-6 text-white/72">
+            Mỗi key nên dùng cho một công cụ hoặc một mục đích riêng để dễ
+            quản lý và thu hồi khi cần.
+          </p>
+
+          <button
+            type="button"
+            onClick={handleOpenCreateModal}
+            disabled={!hasAnyPlan || availableFamiliesCanCreateKey.length === 0}
+            className={`${buttonStyles.whiteOnGreen} mt-5 w-full`}
+          >
+            Tạo API key
+          </button>
+        </div>
+      </div>
 
       {openCreateModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
@@ -497,7 +607,7 @@ export default function ApiKeysPage() {
               <button
                 type="button"
                 onClick={() => setOpenCreateModal(false)}
-                className="rounded-full border border-[#dfe5e1] bg-white px-3 py-1.5 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                className={buttonStyles.secondary}
               >
                 Đóng
               </button>
@@ -580,7 +690,7 @@ export default function ApiKeysPage() {
                 <button
                   type="button"
                   onClick={() => setOpenCreateModal(false)}
-                  className="rounded-full border border-[#dfe5e1] bg-white px-5 py-3 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                  className={buttonStyles.secondary}
                 >
                   Hủy
                 </button>
@@ -589,7 +699,7 @@ export default function ApiKeysPage() {
                   type="button"
                   onClick={handleCreateApiKey}
                   disabled={!keyName.trim() || !selectedFamily}
-                  className="flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e] disabled:cursor-not-allowed disabled:opacity-50"
+                  className={`flex items-center justify-center transition ${buttonStyles.primary}`}
                 >
                   Tạo key
                 </button>
@@ -643,7 +753,7 @@ export default function ApiKeysPage() {
               <button
                 type="button"
                 onClick={() => setRevokeTarget(null)}
-                className="rounded-full border border-[#dfe5e1] bg-white px-5 py-3 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                className={buttonStyles.secondary}
               >
                 Hủy
               </button>
@@ -651,7 +761,7 @@ export default function ApiKeysPage() {
               <button
                 type="button"
                 onClick={handleConfirmRevoke}
-                className="rounded-full !bg-[#b42318] px-5 py-3 text-sm font-bold !text-white transition hover:opacity-90"
+                className={`flex items-center justify-center transition ${buttonStyles.danger}`}
               >
                 Xác nhận thu hồi
               </button>

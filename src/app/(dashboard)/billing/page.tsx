@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
-import { getApiKeyLimitForPlan } from "@/lib/mock-storage";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getOrders,
+  saveOrders,
+  savePurchasedPlans,
+  getPurchasedPlans,
+  getApiKeyLimitForPlan,
+  type StoredOrder,
+} from "@/lib/mock-storage";
+import { buttonStyles } from "@/lib/ui-styles";
 
 type OrderItem = {
   id: string;
@@ -40,7 +48,7 @@ const summaryCards = [
   },
 ];
 
-const orders: OrderItem[] = [
+const initialOrders: StoredOrder[] = [
   {
     id: "ORD-20260508-001",
     plan: "CodexAI Plus",
@@ -105,10 +113,19 @@ function getStatusClass(status: string) {
   return "bg-[#f1f2f1] text-[#66736d]";
 }
 
+function getFamilyFromPlanName(planName: string) {
+  if (planName.toLowerCase().includes("codex")) return "CodexAI";
+  if (planName.toLowerCase().includes("claude")) return "Claude";
+  if (planName.toLowerCase().includes("gemini")) return "Gemini";
+  if (planName.toLowerCase().includes("deepseek")) return "DeepSeek";
+
+  return "Khác";
+}
+
 const statusFilters = [
   {
     label: "Tất cả",
-    value: "all",
+    value: "Tất cả",
   },
   {
     label: "Đã thanh toán",
@@ -127,116 +144,137 @@ const statusFilters = [
 export default function BillingPage() {
   const searchParams = useSearchParams();
 
-  const selectedPlanFromUrl = searchParams.get("plan");
-  const selectedCreditsFromUrl = searchParams.get("credits");
-  const selectedDurationFromUrl = searchParams.get("duration");
-  const selectedPriceFromUrl = searchParams.get("price");
+  const planFromUrl = searchParams.get("plan");
+  const creditsFromUrl = searchParams.get("credits");
+  const durationFromUrl = searchParams.get("duration");
+  const priceFromUrl = searchParams.get("price");
   const apiKeyLimitFromUrl = searchParams.get("apiKeyLimit");
 
-  const pendingOrderFromSelectedPlan =
-    selectedPlanFromUrl && selectedCreditsFromUrl && selectedPriceFromUrl
-      ? {
-          id: "ORDER_NEW",
-          plan: selectedPlanFromUrl,
-          family: selectedPlanFromUrl.split(" ")[0],
-          amount: selectedPriceFromUrl,
-          credits: selectedCreditsFromUrl,
-          status: "Chờ thanh toán",
-          createdAt: "Vừa tạo",
-          paidAt: "-",
-          note: `Đơn hàng được tạo từ trang Mua credits. Thời hạn gói: ${
-            selectedDurationFromUrl ?? "-"
-          }.`,
-        }
-      : null;
+  const [orders, setOrders] = useState<StoredOrder[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<StoredOrder | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState("Tất cả");
 
-  const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
-  const [payingOrder, setPayingOrder] = useState<OrderItem | null>(null);
-  const [paidOrderIds, setPaidOrderIds] = useState<string[]>([]);
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("all");
+  useEffect(() => {
+    const storedOrders = getOrders();
+    if (storedOrders.length > 0) {
+      setOrders(storedOrders);
+    } else {
+      setOrders(initialOrders);
+      saveOrders(initialOrders);
+    }
+  }, []);
 
-  const baseDisplayedOrders = pendingOrderFromSelectedPlan
-    ? [pendingOrderFromSelectedPlan, ...orders]
-    : orders;
+  useEffect(() => {
+    if (!planFromUrl || !creditsFromUrl || !priceFromUrl) return;
 
-  const displayedOrders = baseDisplayedOrders.map((order) => {
-    if (!paidOrderIds.includes(order.id)) {
-      return order;
+    const currentOrders = getOrders();
+
+    const alreadyExists = currentOrders.some(
+      (order: StoredOrder) =>
+        order.plan === planFromUrl &&
+        order.credits === creditsFromUrl &&
+        order.amount === priceFromUrl &&
+        order.status === "Chờ thanh toán"
+    );
+
+    if (alreadyExists) {
+      setOrders(currentOrders);
+      return;
     }
 
-    return {
-      ...order,
-      status: "Đã thanh toán",
-      paidAt: "Vừa thanh toán",
-      note: `${order.note ?? ""} Đơn hàng đã được xác nhận thanh toán trên giao diện thử nghiệm.`,
+    const newOrder: StoredOrder = {
+      id: `ORD-${Date.now()}`,
+      plan: planFromUrl,
+      family: getFamilyFromPlanName(planFromUrl),
+      amount: priceFromUrl,
+      credits: creditsFromUrl,
+      duration: durationFromUrl ?? "-",
+      apiKeyLimit: Number(apiKeyLimitFromUrl) || getApiKeyLimitForPlan(planFromUrl),
+      status: "Chờ thanh toán",
+      createdAt: "Vừa tạo",
     };
-  });
 
-  const currentUrlOrder = pendingOrderFromSelectedPlan
-    ? displayedOrders.find((order) => order.id === pendingOrderFromSelectedPlan.id)
-    : null;
+    const nextOrders = [newOrder, ...currentOrders];
 
-  function handleCheckPaymentStatus(order: OrderItem) {
-    setCheckingPayment(true);
+    saveOrders(nextOrders);
+    setOrders(nextOrders);
+  }, [searchParams, planFromUrl, creditsFromUrl, priceFromUrl, durationFromUrl, apiKeyLimitFromUrl]);
+
+  const displayedOrders = useMemo<StoredOrder[]>(() => {
+    return orders.filter((order: StoredOrder) => {
+      if (selectedStatus === "Tất cả") return true;
+      return order.status === selectedStatus;
+    });
+  }, [orders, selectedStatus]);
+
+  const latestPendingOrder = useMemo<StoredOrder | null>(() => {
+    return orders.find((order: StoredOrder) => order.status === "Chờ thanh toán") ?? null;
+  }, [orders]);
+
+  const latestPaidOrder = useMemo<StoredOrder | null>(() => {
+    return orders.find((order: StoredOrder) => order.status === "Đã thanh toán") ?? null;
+  }, [orders]);
+
+  function handleCheckPaymentStatus() {
+    if (!selectedOrder) return;
+
+    setIsCheckingPayment(true);
 
     window.setTimeout(() => {
-      setPaidOrderIds((current) => {
-        if (current.includes(order.id)) {
-          return current;
-        }
+      const paidAt = new Date().toISOString();
 
-        return [...current, order.id];
+      const nextOrders = orders.map((order: StoredOrder) => {
+        if (order.id !== selectedOrder.id) return order;
+
+        return {
+          ...order,
+          status: "Đã thanh toán" as const,
+          paidAt,
+        };
       });
 
+      setOrders(nextOrders);
+      saveOrders(nextOrders);
+
+      const purchasedPlans = getPurchasedPlans();
+
       const purchasedPlan = {
-        id: order.id,
-        name: order.plan,
-        family: order.family,
-        credits: order.credits,
-        amount: order.amount,
-        duration: selectedDurationFromUrl ?? "-",
+        id: selectedOrder.id,
+        name: selectedOrder.plan,
+        family: selectedOrder.family,
+        credits: selectedOrder.credits,
+        amount: selectedOrder.amount,
+        duration: selectedOrder.duration ?? "-",
         apiKeyLimit:
-          Number(apiKeyLimitFromUrl) || getApiKeyLimitForPlan(order.plan),
-        paidAt: new Date().toISOString(),
+          selectedOrder.apiKeyLimit ?? getApiKeyLimitForPlan(selectedOrder.plan),
+        paidAt,
       };
 
-      const currentPlans = JSON.parse(
-        window.localStorage.getItem("tzoshop_purchased_plans") ?? "[]"
+      const alreadyPurchased = purchasedPlans.some(
+        (plan) => plan.id === purchasedPlan.id
       );
 
-      const exists = currentPlans.some(
-        (plan: { id: string }) => plan.id === purchasedPlan.id
-      );
-
-      if (!exists) {
-        window.localStorage.setItem(
-          "tzoshop_purchased_plans",
-          JSON.stringify([purchasedPlan, ...currentPlans])
-        );
+      if (!alreadyPurchased) {
+        savePurchasedPlans([purchasedPlan, ...purchasedPlans]);
       }
 
-      setCheckingPayment(false);
-      setPayingOrder(null);
+      setIsCheckingPayment(false);
       setSelectedOrder(null);
-      setStatusFilter("all");
+      setIsPaymentModalOpen(false);
+      setSelectedStatus("Tất cả");
     }, 1200);
   }
 
-  const filteredOrders = displayedOrders.filter((order) => {
-    if (statusFilter === "all") {
-      return true;
-    }
-
-    return order.status === statusFilter;
-  });
+  const filteredOrders = displayedOrders;
 
   const totalOrders = displayedOrders.length;
   const paidOrders = displayedOrders.filter(
-    (order) => order.status === "Đã thanh toán"
+    (order: StoredOrder) => order.status === "Đã thanh toán"
   ).length;
   const pendingOrders = displayedOrders.filter(
-    (order) => order.status === "Chờ thanh toán"
+    (order: StoredOrder) => order.status === "Chờ thanh toán"
   ).length;
 
   const dynamicSummaryCards = [
@@ -282,73 +320,68 @@ export default function BillingPage() {
 
         <Link
           href="/plans"
-          className="rounded-full !bg-[#0b7a63] px-6 py-3 text-sm font-bold !text-white transition hover:opacity-90"
+          className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
         >
           Mua credits
         </Link>
       </div>
 
-      {currentUrlOrder && currentUrlOrder.status === "Chờ thanh toán" && (
-        <div className="mb-8 rounded-3xl border border-[#0d8f73]/30 bg-[#f4fffb] p-5">
-          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+      {latestPendingOrder && (
+        <section className="mb-8 rounded-3xl border border-amber-200 bg-amber-50 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#08745e]">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-700">
                 Đơn hàng mới
               </p>
 
-              <h2 className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                {currentUrlOrder.plan}
+              <h2 className="mt-2 text-xl font-bold text-slate-950">
+                {latestPendingOrder.plan}
               </h2>
 
-              <p className="mt-2 text-sm leading-6 text-[#5f6b66]">
-                Đơn hàng đã được tạo ở trạng thái chờ thanh toán. Kiểm tra lại thông
-                tin trước khi tiếp tục.
+              <p className="mt-2 text-sm text-amber-800">
+                {latestPendingOrder.credits} credits • {latestPendingOrder.amount}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() => setPayingOrder(currentUrlOrder)}
-              className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
+              onClick={() => {
+                setSelectedOrder(latestPendingOrder);
+                setIsPaymentModalOpen(true);
+              }}
+              className={buttonStyles.warning}
             >
               Thanh toán ngay
             </button>
           </div>
-        </div>
+        </section>
       )}
 
-      {currentUrlOrder && currentUrlOrder.status === "Đã thanh toán" && (
-        <div className="mb-8 rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
-          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+      {!latestPendingOrder && latestPaidOrder && (
+        <section className="mb-8 rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">
                 Thanh toán thành công
               </p>
 
-              <h2 className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                {currentUrlOrder.plan}
+              <h2 className="mt-2 text-xl font-bold text-slate-950">
+                {latestPaidOrder.plan}
               </h2>
 
-              <p className="mt-2 text-sm leading-6 text-emerald-800">
-                Đơn hàng đã được xác nhận thanh toán. Credits sẽ được cộng vào tài
-                khoản của bạn và có thể xem trong mục Gói của tôi.
+              <p className="mt-2 text-sm text-emerald-800">
+                Gói đã được kích hoạt và cộng vào tài khoản của bạn.
               </p>
             </div>
 
             <Link
-              href={`/my-plans?plan=${encodeURIComponent(
-                currentUrlOrder.plan
-              )}&credits=${encodeURIComponent(
-                currentUrlOrder.credits
-              )}&duration=${encodeURIComponent(
-                selectedDurationFromUrl ?? "-"
-              )}&family=${encodeURIComponent(currentUrlOrder.family)}`}
-              className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
+              href="/my-plans"
+              className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
             >
               Xem gói của tôi
             </Link>
           </div>
-        </div>
+        </section>
       )}
 
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -393,13 +426,13 @@ export default function BillingPage() {
 
           <div className="mb-6 flex flex-wrap gap-2">
             {statusFilters.map((filter) => {
-              const isActive = statusFilter === filter.value;
+              const isActive = selectedStatus === filter.value;
 
               return (
                 <button
                   key={filter.value}
                   type="button"
-                  onClick={() => setStatusFilter(filter.value)}
+                  onClick={() => setSelectedStatus(filter.value)}
                   className={
                     isActive
                       ? "rounded-full border border-[#00d4a4] bg-[#e9fbf6] px-4 py-2 text-sm font-bold text-[#057a60]"
@@ -413,111 +446,140 @@ export default function BillingPage() {
           </div>
 
           <div className="space-y-4">
-            {filteredOrders.map((order) => {
-              const isPending = order.status === "Chờ thanh toán";
+            {displayedOrders.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+                  🧾
+                </div>
 
-              return (
-                <div
-                  key={order.id}
-                  className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
+                <h2 className="mt-5 text-xl font-bold text-slate-950">
+                  Chưa có đơn hàng nào
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                  Khi bạn chọn mua một gói credits, đơn hàng sẽ được tạo và hiển
+                  thị tại đây.
+                </p>
+
+                <Link
+                  href="/plans"
+                  className={`mt-6 inline-flex items-center justify-center ${buttonStyles.primary}`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <p className="font-mono text-xs font-bold text-[#9aa6a0]">
-                          {order.id}
-                        </p>
+                  Mua credits
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredOrders.map((order: StoredOrder) => {
+                  const isPending = order.status === "Chờ thanh toán";
 
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusClass(
-                            order.status,
-                          )}`}
-                        >
-                          {order.status}
-                        </span>
+                  return (
+                    <div
+                      key={order.id}
+                      className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <p className="font-mono text-xs font-bold text-[#9aa6a0]">
+                              {order.id}
+                            </p>
+
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusClass(
+                                order.status
+                              )}`}
+                            >
+                              {order.status}
+                            </span>
+                          </div>
+
+                          <h3 className="mt-3 text-xl font-bold text-[#0b0f0d]">
+                            {order.plan}
+                          </h3>
+
+                          <p className="mt-1 text-sm font-semibold text-[#66736d]">
+                            Dòng credits: {order.family}
+                          </p>
+                        </div>
+
+                        <div className="text-left md:text-right">
+                          <p className="text-2xl font-bold text-[#0b0f0d]">
+                            {order.amount}
+                          </p>
+
+                          <p className="mt-1 text-sm text-[#66736d]">
+                            {order.credits} credits
+                          </p>
+                        </div>
                       </div>
 
-                      <h3 className="mt-3 text-xl font-bold text-[#0b0f0d]">
-                        {order.plan}
-                      </h3>
+                      <div className="mt-5 grid gap-4 rounded-2xl bg-[#f7f8f6] p-4 md:grid-cols-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            Ngày tạo
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                            {order.createdAt}
+                          </p>
+                        </div>
 
-                      <p className="mt-1 text-sm font-semibold text-[#66736d]">
-                        Dòng credits: {order.family}
-                      </p>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            Thanh toán
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                            {order.paidAt}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
+                            Trạng thái
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
+                            {order.status}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOrder(order)}
+                          className={`flex items-center justify-center ${buttonStyles.secondary}`}
+                        >
+                          Xem chi tiết
+                        </button>
+
+                        {isPending && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setIsPaymentModalOpen(true);
+                            }}
+                            className={`flex items-center justify-center ${buttonStyles.primary}`}
+                          >
+                            Thanh toán tiếp
+                          </button>
+                        )}
+                      </div>
                     </div>
+                  );
+                })}
 
-                    <div className="text-left md:text-right">
-                      <p className="text-2xl font-bold text-[#0b0f0d]">
-                        {order.amount}
-                      </p>
+                {filteredOrders.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-[#cfd8d3] bg-[#f7f8f6] p-8 text-center">
+                    <p className="font-semibold text-[#0b0f0d]">
+                      Không có đơn hàng phù hợp
+                    </p>
 
-                      <p className="mt-1 text-sm text-[#66736d]">
-                        {order.credits} credits
-                      </p>
-                    </div>
+                    <p className="mt-2 text-sm text-[#66736d]">
+                      Hãy chọn trạng thái khác hoặc quay lại tất cả đơn hàng.
+                    </p>
                   </div>
-
-                  <div className="mt-5 grid gap-4 rounded-2xl bg-[#f7f8f6] p-4 md:grid-cols-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        Ngày tạo
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                        {order.createdAt}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        Thanh toán
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                        {order.paidAt}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                        Trạng thái
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                        {order.status}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedOrder(order)}
-                      className="rounded-full border border-[#dfe5e1] bg-white px-4 py-2 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
-                    >
-                      Xem chi tiết
-                    </button>
-
-                    {isPending && (
-                      <button
-                        type="button"
-                        onClick={() => setPayingOrder(order)}
-                        className="rounded-full !bg-[#0b7a63] px-4 py-2 text-sm font-bold !text-white transition hover:opacity-90"
-                      >
-                        Thanh toán tiếp
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {filteredOrders.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-[#cfd8d3] bg-[#f7f8f6] p-8 text-center">
-                <p className="font-semibold text-[#0b0f0d]">
-                  Không có đơn hàng phù hợp
-                </p>
-
-                <p className="mt-2 text-sm text-[#66736d]">
-                  Hãy chọn trạng thái khác hoặc quay lại tất cả đơn hàng.
-                </p>
+                )}
               </div>
             )}
           </div>
@@ -554,7 +616,7 @@ export default function BillingPage() {
 
             <Link
               href="/plans"
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full !bg-white px-5 py-3 text-sm font-bold !text-[#0b0f0d]"
+              className={`mt-5 inline-flex w-full items-center justify-center ${buttonStyles.secondary}`}
             >
               Xem bảng giá
             </Link>
@@ -573,7 +635,7 @@ export default function BillingPage() {
         </aside>
       </section>
 
-      {selectedOrder && (
+      {selectedOrder && !isPaymentModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
           <button
             type="button"
@@ -601,7 +663,7 @@ export default function BillingPage() {
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="rounded-full border border-[#dfe5e1] bg-white px-4 py-2 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                className={`flex items-center justify-center ${buttonStyles.secondary}`}
               >
                 Đóng
               </button>
@@ -682,173 +744,107 @@ export default function BillingPage() {
 
             {selectedOrder.status === "Chờ thanh toán" && (
               <div className="mt-6 flex flex-wrap justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPayingOrder(selectedOrder);
-                    setSelectedOrder(null);
-                  }}
-                  className="flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
-                >
-                  Thanh toán tiếp
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPaymentModalOpen(true);
+                    }}
+                    className={`flex items-center justify-center ${buttonStyles.primary}`}
+                  >
+                    Thanh toán tiếp
+                  </button>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {payingOrder && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 px-4">
-          <div className="w-full max-w-[560px] rounded-3xl bg-white p-6 shadow-2xl">
+      {isPaymentModalOpen && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#08745e]">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">
                   Thanh toán đơn hàng
                 </p>
 
-                <h3 className="mt-2 text-2xl font-bold text-[#0b0f0d]">
-                  {payingOrder.plan}
-                </h3>
+                <h2 className="mt-2 text-xl font-bold text-slate-950">
+                  {selectedOrder.plan}
+                </h2>
 
-                <p className="mt-2 text-sm leading-6 text-[#5f6b66]">
-                  Quét mã QR hoặc mở trang thanh toán. Sau khi PayOS xác nhận đã nhận tiền,
-                  đơn hàng sẽ tự chuyển sang trạng thái đã thanh toán.
+                <p className="mt-2 text-sm text-slate-500">
+                  Mã đơn: {selectedOrder.id}
                 </p>
               </div>
 
               <button
                 type="button"
-                onClick={() => setPayingOrder(null)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-lg font-bold text-[#0b0f0d] transition hover:bg-[#f6f8f7]"
-                aria-label="Đóng modal thanh toán"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl bg-[#f6f8f7] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-                  Mã đơn
-                </p>
-                <p className="mt-2 text-sm font-bold text-[#0b0f0d]">
-                  {payingOrder.id}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-[#f6f8f7] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-                  Credits
-                </p>
-                <p className="mt-2 text-sm font-bold text-[#0b0f0d]">
-                  {payingOrder.credits}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-[#f6f8f7] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-                  Số tiền
-                </p>
-                <p className="mt-2 text-sm font-bold text-[#0b0f0d]">
-                  {payingOrder.amount}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-4 lg:grid-cols-[180px_1fr]">
-              <div className="flex h-[180px] items-center justify-center rounded-3xl border border-dashed border-black/20 bg-[#f8fbfa]">
-                <div className="text-center">
-                  <div className="mx-auto grid h-24 w-24 grid-cols-4 gap-1 rounded-xl bg-white p-2 shadow-sm">
-                    {Array.from({ length: 16 }).map((_, index) => (
-                      <span
-                        key={index}
-                        className={`rounded-sm ${
-                          index % 2 === 0 ? "bg-[#0b0f0d]" : "bg-[#dfe7e3]"
-                        }`}
-                      />
-                    ))}
-                  </div>
-
-                  <p className="mt-3 text-xs font-semibold text-[#5f6b66]">
-                    QR thử nghiệm
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-black/10 bg-white p-5">
-                <p className="text-sm font-bold text-[#0b0f0d]">
-                  Thông tin chuyển khoản thử nghiệm
-                </p>
-
-                <div className="mt-4 space-y-3 text-sm text-[#5f6b66]">
-                  <div className="flex justify-between gap-4">
-                    <span>Ngân hàng</span>
-                    <span className="font-bold text-[#0b0f0d]">
-                      PayOS Sandbox
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between gap-4">
-                    <span>Chủ tài khoản</span>
-                    <span className="font-bold text-[#0b0f0d]">TZOSHOP</span>
-                  </div>
-
-                  <div className="flex justify-between gap-4">
-                    <span>Nội dung</span>
-                    <span className="font-bold text-[#0b0f0d]">
-                      {payingOrder.id}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between gap-4">
-                    <span>Số tiền</span>
-                    <span className="font-bold text-[#0b0f0d]">
-                      {payingOrder.amount}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-2xl bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                  Đây là mô phỏng luồng tự động. Ở bản thật, PayOS sẽ gửi webhook về hệ thống
-                  sau khi nhận tiền. Nút “Kiểm tra trạng thái” hiện chỉ giả lập việc gọi API
-                  kiểm tra đơn hàng.
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-[#0d8f73]/20 bg-[#f4fffb] p-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-1 h-2.5 w-2.5 rounded-full bg-[#0d8f73]" />
-
-                <div>
-                  <p className="text-sm font-bold text-[#0b0f0d]">
-                    Đang chờ PayOS xác nhận
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-[#5f6b66]">
-                    Sau khi người dùng quét QR và thanh toán thành công, hệ thống sẽ tự động
-                    cập nhật trạng thái đơn hàng.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setPayingOrder(null)}
-                className="flex h-11 items-center justify-center rounded-full border border-black/10 bg-white px-5 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f6f8f7]"
+                onClick={() => {
+                  setSelectedOrder(null);
+                  setIsPaymentModalOpen(false);
+                }}
+                className={`flex items-center justify-center ${buttonStyles.secondary}`}
               >
                 Đóng
               </button>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <span className="text-sm text-slate-500">Số credits</span>
+                <span className="font-bold text-slate-950">
+                  {selectedOrder.credits}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between border-b border-slate-200 py-3">
+                <span className="text-sm text-slate-500">Số tiền</span>
+                <span className="font-bold text-slate-950">
+                  {selectedOrder.amount}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-3">
+                <span className="text-sm text-slate-500">Trạng thái</span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                  {selectedOrder.status}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white p-5 text-center">
+              <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-500">
+                QR thử nghiệm
+              </div>
+
+              <p className="mt-4 text-sm font-semibold text-slate-950">
+                Chuyển khoản thử nghiệm
+              </p>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Nội dung: {selectedOrder.id}
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedOrder(null);
+                  setIsPaymentModalOpen(false);
+                }}
+                className={`flex items-center justify-center ${buttonStyles.secondary}`}
+              >
+                Hủy
+              </button>
 
               <button
                 type="button"
-                onClick={() => handleCheckPaymentStatus(payingOrder)}
-                disabled={checkingPayment}
-                className="flex h-11 items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e] disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={handleCheckPaymentStatus}
+                disabled={isCheckingPayment}
+                className={`flex items-center justify-center transition ${buttonStyles.primary}`}
               >
-                {checkingPayment ? "Đang kiểm tra..." : "Kiểm tra trạng thái"}
+                {isCheckingPayment ? "Đang kiểm tra..." : "Kiểm tra trạng thái"}
               </button>
             </div>
           </div>
@@ -857,3 +853,5 @@ export default function BillingPage() {
     </div>
   );
 }
+
+

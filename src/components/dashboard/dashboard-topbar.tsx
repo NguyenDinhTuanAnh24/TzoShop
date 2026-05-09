@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import DashboardMobileNav from "./dashboard-mobile-nav";
+import { buttonStyles } from "@/lib/ui-styles";
 
 const pageMeta: Record<string, { title: string; description: string }> = {
   "/dashboard": {
@@ -20,6 +21,11 @@ const pageMeta: Record<string, { title: string; description: string }> = {
   "/api-keys": {
     title: "API Keys",
     description: "Tạo, quản lý và bảo vệ các API key trong tài khoản của bạn.",
+  },
+  "/api-docs": {
+    title: "Tài liệu API",
+    description:
+      "Hướng dẫn tích hợp API, endpoint chung và danh sách model hỗ trợ.",
   },
   "/usage": {
     title: "Lịch sử sử dụng",
@@ -63,12 +69,12 @@ export default function DashboardTopbar() {
         <div className="hidden shrink-0 items-center gap-3 sm:flex">
           <Link
             href="/plans"
-            className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-[#0b0f0d] transition hover:bg-[#f6f8f7]"
+            className={`flex items-center justify-center ${buttonStyles.primary}`}
           >
             Mua credits
           </Link>
 
-          <button className="rounded-full bg-[#0b0f0d] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90">
+          <button className={`flex items-center justify-center ${buttonStyles.secondary}`}>
             Đăng xuất
           </button>
         </div>

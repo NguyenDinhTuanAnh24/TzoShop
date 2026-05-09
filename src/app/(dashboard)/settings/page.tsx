@@ -1,6 +1,9 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { buttonStyles } from "@/lib/ui-styles";
 
 const initialNotifications = [
   {
@@ -24,11 +27,14 @@ const initialNotifications = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState(initialNotifications);
   const [profileSaved, setProfileSaved] = useState(false);
   const [openLogoutAllModal, setOpenLogoutAllModal] = useState(false);
   const [logoutAllDone, setLogoutAllDone] = useState(false);
   const [purchasedPlans, setPurchasedPlans] = useState<any[]>([]);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState("");
 
   useEffect(() => {
     const storedPlans = JSON.parse(
@@ -76,6 +82,36 @@ export default function SettingsPage() {
     }, 3000);
   }
 
+  function handleResetMockData() {
+    const confirmed = window.confirm(
+      "Bạn có chắc muốn xóa toàn bộ dữ liệu mock? Gói đã mua, API keys và lịch sử sử dụng sẽ bị xóa khỏi trình duyệt.",
+    );
+
+    if (!confirmed) return;
+
+    setIsResetting(true);
+    setResetMessage("");
+
+    window.localStorage.removeItem("tzoshop_purchased_plans");
+    window.localStorage.removeItem("tzoshop_api_keys");
+    window.localStorage.removeItem("tzoshop_usage_logs");
+    window.localStorage.removeItem("tzoshop_orders");
+
+    Object.keys(window.sessionStorage).forEach((key) => {
+      if (key.startsWith("tzoshop_seen_notice_")) {
+        window.sessionStorage.removeItem(key);
+      }
+    });
+
+    window.setTimeout(() => {
+      setIsResetting(false);
+      setResetMessage(
+        "Đã reset dữ liệu mock. Đang chuyển về trang mua credits...",
+      );
+      router.push("/plans");
+    }, 500);
+  }
+
   return (
     <div>
       <div className="mb-8">
@@ -115,7 +151,7 @@ export default function SettingsPage() {
                 <div>
                   <button
                     type="button"
-                    className="rounded-full border border-[#dfe5e1] bg-white px-4 py-2 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                    className={buttonStyles.secondary}
                   >
                     Đổi avatar
                   </button>
@@ -172,11 +208,7 @@ export default function SettingsPage() {
 
                 <button
                   type="submit"
-                  className={
-                    profileSaved
-                      ? "rounded-full !bg-[#0b7a63] px-5 py-3 text-sm font-bold !text-white transition"
-                      : "rounded-full !bg-[#0b7a63] px-5 py-3 text-sm font-bold !text-white transition hover:opacity-90"
-                  }
+                  className={buttonStyles.primary}
                 >
                   {profileSaved ? "Đã lưu" : "Lưu thay đổi"}
                 </button>
@@ -223,7 +255,7 @@ export default function SettingsPage() {
 
                 <button
                   type="button"
-                  className="rounded-full border border-[#dfe5e1] bg-white px-4 py-2 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                  className={buttonStyles.secondary}
                 >
                   Kết nối
                 </button>
@@ -276,6 +308,41 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-700">
+                  Dữ liệu thử nghiệm
+                </p>
+
+                <h2 className="mt-2 text-xl font-bold text-slate-950">
+                  Reset dữ liệu mock
+                </h2>
+
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-900">
+                  Xóa toàn bộ dữ liệu đang lưu trong trình duyệt gồm gói đã mua,
+                  API keys và lịch sử sử dụng. Chức năng này chỉ dùng trong giai đoạn
+                  frontend mock để test lại flow từ đầu.
+                </p>
+
+                {resetMessage && (
+                  <p className="mt-3 text-sm font-semibold text-emerald-700">
+                    {resetMessage}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetMockData}
+                disabled={isResetting}
+                className={buttonStyles.warning}
+              >
+                {isResetting ? "Đang reset..." : "Reset dữ liệu mock"}
+              </button>
+            </div>
+          </section>
+
           <div className="rounded-2xl border border-[#ffd7d7] bg-white p-6">
             <div className="mb-6">
               <h2 className="text-xl font-bold text-[#b42318]">
@@ -303,7 +370,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setOpenLogoutAllModal(true)}
-                  className="rounded-full border border-[#ffd7d7] bg-white px-4 py-2 text-sm font-bold text-[#b42318] transition hover:bg-[#fff5f5]"
+                  className={buttonStyles.danger}
                 >
                   Đăng xuất tất cả
                 </button>
@@ -358,12 +425,12 @@ export default function SettingsPage() {
               hãy kiểm tra lại danh sách API key đang hoạt động.
             </p>
 
-            <a
+            <Link
               href="/api-keys"
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full !bg-white px-5 py-3 text-sm font-bold !text-[#0b0f0d]"
+              className={`${buttonStyles.whiteOnGreen} mt-5 w-full`}
             >
               Quản lý API key
-            </a>
+            </Link>
           </div>
 
           <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
@@ -420,7 +487,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setOpenLogoutAllModal(false)}
-                className="rounded-full border border-[#dfe5e1] bg-white px-5 py-3 text-sm font-bold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                className={buttonStyles.secondary}
               >
                 Hủy
               </button>
@@ -428,7 +495,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleConfirmLogoutAll}
-                className="rounded-full !bg-[#b42318] px-5 py-3 text-sm font-bold !text-white transition hover:opacity-90"
+                className={`flex items-center justify-center transition ${buttonStyles.danger}`}
               >
                 Xác nhận đăng xuất
               </button>
