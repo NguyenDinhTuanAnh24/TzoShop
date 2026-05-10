@@ -1,4 +1,7 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { formatCredits, formatDuration, formatVnd } from "@/lib/format";
 
 type PricingCardProps = {
@@ -9,104 +12,119 @@ type PricingCardProps = {
   durationDays: number;
   priceVnd: number;
   allowedModels: string[];
+  apiKeyLimit?: number;
   featured?: boolean;
 };
 
 export function PricingCard({
+  id,
   name,
-  slug,
   credits,
   durationDays,
   priceVnd,
   allowedModels,
+  apiKeyLimit = 1,
   featured = false,
 }: PricingCardProps) {
+  const router = useRouter();
+  const { status } = useSession();
+
+  const isContactPlan = 
+    name.toLowerCase().includes("enterprise") || 
+    name.toLowerCase().includes("custom") || 
+    name.toLowerCase().includes("liên hệ");
+
+  function handleChoosePlan() {
+    if (isContactPlan) {
+      router.push("/support?type=custom-plan");
+      return;
+    }
+
+    const targetUrl = `/plans?product=${id}`;
+
+    if (status === "authenticated") {
+      router.push(targetUrl);
+      return;
+    }
+
+    router.push(`/login?callbackUrl=${encodeURIComponent(targetUrl)}`);
+  }
+
   return (
     <div
-      className={
+      className={`relative rounded-[32px] border bg-white p-6 shadow-sm transition hover:border-emerald-300 hover:shadow-md ${
         featured
-          ? "relative rounded-xl border-2 border-[#00d4a4] bg-white p-7 shadow-[0_8px_24px_rgba(0,212,164,0.12)]"
-          : "rounded-xl border border-[#dfe5e1] bg-white p-7"
-      }
+          ? "border-emerald-300 ring-1 ring-emerald-200"
+          : "border-slate-200"
+      }`}
     >
       {featured && (
-        <div className="absolute right-5 top-5 rounded-full bg-[#00d4a4] px-3 py-1 text-xs font-bold text-[#0b0f0d]">
+        <span className="absolute right-6 top-6 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
           Phổ biến
-        </div>
+        </span>
       )}
 
-      <div>
-        <h3 className="text-2xl font-semibold tracking-[-0.4px] text-[#0b0f0d]">
-          {name}
-        </h3>
+      <h3 className="pr-20 text-xl font-bold text-slate-950">
+        {name}
+      </h3>
 
-        <p className="mt-3 text-sm leading-6 text-[#66736d]">
-          {formatCredits(credits)} · {formatDuration(durationDays)}
-        </p>
+      <p className="mt-2 text-sm font-medium text-slate-500">
+        {formatCredits(credits)} · {formatDuration(durationDays)}
+      </p>
+
+      <div className="mt-6 flex items-end gap-1">
+        <span className="text-3xl font-black text-slate-950">
+          {isContactPlan ? "Liên hệ" : formatVnd(priceVnd)}
+        </span>
       </div>
 
-      <div className="mt-7">
-        <p className="text-4xl font-semibold tracking-[-1px] text-[#0b0f0d]">
-          {formatVnd(priceVnd)}
-        </p>
-      </div>
-
-      <Link
-        href="/plans"
-        className="mt-7 inline-flex h-11 w-full items-center justify-center rounded-full bg-[#0d8f73] px-5 text-sm font-bold text-white transition hover:bg-[#08745e]"
-      >
-        Chọn gói này
-      </Link>
-
-      <div className="mt-7 border-t border-[#edf1ee] pt-6">
-        <p className="text-sm font-semibold text-[#0b0f0d]">Bao gồm:</p>
-
-        <div className="mt-4 space-y-3">
-          <div className="flex gap-3">
-            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#00d4a4]" />
-            <p className="text-sm leading-6 text-[#47524d]">
-              Credits sử dụng trong thời hạn gói
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#00d4a4]" />
-            <p className="text-sm leading-6 text-[#47524d]">
-              Hỗ trợ sử dụng cùng extension và công cụ phù hợp
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#00d4a4]" />
-            <p className="text-sm leading-6 text-[#47524d]">
-              Quản lý gói và theo dõi mức sử dụng
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <p className="mb-3 text-sm font-semibold text-[#0b0f0d]">
-          Model hỗ trợ:
+      <div className="mt-5 rounded-3xl bg-slate-50 p-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+          Model hỗ trợ
         </p>
 
-        <div className="flex flex-wrap gap-2">
-          {allowedModels.slice(0, 4).map((model) => (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {allowedModels.slice(0, 3).map((model) => (
             <span
               key={model}
-              className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 font-mono text-xs text-[#47524d]"
+              title={model}
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600"
             >
               {model}
             </span>
           ))}
 
-          {allowedModels.length > 4 && (
-            <span className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 text-xs font-medium text-[#47524d]">
-              +{allowedModels.length - 4} model
+          {allowedModels.length > 3 && (
+            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+              +{allowedModels.length - 3} model
             </span>
           )}
         </div>
       </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-3xl bg-slate-50 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">Thời hạn</p>
+          <p className="mt-1 font-bold text-slate-950">
+            {formatDuration(durationDays)}
+          </p>
+        </div>
+
+        <div className="rounded-3xl bg-slate-50 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">API key</p>
+          <p className="mt-1 font-bold text-slate-950">
+            {apiKeyLimit} key
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleChoosePlan}
+        className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-emerald-600 px-6 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700"
+      >
+        {isContactPlan ? "Liên hệ tư vấn" : "Chọn gói này"}
+      </button>
     </div>
   );
 }

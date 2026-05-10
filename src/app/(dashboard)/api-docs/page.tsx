@@ -2,29 +2,31 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { MODEL_REGISTRY, type ModelFamily } from "@/lib/model-registry";
+import {
+  MODEL_FAMILIES,
+  MODEL_REGISTRY,
+  type ModelFamily,
+  getModelsByFamily,
+} from "@/lib/model-registry";
 import { buttonStyles } from "@/lib/ui-styles";
-
-const families: ModelFamily[] = ["CodexAI", "Claude", "Gemini", "DeepSeek"];
+import DashboardSubNav from "@/components/dashboard/dashboard-sub-nav";
 
 export default function ApiDocsPage() {
   const [selectedFamily, setSelectedFamily] = useState<ModelFamily>("CodexAI");
   const [showAllModels, setShowAllModels] = useState(false);
 
-  const selectedModels = useMemo(() => {
-    return MODEL_REGISTRY.filter((model) => model.family === selectedFamily);
-  }, [selectedFamily]);
+  const models = getModelsByFamily(selectedFamily);
+  const visibleModels = showAllModels ? models : models.slice(0, 5);
 
-  const visibleModels = showAllModels
-    ? selectedModels
-    : selectedModels.slice(0, 5);
-
-  const hiddenModelCount = Math.max(
-    selectedModels.length - visibleModels.length,
-    0,
-  );
   return (
     <div className="space-y-6">
+      <DashboardSubNav 
+        items={[
+          { label: "API Keys", href: "/api-keys" },
+          { label: "Tài liệu API", href: "/api-docs" },
+          { label: "Lịch sử sử dụng", href: "/usage" },
+        ]} 
+      />
       <section className="rounded-3xl bg-gradient-to-br from-emerald-700 to-teal-500 p-8 text-white shadow-sm">
         <p className="text-xs font-bold uppercase tracking-[0.25em] text-emerald-100">
           Tài liệu API
@@ -40,7 +42,7 @@ export default function ApiDocsPage() {
           hoặc DeepSeek.
         </p>
 
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-10 flex flex-wrap gap-4">
           <Link
             href="/api-keys"
             className={`${buttonStyles.whiteOnGreen} min-w-[170px]`}
@@ -280,87 +282,55 @@ console.log(data);`}
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          {families.map((family) => {
-            const count = MODEL_REGISTRY.filter(
-              (model) => model.family === family,
-            ).length;
-            const isActive = selectedFamily === family;
-
-            return (
-              <button
-                key={family}
-                type="button"
-                onClick={() => {
-                  setSelectedFamily(family);
-                  setShowAllModels(false);
-                }}
-                className={
-                  isActive
-                    ? "rounded-full bg-emerald-700 px-4 py-2 text-sm font-bold text-white shadow-sm"
-                    : "rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                }
-              >
-                {family} ({count})
-              </button>
-            );
-          })}
+          {MODEL_FAMILIES.map((family) => (
+            <button
+              key={family}
+              type="button"
+              onClick={() => {
+                setSelectedFamily(family);
+                setShowAllModels(false);
+              }}
+              className={
+                selectedFamily === family
+                  ? "rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
+                  : "rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              }
+            >
+              {family}
+            </button>
+          ))}
         </div>
 
-        <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-slate-950">
-                {selectedFamily}
-              </h3>
+        <div className="mt-6 grid gap-3 md:grid-cols-2">
+          {visibleModels.map((model) => (
+            <div
+              key={model.id}
+              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="text-sm font-bold text-slate-950">
+                {model.name}
+              </div>
 
-              <p className="mt-1 text-sm text-slate-500">
-                Đang hiển thị {visibleModels.length} / {selectedModels.length}{" "}
-                model.
+              <div className="mt-1 font-mono text-xs text-emerald-700">
+                {model.id}
+              </div>
+
+              <p className="mt-2 text-sm text-slate-600">
+                {model.description}
               </p>
             </div>
-
-            {selectedModels.length > 5 && (
-              <button
-                type="button"
-                onClick={() => setShowAllModels((current) => !current)}
-                className={`flex items-center justify-center transition ${buttonStyles.secondary}`}
-              >
-                {showAllModels
-                  ? "Thu gọn"
-                  : `Xem thêm ${hiddenModelCount} model`}
-              </button>
-            )}
-          </div>
-
-          <div className="mt-5 grid gap-3">
-            {visibleModels.map((model) => (
-              <div
-                key={model.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <code className="text-sm font-bold text-emerald-700">
-                      {model.id}
-                    </code>
-
-                    <p className="mt-1 text-sm font-bold text-slate-950">
-                      {model.name}
-                    </p>
-                  </div>
-
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
-                    {model.family}
-                  </span>
-                </div>
-
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {model.description}
-                </p>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
+
+        {models.length > 5 && (
+          <button
+            type="button"
+            onClick={() => setShowAllModels((value) => !value)}
+            className="mt-5 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            {showAllModels ? "Thu gọn" : `Xem thêm ${models.length - 5} model`}
+          </button>
+        )}
       </section>
 
       <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6">

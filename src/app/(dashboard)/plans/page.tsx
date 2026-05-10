@@ -1,441 +1,95 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { getApiKeyLimitForPlan } from "@/lib/mock-storage";
-import {
-  getModelsForPlanTier,
-  type ModelFamily,
-  type PlanTier,
-} from "@/lib/model-registry";
+import { useEffect, useMemo, useState, useCallback, Suspense } from "react";
 import { buttonStyles } from "@/lib/ui-styles";
+import { ToastMessage } from "@/components/ui/toast-message";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  ShoppingCart, 
+  Package, 
+  Zap, 
+  Clock3, 
+  KeyRound, 
+  ArrowUpDown, 
+  Filter, 
+  CheckCircle2, 
+  ChevronDown, 
+  ChevronUp,
+  Sparkles,
+  Search,
+  ChevronRight,
+  RefreshCw,
+  XCircle,
+  Plus
+} from "lucide-react";
+import { AppIcon } from "@/components/ui/icon";
+import Skeleton from "react-loading-skeleton";
+import { CardListSkeleton } from "@/components/ui/page-skeleton";
+import DashboardSubNav from "@/components/dashboard/dashboard-sub-nav";
 
-type PlanCategory = "main" | "long";
-
-type PlanItem = {
+type ApiPlan = {
+  id: string;
   name: string;
+  slug: string;
+  apiFamily: "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
+  tier: "Trial" | "Mini" | "Plus" | "Pro" | "Max" | "Ultra" | "Enterprise";
   credits: string;
-  duration: string;
-  price: string;
-  category: PlanCategory;
-  family: ModelFamily;
-  tier: PlanTier;
-  popular?: boolean;
-  models?: string[];
-  apiKeyLimit?: number;
+  durationDays: number;
+  priceVnd: number;
+  apiKeyLimit: number;
+  allowedModels: string[];
+  allowedReasoning: string[];
+  isPopular: boolean;
+  isActive: boolean;
+  isContactOnly?: boolean;
 };
 
-type ProductGroup = {
-  family: ModelFamily;
-  description: string;
-  accent: string;
-  plans: PlanItem[];
-};
+function getFamilyLabel(apiFamily: ApiPlan["apiFamily"]) {
+  const familyMap: Record<ApiPlan["apiFamily"], string> = {
+    CODEXAI: "CodexAI",
+    CLAUDE: "Claude",
+    GEMINI: "Gemini",
+    DEEPSEEK: "DeepSeek",
+  };
+  return familyMap[apiFamily];
+}
 
-const productGroups: ProductGroup[] = [
-  {
-    family: "CodexAI",
-    description:
-      "Phù hợp cho lập trình, xử lý code, dùng cùng extension và công cụ hỗ trợ công việc.",
-    accent: "from-emerald-900 to-emerald-500",
-    plans: [
-      {
-        name: "CodexAI Trial",
-        credits: "100K",
-        duration: "7 ngày",
-        price: "19.000đ",
-        category: "main",
-        family: "CodexAI",
-        tier: "Trial",
-        models: getModelsForPlanTier("CodexAI", "Trial"),
-      },
-      {
-        name: "CodexAI Mini",
-        credits: "250K",
-        duration: "30 ngày",
-        price: "39.000đ",
-        category: "main",
-        family: "CodexAI",
-        tier: "Mini",
-        models: getModelsForPlanTier("CodexAI", "Mini"),
-      },
-      {
-        name: "CodexAI Plus",
-        credits: "1M",
-        duration: "45 ngày",
-        price: "139.000đ",
-        category: "main",
-        family: "CodexAI",
-        tier: "Plus",
-        popular: true,
-        models: getModelsForPlanTier("CodexAI", "Plus"),
-      },
-      {
-        name: "CodexAI Pro",
-        credits: "2M",
-        duration: "60 ngày",
-        price: "249.000đ",
-        category: "main",
-        family: "CodexAI",
-        tier: "Pro",
-        models: getModelsForPlanTier("CodexAI", "Pro"),
-      },
-      {
-        name: "CodexAI Max",
-        credits: "5M",
-        duration: "90 ngày",
-        price: "699.000đ",
-        category: "main",
-        family: "CodexAI",
-        tier: "Max",
-        models: getModelsForPlanTier("CodexAI", "Max"),
-      },
-      {
-        name: "CodexAI Ultra",
-        credits: "15M",
-        duration: "180 ngày",
-        price: "2.199.000đ",
-        category: "main",
-        family: "CodexAI",
-        tier: "Ultra",
-        models: getModelsForPlanTier("CodexAI", "Ultra"),
-      },
-      {
-        name: "CodexAI Pro 3M",
-        credits: "6M",
-        duration: "90 ngày",
-        price: "710.000đ",
-        category: "long",
-        family: "CodexAI",
-        tier: "Pro",
-        models: getModelsForPlanTier("CodexAI", "Pro"),
-      },
-      {
-        name: "CodexAI Pro 6M",
-        credits: "12M",
-        duration: "180 ngày",
-        price: "1.345.000đ",
-        category: "long",
-        family: "CodexAI",
-        tier: "Pro",
-        models: getModelsForPlanTier("CodexAI", "Pro"),
-      },
-      {
-        name: "CodexAI Pro Year",
-        credits: "24M",
-        duration: "365 ngày",
-        price: "2.540.000đ",
-        category: "long",
-        family: "CodexAI",
-        tier: "Pro",
-        models: getModelsForPlanTier("CodexAI", "Pro"),
-      },
-      {
-        name: "CodexAI Max Year",
-        credits: "60M",
-        duration: "365 ngày",
-        price: "7.130.000đ",
-        category: "long",
-        family: "CodexAI",
-        tier: "Max",
-        models: getModelsForPlanTier("CodexAI", "Max"),
-      },
-      {
-        name: "CodexAI Enterprise",
-        credits: "300M+",
-        duration: "Tùy chỉnh",
-        price: "Liên hệ",
-        category: "long",
-        family: "CodexAI",
-        tier: "Enterprise",
-        models: getModelsForPlanTier("CodexAI", "Enterprise"),
-      },
-    ],
-  },
-  {
-    family: "Claude",
-    description:
-      "Phù hợp cho viết nội dung dài, phân tích tài liệu, học tập và xử lý công việc chuyên sâu.",
-    accent: "from-orange-800 to-amber-400",
-    plans: [
-      {
-        name: "Claude Trial",
-        credits: "300K",
-        duration: "7 ngày",
-        price: "19.000đ",
-        category: "main",
-        family: "Claude",
-        tier: "Trial",
-        models: getModelsForPlanTier("Claude", "Trial"),
-      },
-      {
-        name: "Claude Mini",
-        credits: "1M",
-        duration: "30 ngày",
-        price: "69.000đ",
-        category: "main",
-        family: "Claude",
-        tier: "Mini",
-        models: getModelsForPlanTier("Claude", "Mini"),
-      },
-      {
-        name: "Claude Plus",
-        credits: "2.5M",
-        duration: "45 ngày",
-        price: "149.000đ",
-        category: "main",
-        family: "Claude",
-        tier: "Plus",
-        popular: true,
-        models: getModelsForPlanTier("Claude", "Plus"),
-      },
-      {
-        name: "Claude Pro",
-        credits: "6M",
-        duration: "90 ngày",
-        price: "399.000đ",
-        category: "main",
-        family: "Claude",
-        tier: "Pro",
-        models: getModelsForPlanTier("Claude", "Pro"),
-      },
-      {
-        name: "Claude Ultra",
-        credits: "45M",
-        duration: "365 ngày",
-        price: "3.299.000đ",
-        category: "main",
-        family: "Claude",
-        tier: "Ultra",
-        models: getModelsForPlanTier("Claude", "Ultra"),
-      },
-      {
-        name: "Claude Plus Year",
-        credits: "30M",
-        duration: "365 ngày",
-        price: "1.520.000đ",
-        category: "long",
-        family: "Claude",
-        tier: "Plus",
-        models: getModelsForPlanTier("Claude", "Plus"),
-      },
-      {
-        name: "Claude Pro Year",
-        credits: "72M",
-        duration: "365 ngày",
-        price: "4.070.000đ",
-        category: "long",
-        family: "Claude",
-        tier: "Pro",
-        models: getModelsForPlanTier("Claude", "Pro"),
-      },
-      {
-        name: "Claude Ultra Year",
-        credits: "Tùy chỉnh",
-        duration: "365 ngày",
-        price: "Liên hệ",
-        category: "long",
-        family: "Claude",
-        tier: "Ultra",
-        models: getModelsForPlanTier("Claude", "Ultra"),
-      },
-    ],
-  },
-  {
-    family: "Gemini",
-    description:
-      "Phù hợp cho nhu cầu đa dụng, xử lý nhanh, chi phí tốt và dùng hằng ngày.",
-    accent: "from-blue-800 to-cyan-400",
-    plans: [
-      {
-        name: "Gemini Trial",
-        credits: "500K",
-        duration: "7 ngày",
-        price: "9.000đ",
-        category: "main",
-        family: "Gemini",
-        tier: "Trial",
-        models: getModelsForPlanTier("Gemini", "Trial"),
-      },
-      {
-        name: "Gemini Mini",
-        credits: "1M",
-        duration: "30 ngày",
-        price: "29.000đ",
-        category: "main",
-        family: "Gemini",
-        tier: "Mini",
-        models: getModelsForPlanTier("Gemini", "Mini"),
-      },
-      {
-        name: "Gemini Plus",
-        credits: "5M",
-        duration: "60 ngày",
-        price: "99.000đ",
-        category: "main",
-        family: "Gemini",
-        tier: "Plus",
-        popular: true,
-        models: getModelsForPlanTier("Gemini", "Plus"),
-      },
-      {
-        name: "Gemini Pro",
-        credits: "10M",
-        duration: "90 ngày",
-        price: "179.000đ",
-        category: "main",
-        family: "Gemini",
-        tier: "Pro",
-        models: getModelsForPlanTier("Gemini", "Pro"),
-      },
-      {
-        name: "Gemini Ultra",
-        credits: "100M",
-        duration: "365 ngày",
-        price: "1.499.000đ",
-        category: "main",
-        family: "Gemini",
-        tier: "Ultra",
-        models: getModelsForPlanTier("Gemini", "Ultra"),
-      },
-      {
-        name: "Gemini Plus Year",
-        credits: "60M",
-        duration: "365 ngày",
-        price: "1.010.000đ",
-        category: "long",
-        family: "Gemini",
-        tier: "Plus",
-        models: getModelsForPlanTier("Gemini", "Plus"),
-      },
-      {
-        name: "Gemini Pro Year",
-        credits: "120M",
-        duration: "365 ngày",
-        price: "2.099.000đ",
-        category: "long",
-        family: "Gemini",
-        tier: "Pro",
-        models: getModelsForPlanTier("Gemini", "Pro"),
-      },
-      {
-        name: "Gemini Ultra Year",
-        credits: "250M",
-        duration: "365 ngày",
-        price: "3.499.000đ",
-        category: "long",
-        family: "Gemini",
-        tier: "Ultra",
-        models: getModelsForPlanTier("Gemini", "Ultra"),
-      },
-    ],
-  },
-  {
-    family: "DeepSeek",
-    description:
-      "Phù hợp cho nhu cầu tiết kiệm, xử lý nhanh và dùng thường xuyên với chi phí thấp.",
-    accent: "from-slate-900 to-blue-500",
-    plans: [
-      {
-        name: "DeepSeek Trial",
-        credits: "1M",
-        duration: "7 ngày",
-        price: "19.000đ",
-        category: "main",
-        family: "DeepSeek",
-        tier: "Trial",
-        models: getModelsForPlanTier("DeepSeek", "Trial"),
-      },
-      {
-        name: "DeepSeek Mini",
-        credits: "5M",
-        duration: "30 ngày",
-        price: "79.000đ",
-        category: "main",
-        family: "DeepSeek",
-        tier: "Mini",
-        models: getModelsForPlanTier("DeepSeek", "Mini"),
-      },
-      {
-        name: "DeepSeek Plus",
-        credits: "10M",
-        duration: "60 ngày",
-        price: "139.000đ",
-        category: "main",
-        family: "DeepSeek",
-        tier: "Plus",
-        popular: true,
-        models: getModelsForPlanTier("DeepSeek", "Plus"),
-      },
-      {
-        name: "DeepSeek Pro",
-        credits: "30M",
-        duration: "90 ngày",
-        price: "399.000đ",
-        category: "main",
-        family: "DeepSeek",
-        tier: "Pro",
-        models: getModelsForPlanTier("DeepSeek", "Pro"),
-      },
-      {
-        name: "DeepSeek Ultra",
-        credits: "300M",
-        duration: "365 ngày",
-        price: "3.699.000đ",
-        category: "main",
-        family: "DeepSeek",
-        tier: "Ultra",
-        models: getModelsForPlanTier("DeepSeek", "Ultra"),
-      },
-      {
-        name: "DeepSeek Plus Year",
-        credits: "120M",
-        duration: "365 ngày",
-        price: "1.418.000đ",
-        category: "long",
-        family: "DeepSeek",
-        tier: "Plus",
-        models: getModelsForPlanTier("DeepSeek", "Plus"),
-      },
-      {
-        name: "DeepSeek Pro Year",
-        credits: "180M",
-        duration: "365 ngày",
-        price: "2.035.000đ",
-        category: "long",
-        family: "DeepSeek",
-        tier: "Pro",
-        models: getModelsForPlanTier("DeepSeek", "Pro"),
-      },
-      {
-        name: "DeepSeek Ultra Year",
-        credits: "600M",
-        duration: "365 ngày",
-        price: "7.028.000đ",
-        category: "long",
-        family: "DeepSeek",
-        tier: "Ultra",
-        models: getModelsForPlanTier("DeepSeek", "Ultra"),
-      },
-    ],
-  },
-];
+function formatCreditAmount(value: string) {
+  const amount = Number(value);
+  if (amount >= 1_000_000_000) return `${amount / 1_000_000_000}B`;
+  if (amount >= 1_000_000) return `${amount / 1_000_000}M`;
+  if (amount >= 1_000) return `${amount / 1_000}K`;
+  return amount.toLocaleString("vi-VN");
+}
+
+function formatCurrency(value: number) {
+  return `${value.toLocaleString("vi-VN")}đ`;
+}
+
+function isContactPlan(plan: ApiPlan) {
+  const name = plan.name.toLowerCase();
+  const tier = plan.tier.toLowerCase();
+  return (
+    plan.isContactOnly === true ||
+    plan.priceVnd === null ||
+    plan.priceVnd === 0 ||
+    name.includes("enterprise") ||
+    name.includes("custom") ||
+    name.includes("liên hệ") ||
+    tier.includes("enterprise") ||
+    tier.includes("custom")
+  );
+}
+
+function hasRealPrice(plan: ApiPlan) {
+  return !isContactPlan(plan) && typeof plan.priceVnd === "number" && plan.priceVnd > 0;
+}
 
 const familyTabs = ["CodexAI", "Claude", "Gemini", "DeepSeek"];
 
-const categoryTabs: {
-  label: string;
-  value: PlanCategory;
-}[] = [
-  { label: "Gói chính", value: "main" },
-  { label: "Gói dài hạn", value: "long" },
-];
-
-const tierTabs: {
-  label: string;
-  value: "all" | PlanTier;
-}[] = [
-  { label: "Tất cả", value: "all" },
+const tierTabs = [
+  { label: "Tất cả", value: "Tất cả" },
   { label: "Trial", value: "Trial" },
   { label: "Mini", value: "Mini" },
   { label: "Plus", value: "Plus" },
@@ -445,525 +99,534 @@ const tierTabs: {
   { label: "Enterprise", value: "Enterprise" },
 ];
 
-function PlanCard({
-  plan,
-  onSelect,
-}: {
-  plan: PlanItem;
-  onSelect: (plan: PlanItem) => void;
-}) {
-  const isContact = plan.price === "Liên hệ";
+const durationTabs = [
+  { label: "Tất cả", value: "Tất cả" },
+  { label: "Gói chính", value: "Gói chính" },
+  { label: "Gói dài hạn", value: "Gói dài hạn" },
+];
 
-  return (
-    <div
-      className={`relative flex h-full flex-col rounded-3xl border p-5 transition hover:-translate-y-0.5 hover:shadow-lg ${
-        plan.popular
-          ? "border-[#0d8f73] bg-[#f4fffb]"
-          : "border-black/10 bg-white"
-      }`}
-    >
-      {plan.popular && (
-        <span className="absolute right-5 top-5 rounded-full bg-[#0d8f73] px-3 py-1 text-xs font-bold text-white">
-          Phổ biến
-        </span>
-      )}
+const sortOptions = [
+  { label: "Đề xuất", value: "recommended" },
+  { label: "Giá thấp", value: "price-asc" },
+  { label: "Giá cao", value: "price-desc" },
+  { label: "Credits", value: "credits-desc" },
+  { label: "Thời hạn", value: "duration-desc" },
+  { label: "Gói liên hệ", value: "contact" },
+];
 
-      <div className="flex-1">
-        <p className="pr-20 text-lg font-bold text-[#0b0f0d]">{plan.name}</p>
+const DEFAULT_VISIBLE_MODELS = 4;
 
-        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="rounded-2xl bg-[#f6f8f7] p-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-              Giá gói
-            </p>
-            <p className="mt-1 text-lg font-bold text-[#0b0f0d]">
-              {plan.price}
-            </p>
-          </div>
+import { useRouter, useSearchParams } from "next/navigation";
 
-          <div className="rounded-2xl bg-[#f6f8f7] p-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-              Credits
-            </p>
-            <p className="mt-1 text-lg font-bold text-[#0b0f0d]">
-              {plan.credits}
-            </p>
-          </div>
+function PlansPageContent() {
+  const router = useRouter();
+  const [plans, setPlans] = useState<ApiPlan[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = useState(true);
+  const [plansError, setPlansError] = useState("");
+  const { toast, showToast, clearToast } = useToast(3000);
 
-          <div className="rounded-2xl bg-[#f6f8f7] p-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-              Thời hạn
-            </p>
-            <p className="mt-1 text-lg font-bold text-[#0b0f0d]">
-              {plan.duration}
-            </p>
-          </div>
+  const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+  const [selectedTier, setSelectedTier] = useState("Tất cả");
+  const [selectedPlanType, setSelectedPlanType] = useState("Tất cả");
+  const [selectedPlanToBuy, setSelectedPlanToBuy] = useState<ApiPlan | null>(null);
+  const [isConfirmBuyOpen, setIsConfirmBuyOpen] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [expandedModelPlans, setExpandedModelPlans] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState("recommended");
+  const [isExpanded, setIsExpanded] = useState(false);
+  const searchParams = useSearchParams();
+  const [hasHandledProductQuery, setHasHandledProductQuery] = useState(false);
 
-          <div className="rounded-2xl bg-[#f6f8f7] p-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-              API keys
-            </p>
-            <p className="mt-1 text-lg font-bold text-[#0b0f0d]">
-              {plan.apiKeyLimit && plan.apiKeyLimit >= 50
-                ? "Tối đa 50 key"
-                : `Tối đa ${plan.apiKeyLimit} key`}
-            </p>
-          </div>
-        </div>
+  const loadPlans = useCallback(async () => {
+    try {
+      setIsLoadingPlans(true);
+      setPlansError("");
+      const response = await fetch("/api/plans", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error?.message ?? "Lỗi tải gói credits.");
+      setPlans(data.data ?? []);
+    } catch (error) {
+      setPlansError("Không thể tải danh sách gói credits.");
+    } finally {
+      setIsLoadingPlans(false);
+    }
+  }, []);
 
-        {plan.models && plan.models.length > 0 && (
-          <div className="mt-5">
-            <p className="text-sm font-bold text-[#0b0f0d]">Model hỗ trợ</p>
+  useEffect(() => {
+    loadPlans();
+  }, [loadPlans]);
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {plan.models.slice(0, 4).map((model) => (
-                <span
-                  key={model}
-                  className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
-                >
-                  {model}
-                </span>
-              ))}
+  // Xử lý query param product từ trang pricing công cộng
+  useEffect(() => {
+    if (hasHandledProductQuery || isLoadingPlans || plans.length === 0) return;
 
-              {plan.models.length > 4 && (
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  +{plan.models.length - 4} model
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+    const productIdFromPricing = searchParams.get("product");
+    if (!productIdFromPricing) return;
 
-      <button
-        type="button"
-        onClick={() => onSelect(plan)}
-        className={`mt-6 flex h-11 w-full items-center justify-center transition ${
-          isContact ? buttonStyles.secondary : buttonStyles.primary
-        }`}
-      >
-        {isContact ? "Liên hệ tư vấn" : "Chọn gói này"}
-      </button>
-    </div>
-  );
-}
+    const targetPlan = plans.find((p) => p.id === productIdFromPricing);
+    if (!targetPlan) return;
 
-export default function PlansPage() {
-  const [selectedFamily, setSelectedFamily] = useState("CodexAI");
-  const [selectedCategory, setSelectedCategory] =
-    useState<PlanCategory>("main");
-  const [selectedTier, setSelectedTier] = useState<"all" | PlanTier>("all");
-  const [selectedPlan, setSelectedPlan] = useState<PlanItem | null>(null);
-
-  const selectedGroup = productGroups.find(
-    (group) => group.family === selectedFamily
-  )!;
+    // Chuyển sang tab family tương ứng
+    setSelectedFamily(getFamilyLabel(targetPlan.apiFamily));
+    
+    // Mở modal xác nhận mua
+    setSelectedPlanToBuy(targetPlan);
+    setIsConfirmBuyOpen(true);
+    
+    // Đánh dấu đã xử lý
+    setHasHandledProductQuery(true);
+  }, [hasHandledProductQuery, isLoadingPlans, plans, searchParams, setSelectedFamily]);
 
   const filteredPlans = useMemo(() => {
-    return selectedGroup.plans
-      .filter((plan) => {
-        const matchCategory = plan.category === selectedCategory;
-        const matchTier = selectedTier === "all" || plan.tier === selectedTier;
+    return plans.filter((plan) => {
+      const familyLabel = getFamilyLabel(plan.apiFamily);
+      const isLongTerm = plan.slug.match(/-(3m|6m|year|enterprise)$/);
+      
+      const matchesFamily = selectedFamily === null || familyLabel === selectedFamily;
+      const matchesTier = selectedTier === "Tất cả" || plan.tier === selectedTier;
+      const matchesPlanType = selectedPlanType === "Tất cả" || 
+        (selectedPlanType === "Gói chính" && !isLongTerm) || 
+        (selectedPlanType === "Gói dài hạn" && isLongTerm);
 
-        return matchCategory && matchTier;
-      })
-      .map((plan) => ({
-        ...plan,
-        apiKeyLimit: getApiKeyLimitForPlan(plan.name),
-      }));
-  }, [selectedGroup, selectedCategory, selectedTier]);
+      return matchesFamily && matchesTier && matchesPlanType;
+    });
+  }, [plans, selectedFamily, selectedTier, selectedPlanType]);
 
-  const recommendedPlan = useMemo(() => {
-    const raw =
-      selectedGroup.plans.find((plan) => plan.popular) ?? selectedGroup.plans[0];
-    return {
-      ...raw,
-      apiKeyLimit: getApiKeyLimitForPlan(raw.name),
-    };
-  }, [selectedGroup]);
+  const sortedPlans = useMemo(() => {
+    let plansCopy = [...filteredPlans];
+
+    if (sortBy === "price-asc" || sortBy === "price-desc") {
+      plansCopy = plansCopy.filter(hasRealPrice);
+    }
+
+    if (sortBy === "contact") {
+      plansCopy = plansCopy.filter(isContactPlan);
+    }
+
+    switch (sortBy) {
+      case "price-asc": return plansCopy.sort((a, b) => a.priceVnd - b.priceVnd);
+      case "price-desc": return plansCopy.sort((a, b) => b.priceVnd - a.priceVnd);
+      case "credits-desc": return plansCopy.sort((a, b) => Number(b.credits) - Number(a.credits));
+      case "duration-desc": return plansCopy.sort((a, b) => b.durationDays - a.durationDays);
+      default: return plansCopy.sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0));
+    }
+  }, [filteredPlans, sortBy]);
+
+  const displayedPlans = useMemo(() => isExpanded ? sortedPlans : sortedPlans.slice(0, 5), [sortedPlans, isExpanded]);
+
+  function handleChoosePlan(plan: ApiPlan) {
+    if (isContactPlan(plan)) {
+      router.push("/support?type=custom-plan");
+      return;
+    }
+    setSelectedPlanToBuy(plan);
+    setIsConfirmBuyOpen(true);
+  }
+
+  async function handleConfirmBuyPlan() {
+    if (!selectedPlanToBuy || isCreatingOrder) return;
+
+    try {
+      setIsCreatingOrder(true);
+
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: selectedPlanToBuy.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error?.message ?? "Cannot create order");
+      }
+
+      showToast("Đơn hàng đã được tạo.", "success");
+
+      setIsConfirmBuyOpen(false);
+      setSelectedPlanToBuy(null);
+
+      // Chuyển sang trang billing
+      router.push("/billing");
+    } catch (error) {
+      console.error(error);
+      showToast("Không thể tạo đơn hàng.", "error");
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  }
+
+  const btnPrimary = "rounded-full bg-emerald-600 text-white hover:bg-emerald-700 px-6 py-2.5 text-sm font-bold transition-all flex items-center justify-center gap-2";
+  const btnSecondary = "rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 px-5 py-2 text-sm font-bold transition-all flex items-center justify-center gap-2";
 
   return (
-    <>
-      <div className="space-y-6">
-        <section className="rounded-3xl border border-black/10 bg-white p-6">
-        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#08745e]">
-              Cửa hàng credits
-            </p>
-
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#0b0f0d]">
-              Chọn gói credits phù hợp
-            </h2>
-
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f6b66]">
-              Chọn dòng AI, loại gói và cấp độ dịch vụ. Trang này là khu vực
-              mua credits chính trong tài khoản của bạn.
-            </p>
+    <div className="space-y-8 pb-20">
+      <DashboardSubNav 
+        items={[
+          { label: "Mua credits", href: "/plans" },
+          { label: "Gói của tôi", href: "/my-plans" },
+        ]} 
+      />
+      {/* Header Card */}
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-8 shadow-sm">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shrink-0">
+              <AppIcon icon={ShoppingCart} className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Cửa hàng credits</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {selectedFamily === null ? "Tất cả gói credits" : selectedFamily}
+              </h1>
+            </div>
           </div>
-
-          <Link
-            href="/my-plans"
-            className={`inline-flex items-center justify-center ${buttonStyles.secondary}`}
-          >
+          <Link href="/my-plans" className={btnSecondary + " w-full sm:w-auto"}>
+            <AppIcon icon={Package} className="h-4 w-4" />
             Xem gói của tôi
           </Link>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {productGroups.map((group) => {
-            const isActive = selectedFamily === group.family;
-
+        <div className="mt-8 grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {familyTabs.map((family) => {
+            const isActive = selectedFamily === family;
             return (
               <button
-                key={group.family}
-                type="button"
+                key={family}
                 onClick={() => {
-                  setSelectedFamily(group.family);
-                  setSelectedTier("all");
+                  setSelectedFamily(isActive ? null : family);
+                  setIsExpanded(false);
                 }}
-                className={`rounded-2xl border p-4 text-left transition ${
-                  isActive
-                    ? "border-[#0d8f73] bg-[#f4fffb] shadow-sm"
-                    : "border-black/10 bg-white hover:bg-[#f8fbfa]"
+                className={`flex flex-col rounded-2xl border p-4 sm:p-5 text-left transition-all ${
+                  isActive 
+                    ? "border-emerald-300 bg-emerald-50 shadow-sm ring-1 ring-emerald-500/20" 
+                    : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40"
                 }`}
               >
-                <div
-                  className={`h-2 w-16 rounded-full bg-gradient-to-r ${group.accent}`}
-                />
-
-                <p className="mt-3 text-base font-bold text-[#0b0f0d]">
-                  {group.family}
-                </p>
-
-                <p className="mt-1 text-sm text-[#5f6b66]">
-                  {group.plans.length} gói khả dụng
-                </p>
+                <div className={`h-1.5 w-10 rounded-full mb-4 bg-gradient-to-r ${
+                  family === "CodexAI" ? "from-emerald-900 to-emerald-500" :
+                  family === "Claude" ? "from-orange-800 to-amber-400" :
+                  family === "Gemini" ? "from-blue-800 to-cyan-400" :
+                  "from-slate-900 to-blue-500"
+                }`} />
+                <p className="text-base sm:text-lg font-black text-slate-900">{family}</p>
+                <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-1">Khám phá</p>
               </button>
             );
           })}
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-3xl border border-black/10 bg-white p-6">
-          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#08745e]">
-                Đang xem
-              </p>
-
-              <h3 className="mt-2 text-2xl font-bold text-[#0b0f0d]">
-                {selectedGroup.family}
-              </h3>
-
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f6b66]">
-                {selectedGroup.description}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-[#f6f8f7] px-4 py-3">
-              <p className="text-sm text-[#5f6b66]">Gói đang hiển thị</p>
-              <p className="mt-1 text-2xl font-bold text-[#0b0f0d]">
-                {filteredPlans.length}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            {categoryTabs.map((tab) => {
-              const isActive = selectedCategory === tab.value;
-
-              return (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(tab.value);
-                    setSelectedTier("all");
-                  }}
-                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                    isActive
-                      ? "bg-[#0d8f73] text-white"
-                      : "bg-[#f3f5f4] text-[#5f6b66] hover:bg-[#e8eeee]"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {tierTabs.map((tab) => {
-              const isActive = selectedTier === tab.value;
-
-              return (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setSelectedTier(tab.value)}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? "bg-[#0b0f0d] text-white"
-                      : "border border-black/10 bg-white text-[#5f6b66] hover:bg-[#f6f8f7]"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredPlans.map((plan) => (
-              <PlanCard key={plan.name} plan={plan} onSelect={setSelectedPlan} />
-            ))}
-          </div>
-
-          {filteredPlans.length === 0 && (
-            <div className="mt-6 rounded-3xl border border-dashed border-black/15 bg-[#f8fbfa] p-8 text-center">
-              <p className="text-lg font-bold text-[#0b0f0d]">
-                Không có gói phù hợp
-              </p>
-              <p className="mt-2 text-sm text-[#5f6b66]">
-                Hãy đổi bộ lọc hoặc chọn dòng AI khác.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <aside className="space-y-4">
-          <div className="rounded-3xl border border-[#0d8f73]/30 bg-[#f4fffb] p-5">
-            <p className="text-sm font-bold text-[#08745e]">Gợi ý cho bạn</p>
-
-            <h4 className="mt-3 text-xl font-bold text-[#0b0f0d]">
-              {recommendedPlan.name}
-            </h4>
-
-            <p className="mt-2 text-sm leading-6 text-[#5f6b66]">
-              Đây là gói cân bằng nhất trong dòng {selectedGroup.family}, phù
-              hợp cho đa số người dùng.
-            </p>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white p-3">
-                <p className="text-xs font-bold uppercase text-[#7a8782]">
-                  Credits
-                </p>
-                <p className="mt-1 font-bold text-[#0b0f0d]">
-                  {recommendedPlan.credits}
-                </p>
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-6">
+          {/* Filter Bar */}
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24">
+                  <AppIcon icon={Clock3} className="h-3.5 w-3.5" />
+                  Thời hạn:
+                </span>
+                {durationTabs.map((tab) => (
+                  <button
+                    key={tab.value}
+                    onClick={() => setSelectedPlanType(tab.value)}
+                    className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
+                      selectedPlanType === tab.value ? "bg-emerald-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-
-              <div className="rounded-2xl bg-white p-3">
-                <p className="text-xs font-bold uppercase text-[#7a8782]">
-                  Giá
-                </p>
-                <p className="mt-1 font-bold text-[#0b0f0d]">
-                  {recommendedPlan.price}
-                </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24">
+                  <AppIcon icon={Zap} className="h-3.5 w-3.5" />
+                  Cấp độ:
+                </span>
+                {tierTabs.map((tab) => (
+                  <button
+                    key={tab.value}
+                    onClick={() => setSelectedTier(tab.value)}
+                    className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
+                      selectedTier === tab.value ? "bg-emerald-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24">
+                  <AppIcon icon={ArrowUpDown} className="h-3.5 w-3.5" />
+                  Sắp xếp:
+                </span>
+                {sortOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSortBy(opt.value)}
+                    className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
+                      sortBy === opt.value ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
+          </section>
 
-            <button
-              type="button"
-              onClick={() => setSelectedPlan(recommendedPlan)}
-              className={`mt-5 flex w-full items-center justify-center transition ${buttonStyles.primary}`}
-            >
-              Chọn gói đề xuất
-            </button>
-          </div>
-
-          <div className="rounded-3xl border border-black/10 bg-white p-5">
-            <p className="text-base font-bold text-[#0b0f0d]">
-              Cách chọn theo cấp gói
-            </p>
-
-            <div className="mt-4 space-y-3 text-sm leading-6 text-[#5f6b66]">
-              <p>
-                <span className="font-bold text-[#0b0f0d]">Trial:</span>{" "}
-                dùng thử trong thời gian ngắn.
-              </p>
-              <p>
-                <span className="font-bold text-[#0b0f0d]">Mini:</span>{" "}
-                nhu cầu nhẹ, dùng cá nhân.
-              </p>
-              <p>
-                <span className="font-bold text-[#0b0f0d]">Plus:</span>{" "}
-                lựa chọn cân bằng nhất.
-              </p>
-              <p>
-                <span className="font-bold text-[#0b0f0d]">Pro / Max:</span>{" "}
-                dùng thường xuyên, cần nhiều credits.
-              </p>
-              <p>
-                <span className="font-bold text-[#0b0f0d]">Ultra:</span>{" "}
-                nhu cầu lớn hoặc dùng dài hạn.
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-black/10 bg-[#0b0f0d] p-5 text-white">
-            <p className="text-base font-bold">Cần gói riêng?</p>
-            <p className="mt-3 text-sm leading-6 text-white/70">
-              Nếu bạn cần số lượng credits lớn, thời hạn riêng hoặc xuất hóa
-              đơn, hãy chọn gói liên hệ.
-            </p>
-          </div>
-        </aside>
-      </section>
-      </div>
-
-      {selectedPlan && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 px-4">
-          <div className="w-full max-w-[560px] rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#08745e]">
-                  Xác nhận gói
-                </p>
-
-                <h3 className="mt-2 text-2xl font-bold text-[#0b0f0d]">
-                  {selectedPlan.name}
-                </h3>
-
-                <p className="mt-2 text-sm leading-6 text-[#5f6b66]">
-                  Kiểm tra lại thông tin gói trước khi tiếp tục thanh toán.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedPlan(null)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-lg font-bold text-[#0b0f0d] transition hover:bg-[#f6f8f7]"
-                aria-label="Đóng modal"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl bg-[#f6f8f7] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-                  Credits
-                </p>
-                <p className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                  {selectedPlan.credits}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-[#f6f8f7] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-                  Thời hạn
-                </p>
-                <p className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                  {selectedPlan.duration}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-[#f6f8f7] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-                  Giới hạn key
-                </p>
-                <p className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                  {selectedPlan.apiKeyLimit && selectedPlan.apiKeyLimit >= 50
-                    ? "Tối đa 50 key"
-                    : `Tối đa ${selectedPlan.apiKeyLimit} key`}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-2xl bg-[#f6f8f7] p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#7a8782]">
-                Giá thanh toán
-              </p>
-              <p className="mt-2 text-3xl font-extrabold text-[#0b0f0d]">
-                {selectedPlan.price}
-              </p>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-black/5 bg-[#f7f8f6] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7a8782]">
-                API keys
-              </p>
-              <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                Gói này cho phép tạo tối đa {selectedPlan.apiKeyLimit} API key.
-              </p>
-            </div>
-
-            {selectedPlan.models && selectedPlan.models.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-3 text-sm font-bold text-[#0b0f0d]">
-                  Model hỗ trợ trong gói
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-                  {selectedPlan.models &&
-                    selectedPlan.models.slice(0, 6).map((model) => (
-                      <span
-                        key={model}
-                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
-                      >
-                        {model}
-                      </span>
-                    ))}
-
-                  {selectedPlan.models && selectedPlan.models.length > 6 && (
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                      +{selectedPlan.models.length - 6} model
-                    </span>
-                  )}
+          {/* Plans List */}
+          <div className="space-y-4">
+            {isLoadingPlans ? (
+              <CardListSkeleton count={5} />
+            ) : plansError ? (
+              <div className="rounded-[40px] border border-rose-100 bg-rose-50/50 p-16 text-center ring-1 ring-rose-100">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-rose-100 text-rose-600 mb-6">
+                  <AppIcon icon={XCircle} className="h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-black text-rose-900">Không thể tải dữ liệu</h3>
+                <p className="mt-2 text-rose-600 font-medium">Đã có lỗi xảy ra khi kết nối tới máy chủ.</p>
+                <div className="mt-8 flex justify-center">
+                  <button onClick={loadPlans} className="flex items-center gap-2 rounded-full bg-rose-600 px-8 py-3 text-sm font-bold text-white hover:bg-rose-700 transition-all shadow-lg shadow-rose-200">
+                    <AppIcon icon={RefreshCw} className="h-4 w-4" />
+                    Thử lại ngay
+                  </button>
                 </div>
               </div>
-            )}
+            ) : displayedPlans.length === 0 ? (
+              <div className="rounded-[40px] border border-dashed border-slate-300 bg-slate-50/50 p-20 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-400 mb-6">
+                  <AppIcon icon={Search} className="h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900">Không có gói phù hợp.</h3>
+                <p className="mt-2 text-slate-500 font-medium">Hãy thay đổi bộ lọc hoặc chọn dòng AI khác để khám phá thêm.</p>
+              </div>
+            ) : (
+              displayedPlans.map((plan) => (
+                <article
+                  key={plan.id}
+                  className="group relative flex flex-col gap-6 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-emerald-300 hover:shadow-xl hover:shadow-emerald-500/5 lg:flex-row lg:items-center"
+                >
+                  <div className="w-full shrink-0 lg:w-[220px]">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-4 w-1 rounded-full ${
+                        plan.apiFamily === "CODEXAI" ? "bg-emerald-500" :
+                        plan.apiFamily === "CLAUDE" ? "bg-orange-500" :
+                        plan.apiFamily === "GEMINI" ? "bg-blue-500" :
+                        "bg-slate-900"
+                      }`} />
+                      <h3 className="text-lg font-black text-slate-900 truncate">{plan.name}</h3>
+                      {plan.isPopular && (
+                        <span className="flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[8px] font-black text-white uppercase">
+                          <AppIcon icon={Sparkles} className="h-2.5 w-2.5" />
+                          HOT
+                        </span>
+                      )}
+                    </div>
+                    <p className="ml-3 mt-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">{getFamilyLabel(plan.apiFamily)}</p>
+                  </div>
 
-            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-bold text-amber-900">
-                Lưu ý trước khi thanh toán
-              </p>
-              <p className="mt-2 text-sm leading-6 text-amber-800">
-                Sau khi thanh toán thành công, credits sẽ được cộng vào tài khoản của
-                bạn. Ở bước hiện tại, đây mới là giao diện xác nhận, chưa nối PayOS thật.
-              </p>
+                  <div className="flex flex-col gap-1 w-full shrink-0 lg:w-[150px]">
+                    <p className="text-sm font-black text-emerald-600 flex items-center gap-1.5">
+                      <AppIcon icon={Zap} className="h-3.5 w-3.5" />
+                      {formatCreditAmount(plan.credits)}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                      {plan.durationDays} ngày · {plan.apiKeyLimit} keys
+                    </p>
+                  </div>
+
+                  <div className="min-w-[420px] flex-1">
+                    <div className="flex flex-wrap gap-2">
+                      {plan.allowedModels.slice(0, expandedModelPlans.includes(plan.id) ? undefined : DEFAULT_VISIBLE_MODELS).map((m) => (
+                        <span
+                          key={m}
+                          title={m}
+                          className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-[13px] font-semibold text-slate-700"
+                        >
+                          {m}
+                        </span>
+                      ))}
+                      {plan.allowedModels.length > DEFAULT_VISIBLE_MODELS && (
+                        <button
+                          onClick={() => setExpandedModelPlans(prev => prev.includes(plan.id) ? prev.filter(id => id !== plan.id) : [...prev, plan.id])}
+                          className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-[13px] font-bold text-emerald-700"
+                        >
+                          <AppIcon icon={expandedModelPlans.includes(plan.id) ? ChevronUp : ChevronDown} className="h-3 w-3 mr-1" />
+                          {expandedModelPlans.includes(plan.id) ? "Thu gọn" : `+${plan.allowedModels.length - DEFAULT_VISIBLE_MODELS}`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-6 border-t border-slate-50 pt-6 lg:border-none lg:pt-0">
+                    <p className="text-xl font-black text-slate-900">{isContactPlan(plan) ? "Liên hệ" : formatCurrency(plan.priceVnd)}</p>
+                    <button 
+                      onClick={() => handleChoosePlan(plan)} 
+                      className={btnPrimary}
+                    >
+                      {isContactPlan(plan) ? (
+                        <>
+                          <AppIcon icon={Clock3} className="h-4 w-4" />
+                          Liên hệ tư vấn
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart className="h-4 w-4" />
+                          Chọn gói
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+            
+            {!isLoadingPlans && sortedPlans.length > 5 && (
+              <div className="flex justify-center pt-6">
+                <button onClick={() => setIsExpanded(!isExpanded)} className={btnSecondary}>
+                  <AppIcon icon={isExpanded ? ChevronUp : ChevronDown} className="h-4 w-4" />
+                  {isExpanded ? "Thu gọn danh sách" : `Xem thêm ${sortedPlans.length - 5} gói`}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <aside className="space-y-6">
+          <div className="rounded-3xl border border-emerald-100 bg-emerald-50/30 p-6 ring-1 ring-emerald-100/50">
+            <div className="flex items-center gap-2 mb-4">
+              <AppIcon icon={Sparkles} className="h-5 w-5 text-emerald-600" />
+              <h3 className="text-lg font-black text-slate-900">Gợi ý chuyên gia</h3>
+            </div>
+            <p className="text-sm font-medium text-slate-500 leading-6">
+              Dòng AI <b>{selectedFamily === null ? "Đa dạng" : selectedFamily}</b> đang có các gói cân bằng nhất, phù hợp cho đa số nhu cầu sử dụng cá nhân và doanh nghiệp nhỏ.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <AppIcon icon={KeyRound} className="h-5 w-5 text-slate-400" />
+              <h3 className="text-lg font-black text-slate-900">Gói theo cấp</h3>
+            </div>
+            <div className="space-y-4 text-xs font-bold text-slate-500 leading-5">
+              <p>• <b>Trial:</b> Trải nghiệm tính năng</p>
+              <p>• <b>Mini/Plus:</b> Dùng cá nhân</p>
+              <p>• <b>Pro/Max:</b> Tần suất cao</p>
+              <p>• <b>Enterprise:</b> Quy mô lớn</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Confirmation Modal */}
+      {isConfirmBuyOpen && selectedPlanToBuy && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[32px] bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <AppIcon icon={ShoppingCart} className="h-4 w-4" />
+              </div>
+              <h2 className="text-xl font-black text-slate-950 tracking-tight">
+                Xác nhận mua gói
+              </h2>
             </div>
 
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <p className="text-sm font-medium leading-6 text-slate-500">
+              Sau khi xác nhận, hệ thống sẽ tạo đơn hàng chờ thanh toán.
+            </p>
+
+            <div className="mt-6 space-y-3.5 rounded-3xl bg-slate-50 p-6 ring-1 ring-slate-100">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Gói</span>
+                <span className="text-sm font-black text-slate-900">
+                  {selectedPlanToBuy.name}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Dòng AI</span>
+                <span className="text-sm font-black text-slate-900">
+                  {getFamilyLabel(selectedPlanToBuy.apiFamily)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Credits</span>
+                <span className="text-sm font-black text-emerald-600">
+                  {formatCreditAmount(selectedPlanToBuy.credits)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Thời hạn</span>
+                <span className="text-sm font-black text-slate-900">
+                  {selectedPlanToBuy.durationDays} ngày
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">API key</span>
+                <span className="text-sm font-black text-slate-900">
+                  {selectedPlanToBuy.apiKeyLimit} key
+                </span>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4">
+                <span className="text-sm font-black text-slate-600">Giá thanh toán</span>
+                <span className="text-2xl font-black text-emerald-600">
+                  {formatCurrency(selectedPlanToBuy.priceVnd)}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-8 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setSelectedPlan(null)}
-                className={`flex items-center justify-center transition ${buttonStyles.secondary}`}
+                disabled={isCreatingOrder}
+                onClick={() => {
+                  setIsConfirmBuyOpen(false);
+                  setSelectedPlanToBuy(null);
+                }}
+                className="rounded-full border border-slate-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 Hủy
               </button>
 
-              {selectedPlan.price === "Liên hệ" ? (
-                <Link
-                  href="/settings"
-                  className={`flex items-center justify-center transition ${buttonStyles.primary}`}
-                >
-                  Liên hệ tư vấn
-                </Link>
-              ) : (
-                <Link
-                  href={`/billing?plan=${encodeURIComponent(
-                    selectedPlan.name,
-                  )}&credits=${encodeURIComponent(
-                    selectedPlan.credits,
-                  )}&duration=${encodeURIComponent(
-                    selectedPlan.duration,
-                  )}&price=${encodeURIComponent(
-                    selectedPlan.price,
-                  )}&apiKeyLimit=${selectedPlan.apiKeyLimit}`}
-                  className={`flex items-center justify-center transition ${buttonStyles.primary}`}
-                >
-                  Tiếp tục thanh toán
-                </Link>
-              )}
+              <button
+                type="button"
+                onClick={handleConfirmBuyPlan}
+                disabled={isCreatingOrder}
+                className="rounded-full bg-emerald-600 px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-900/10 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2"
+              >
+                {isCreatingOrder ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Đang tạo...
+                  </>
+                ) : (
+                  "Xác nhận mua"
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
-    </>
+
+      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
+    </div>
+  );
+}
+
+export default function PlansPage() {
+  return (
+    <Suspense fallback={<CardListSkeleton count={5} />}>
+      <PlansPageContent />
+    </Suspense>
   );
 }

@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ApiFamily {
+  CODEXAI
+  CLAUDE
+  GEMINI
+  DEEPSEEK
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  EXPIRED
+}
+
+enum ProviderStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum CreditLedgerType {
+  PURCHASE
+  USAGE
+  REFUND
+  ADJUSTMENT
+  EXPIRE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String?
+  role         UserRole @default(USER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  apiKeys       ApiKey[]
+  orders        Order[]
+  creditBuckets CreditBucket[]
+  usageLogs     UsageLog[]
+  ledgers       CreditLedger[]
+}
+
+model Product {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  apiFamily ApiFamily
+
+  tier         String @default("Mini")
+  credits      BigInt
+  durationDays Int
+  priceVnd     Int
+  apiKeyLimit  Int    @default(1)
+
+  allowedModels    String[]
+  allowedReasoning String[]
+
+  isPopular Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders        Order[]
+  creditBuckets CreditBucket[]
+
+  @@index([apiFamily])
+  @@index([tier])
+  @@index([isActive])
+}
+
+model Order {
+  id        String @id @default(cuid())
+  orderCode String @unique
+
+  userId    String
+  productId String
+
+  status    OrderStatus @default(PENDING)
+  amountVnd Int
+
+  paidAt      DateTime?
+  cancelledAt DateTime?
+  expiredAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CreditBucket {
+  id        String  @id @default(cuid())
+  userId    String
+  productId String?
+
+  apiFamily ApiFamily
+
+  creditsTotal     BigInt
+  creditsRemaining BigInt
+
+  apiKeyLimit Int @default(1)
+
+  allowedModels    String[]
+  allowedReasoning String[]
+
+  startsAt  DateTime @default(now())
+  expiresAt DateTime
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  apiKeys   ApiKey[]
+  usageLogs UsageLog[]
+  ledgers   CreditLedger[]
+
+  @@index([userId])
+  @@index([productId])
+  @@index([apiFamily])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model ApiKey {
+  id String @id @default(cuid())
+
+  userId         String
+  creditBucketId String?
+
+  name      String
+  apiFamily ApiFamily
+
+  keyHash   String @unique
+  keyPrefix String
+
+  isActive Boolean @default(true)
+
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditBucket CreditBucket? @relation(fields: [creditBucketId], references: [id])
+  usageLogs    UsageLog[]
+
+  @@index([userId])
+  @@index([creditBucketId])
+  @@index([apiFamily])
+  @@index([isActive])
+}
+
+model AiModel {
+  id           String    @id @default(cuid())
+  publicName   String    @unique
+  upstreamName String
+  apiFamily    ApiFamily
+
+  inputCreditMultiplier  Float @default(1)
+  outputCreditMultiplier Float @default(1)
+  cacheCreditMultiplier  Float @default(0)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProviderKey {
+  id        String    @id @default(cuid())
+  name      String
+  apiFamily ApiFamily
+
+  baseUrl      String
+  encryptedKey String
+
+  status   ProviderStatus @default(ACTIVE)
+  priority Int            @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UsageLog {
+  id String @id @default(cuid())
+
+  userId         String
+  apiKeyId       String?
+  creditBucketId String?
+
+  apiFamily ApiFamily
+  model     String
+  endpoint  String
+
+  inputTokens  Int @default(0)
+  outputTokens Int @default(0)
+  cachedTokens Int @default(0)
+  totalTokens  Int @default(0)
+
+  creditsCharged BigInt @default(0)
+
+  status       String
+  errorMessage String?
+
+  createdAt DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey       ApiKey?       @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  creditBucket CreditBucket? @relation(fields: [creditBucketId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([apiKeyId])
+  @@index([creditBucketId])
+  @@index([apiFamily])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CreditLedger {
+  id String @id @default(cuid())
+
+  userId         String
+  creditBucketId String?
+
+  apiFamily ApiFamily
+  type      CreditLedgerType
+
+  amount       BigInt
+  balanceAfter BigInt
+
+  reason      String?
+  referenceId String?
+
+  createdAt DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditBucket CreditBucket? @relation(fields: [creditBucketId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([creditBucketId])
+  @@index([apiFamily])
+  @@index([type])
+  @@index([createdAt])
+}

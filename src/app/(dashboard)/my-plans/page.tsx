@@ -1,609 +1,330 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
+import { ToastMessage } from "@/components/ui/toast-message";
+import { useToast } from "@/hooks/use-toast";
 import {
-  getPurchasedPlans,
-  getUsageLogs,
-  getApiKeys,
-  getUsedCreditsByFamily,
-  parseCreditAmount,
-  formatCredits,
-  getModelsForPlan,
-  getExpiryDate,
-  formatDateVi,
-  getApiKeyLimitForPlan,
-  type StoredPurchasedPlan,
-  type StoredUsageLog,
-  type StoredApiKey,
-} from "@/lib/mock-storage";
-import { buttonStyles } from "@/lib/ui-styles";
+  Package,
+  Zap,
+  History,
+  CheckCircle2,
+  KeyRound,
+  Clock3,
+  AlertCircle,
+  Cpu,
+  Plus
+} from "lucide-react";
+import { AppIcon } from "@/components/ui/icon";
+import Skeleton from "react-loading-skeleton";
+import { StatCardsSkeleton, CardListSkeleton } from "@/components/ui/page-skeleton";
+import DashboardSubNav from "@/components/dashboard/dashboard-sub-nav";
 
-type MyPlan = {
-  id?: string;
-  name: string;
-  family: string;
-  status: string;
-  credits?: string;
-  creditsTotal?: string;
-  creditsLeft?: string;
-  usedPercent?: number;
-  expiresAt?: string;
-  duration?: string;
-  paidAt?: string;
-  apiKeyLimit?: number;
-  amount?: string;
-  models?: string[];
-  usedCredits?: number;
-  remainingCredits?: number;
-  activeApiKeys?: number;
-};
+type ApiFamily = "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
 
-type MyPlanWithUsage = MyPlan & {
-  usedCredits: number;
-  remainingCredits: number;
-  usedPercent: number;
+type MyPlanItem = {
+  id: string;
+  apiFamily: ApiFamily;
+  creditsTotal: string;
+  creditsRemaining: string;
+  usedCredits: string;
   apiKeyLimit: number;
   activeApiKeys: number;
-  totalCreditsNum: number;
-  models: string[];
+  allowedModels: string[];
+  startsAt: string;
+  expiresAt: string;
+  isActive: boolean;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    tier: string;
+  } | null;
 };
 
-const activePlans: MyPlan[] = [
-  {
-    name: "CodexAI Plus",
-    family: "CodexAI",
-    status: "Đang hoạt động" as const,
-    creditsTotal: "1.000.000",
-    creditsLeft: "824.500",
-    usedPercent: 17.5,
-    expiresAt: "12/06/2026",
-    duration: "30 ngày",
-    paidAt: "2026-05-13", // Mock date
-  },
-  {
-    name: "Claude Mini",
-    family: "Claude",
-    status: "Sắp hết hạn" as const,
-    creditsTotal: "200.000",
-    creditsLeft: "12.400",
-    usedPercent: 93.8,
-    expiresAt: "15/05/2026",
-    duration: "30 ngày",
-    paidAt: "2026-04-15", // Mock date
-  },
-  {
-    name: "Gemini Trial",
-    family: "Gemini",
-    status: "Đang hoạt động" as const,
-    creditsTotal: "50.000",
-    creditsLeft: "42.000",
-    usedPercent: 16,
-    expiresAt: "28/05/2026",
-    duration: "14 ngày",
-    paidAt: "2026-05-14", // Mock date
-  },
-];
+function getFamilyLabel(apiFamily: ApiFamily) {
+  const familyMap: Record<ApiFamily, string> = {
+    CODEXAI: "CodexAI",
+    CLAUDE: "Claude",
+    GEMINI: "Gemini",
+    DEEPSEEK: "DeepSeek",
+  };
+  return familyMap[apiFamily];
+}
 
-const expiredPlans = [
-  {
-    name: "DeepSeek Trial",
-    family: "DeepSeek",
-    status: "Đã hết hạn",
-    creditsLeft: "0",
-    expiresAt: "01/05/2026",
-  },
-  {
-    name: "CodexAI Trial",
-    family: "CodexAI",
-    status: "Đã hết hạn",
-    creditsLeft: "0",
-    expiresAt: "25/04/2026",
-  },
-];
+function formatCredits(value: string | number) {
+  const num = typeof value === "string" ? Number(value) : value;
+  return new Intl.NumberFormat("vi-VN").format(num);
+}
+
+function getBucketStatus(remaining: string, expiresAt: string, isActive: boolean) {
+  const now = new Date();
+  const exp = new Date(expiresAt);
+  const rem = Number(remaining);
+
+  if (!isActive) return "REVOKED";
+  if (exp < now) return "EXPIRED";
+  if (rem <= 0) return "DEPLETED";
+  return "ACTIVE";
+}
 
 export default function MyPlansPage() {
-  const [purchasedPlans, setPurchasedPlans] = useState<StoredPurchasedPlan[]>(
-    [],
-  );
-  const [usageLogs, setUsageLogs] = useState<StoredUsageLog[]>([]);
-  const [apiKeys, setApiKeys] = useState<StoredApiKey[]>([]);
+  const [buckets, setBuckets] = useState<MyPlanItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [expandedModelBucketIds, setExpandedModelBucketIds] = useState<Set<string>>(new Set());
+  const { toast, showToast, clearToast } = useToast(3000);
 
-  useEffect(() => {
-    setPurchasedPlans(getPurchasedPlans());
-    setUsageLogs(getUsageLogs());
-    setApiKeys(getApiKeys());
-  }, []);
-
-  const usedCreditsByFamily = useMemo(() => {
-    return getUsedCreditsByFamily(usageLogs);
-  }, [usageLogs]);
-
-  const apiKeyCountByFamily = useMemo(() => {
-    return apiKeys.reduce<Record<string, number>>((acc, key) => {
-      if (key.status !== "Đang hoạt động") return acc;
-
-      acc[key.family] = (acc[key.family] ?? 0) + 1;
-
-      return acc;
-    }, {});
-  }, [apiKeys]);
-
-  const purchasedActivePlans = purchasedPlans.map((plan) => ({
-    name: plan.name,
-    family: plan.family,
-    status: "Đang hoạt động" as const,
-    creditsTotal: plan.credits,
-    creditsLeft: plan.credits,
-    usedPercent: 0,
-    expiresAt: "Theo thời hạn gói",
-    duration: plan.duration || "-",
-    paidAt: plan.paidAt || new Date().toISOString(),
-    models: getModelsForPlan(plan.name, plan.family),
-  }));
-
-  const displayedActivePlans = [
-    ...purchasedActivePlans,
-    ...activePlans.filter(
-      (samplePlan) =>
-        !purchasedActivePlans.some(
-          (purchasedPlan) => purchasedPlan.name === samplePlan.name,
-        ),
-    ),
-  ];
-
-  const plansWithRemainingCredits = useMemo<MyPlanWithUsage[]>(() => {
-    return (displayedActivePlans as MyPlan[]).map((plan) => {
-      const total = parseCreditAmount(plan.creditsTotal ?? plan.credits ?? "0");
-      const used = usedCreditsByFamily[plan.family] ?? 0;
-      const remaining = Math.max(total - used, 0);
-      const percent = total > 0 ? Math.min((used / total) * 100, 100) : 0;
-
-      const apiKeyLimit = plan.apiKeyLimit ?? getApiKeyLimitForPlan(plan.name);
-      const activeApiKeys = apiKeyCountByFamily[plan.family] ?? 0;
-
-      return {
-        ...plan,
-        models: getModelsForPlan(plan.name, plan.family),
-        expiresAt: formatDateVi(getExpiryDate(plan.paidAt, plan.duration)),
-        remainingCredits: remaining,
-        usedCredits: used,
-        totalCreditsNum: total,
-        creditsLeft: formatCredits(remaining),
-        usedPercent: percent,
-        apiKeyLimit,
-        activeApiKeys,
-      };
+  const toggleExpandModel = (id: string) => {
+    setExpandedModelBucketIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-  }, [displayedActivePlans, usedCreditsByFamily, apiKeyCountByFamily]);
+  };
 
-  const latestPurchasedPlan = purchasedPlans[0] ?? null;
-
-  const [showActivatedNotice, setShowActivatedNotice] = useState(false);
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/my-plans", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error?.message ?? "Lỗi tải dữ liệu.");
+      setBuckets(data.data ?? []);
+    } catch (error) {
+      showToast("Không thể tải dữ liệu gói.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [showToast]);
 
   useEffect(() => {
-    if (!latestPurchasedPlan) {
-      setShowActivatedNotice(false);
-      return;
-    }
+    loadData();
+  }, [loadData]);
 
-    const noticeKey = `tzoshop_seen_notice_${latestPurchasedPlan.id}`;
-    const hasSeen = window.sessionStorage.getItem(noticeKey);
+  const stats = useMemo(() => {
+    const activeBuckets = buckets.filter(b => b.isActive);
+    const totalRemaining = buckets.reduce((sum, b) => sum + Number(b.creditsRemaining), 0);
+    const totalUsed = buckets.reduce((sum, b) => sum + Number(b.usedCredits), 0);
+    const activeKeys = buckets.reduce((sum, b) => sum + b.activeApiKeys, 0);
 
-    if (hasSeen) {
-      setShowActivatedNotice(false);
-      return;
-    }
+    return { totalRemaining, totalUsed, activeCount: activeBuckets.length, activeKeys };
+  }, [buckets]);
 
-    setShowActivatedNotice(true);
-
-    const timer = window.setTimeout(() => {
-      setShowActivatedNotice(false);
-      window.sessionStorage.setItem(noticeKey, "true");
-    }, 4000);
-
-    return () => window.clearTimeout(timer);
-  }, [latestPurchasedPlan]);
-
-  const dynamicSummaryCards = [
-    {
-      label: "Tổng gói đang dùng",
-      value: String(plansWithRemainingCredits.length),
-      desc: "Gói còn hiệu lực",
-    },
-    {
-      label: "Tổng credits còn lại",
-      value: formatCredits(
-        plansWithRemainingCredits.reduce(
-          (sum, p) => sum + (p.remainingCredits ?? 0),
-          0,
-        ),
-      ),
-      desc: "Tính trên các gói còn hạn",
-    },
-    {
-      label: "Gói sắp hết hạn",
-      value: String(
-        plansWithRemainingCredits.filter((p) => p.status === "Sắp hết hạn")
-          .length,
-      ),
-      desc: "Nên kiểm tra để mua thêm",
-    },
-  ];
+  const btnPrimary = "rounded-full bg-emerald-600 text-white hover:bg-emerald-700 px-6 py-2.5 text-sm font-bold transition-all flex items-center justify-center gap-2";
 
   return (
-    <div>
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-5">
+    <div className="space-y-10 pb-20">
+      <DashboardSubNav 
+        items={[
+          { label: "Mua credits", href: "/plans" },
+          { label: "Gói của tôi", href: "/my-plans" },
+        ]} 
+      />
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+          <AppIcon icon={Package} className="h-6 w-6" />
+        </div>
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#057a60]">
-            Gói của tôi
-          </p>
-
-          <h1 className="mt-3 text-4xl font-bold tracking-[-1px] text-[#0b0f0d]">
-            Gói credits đang sử dụng
-          </h1>
-
-          <p className="mt-3 max-w-2xl text-base leading-7 text-[#66736d]">
-            Theo dõi các gói credits đã mua, số credits còn lại, thời hạn sử
-            dụng và dòng AI tương ứng trong tài khoản của bạn.
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">Gói của tôi</h1>
+          <p className="mt-1 text-slate-500 font-medium">
+            Theo dõi credits, thời hạn và quản lý các gói credits đã sở hữu.
           </p>
         </div>
-
-        <Link
-          href="/plans"
-          className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
-        >
-          Mua thêm credits
-        </Link>
       </div>
 
-      {latestPurchasedPlan && showActivatedNotice && (
-        <div className="mb-8 rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
-          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700">
-                Gói vừa kích hoạt
-              </p>
-
-              <h2 className="mt-2 text-xl font-bold text-[#0b0f0d]">
-                {latestPurchasedPlan.name}
-              </h2>
-
-              <p className="mt-2 text-sm leading-6 text-emerald-800">
-                {latestPurchasedPlan.credits} credits đã được cộng vào tài
-                khoản. Bạn có thể bắt đầu sử dụng gói này với API key hiện có
-                hoặc tạo API key mới.
-              </p>
+      {/* Stats Cards */}
+      {isLoading ? (
+        <StatCardsSkeleton />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Credits còn lại</p>
+              <AppIcon icon={Zap} className="h-4 w-4 text-emerald-600" />
             </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/dashboard"
-                className={`inline-flex items-center justify-center ${buttonStyles.secondary}`}
-              >
-                Về dashboard
-              </Link>
-
-              <Link
-                href="/api-keys"
-                className={`inline-flex items-center justify-center ${buttonStyles.primary}`}
-              >
-                Tạo API key
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (latestPurchasedPlan) {
-                    window.sessionStorage.setItem(
-                      `tzoshop_seen_notice_${latestPurchasedPlan.id}`,
-                      "true",
-                    );
-                  }
-                  setShowActivatedNotice(false);
-                }}
-                className={`inline-flex items-center justify-center ${buttonStyles.secondary}`}
-              >
-                Đóng
-              </button>
+            <p className="text-2xl sm:text-3xl font-black text-emerald-600">{formatCredits(stats.totalRemaining)}</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Credits đã dùng</p>
+              <AppIcon icon={History} className="h-4 w-4 text-slate-400" />
             </div>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900">{formatCredits(stats.totalUsed)}</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Gói hoạt động</p>
+              <AppIcon icon={CheckCircle2} className="h-4 w-4 text-emerald-600" />
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900">{stats.activeCount}</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">API Key đang dùng</p>
+              <AppIcon icon={KeyRound} className="h-4 w-4 text-slate-400" />
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900">{stats.activeKeys}</p>
           </div>
         </div>
       )}
 
-      <section className="grid gap-5 md:grid-cols-3">
-        {dynamicSummaryCards.map((item) => (
-          <div
-            key={item.label}
-            className="rounded-2xl border border-[#dfe5e1] bg-white p-6"
-          >
-            <p className="text-sm font-semibold text-[#66736d]">
-              {item.label}
-            </p>
-
-            <p className="mt-3 text-3xl font-bold tracking-[-0.8px] text-[#0b0f0d]">
-              {item.value}
-            </p>
-
-            <p className="mt-2 text-sm leading-6 text-[#66736d]">
-              {item.desc}
-            </p>
-          </div>
-        ))}
-      </section>
-
-      <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="space-y-5">
-          <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-[#0b0f0d]">
-                Gói đang hoạt động
-              </h2>
-
-              <p className="mt-1 text-sm text-[#66736d]">
-                Dữ liệu được cập nhật dựa trên lịch sử sử dụng thực tế.
-              </p>
-            </div>
-
-            <div className="space-y-5">
-              {plansWithRemainingCredits.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
-                    📦
-                  </div>
-
-                  <h2 className="mt-5 text-xl font-bold text-slate-950">
-                    Bạn chưa có gói credits nào
-                  </h2>
-
-                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-                    Sau khi mua và thanh toán thành công, gói credits của bạn sẽ
-                    xuất hiện tại đây. Bạn có thể theo dõi credits còn lại, thời
-                    hạn, model hỗ trợ và số API key được phép tạo.
-                  </p>
-
-                  <Link
-                    href="/plans"
-                    className={`mt-6 inline-flex items-center justify-center ${buttonStyles.primary}`}
-                  >
-                    Mua credits
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  {plansWithRemainingCredits.map((plan, index) => {
-                    const isWarning = plan.status === "Sắp hết hạn";
-                    const models = plan.models ?? [];
-                    const visibleModels = models.slice(0, 4);
-                    const hiddenModelCount = Math.max(models.length - 4, 0);
-
-                    return (
-                      <div
-                        key={`${plan.name}-${plan.family}-${index}`}
-                        className="rounded-2xl border border-[#edf1ee] bg-white p-5 transition hover:border-[#cfd8d3]"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-3">
-                              <h3 className="text-xl font-bold text-[#0b0f0d]">
-                                {plan.name}
-                              </h3>
-
-                              <span
-                                className={
-                                  isWarning
-                                    ? "rounded-full bg-[#fff7e6] px-3 py-1 text-xs font-bold text-[#a15c00]"
-                                    : "rounded-full bg-[#e9fbf6] px-3 py-1 text-xs font-bold text-[#057a60]"
-                                }
-                              >
-                                {plan.status}
-                              </span>
-                            </div>
-
-                            <p className="mt-2 text-sm font-semibold text-[#66736d]">
-                              Dòng credits: {plan.family}
-                            </p>
-                          </div>
-
-                          <Link
-                            href="/plans"
-                            className={`flex items-center justify-center ${buttonStyles.secondary}`}
-                          >
-                            Mua thêm
-                          </Link>
-                        </div>
-
-                        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                          <div className="rounded-2xl bg-[#f7f8f6] p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                              Credits còn lại
-                            </p>
-                            <p className="mt-1 text-2xl font-bold text-[#0b0f0d]">
-                              {formatCredits(plan.remainingCredits ?? 0)}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl bg-[#f7f8f6] p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                              Đã sử dụng
-                            </p>
-                            <p className="mt-1 text-xl font-bold text-[#47524d]">
-                              {formatCredits(plan.usedCredits ?? 0)}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl bg-[#f7f8f6] p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                              Tổng credits
-                            </p>
-                            <p className="mt-1 text-xl font-bold text-[#47524d]">
-                              {formatCredits(plan.totalCreditsNum ?? 0)}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl bg-[#f7f8f6] p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                              API keys
-                            </p>
-                            <p className="mt-1 text-xl font-bold text-[#47524d]">
-                              {plan.activeApiKeys ?? 0}/{plan.apiKeyLimit ?? 0}
-                            </p>
-
-                            {(plan.activeApiKeys ?? 0) >=
-                              (plan.apiKeyLimit ?? 0) && (
-                              <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-[#b42318]">
-                                Đã đạt giới hạn
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-5">
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-sm font-semibold text-[#0b0f0d]">
-                              Mức sử dụng
-                            </p>
-
-                            <p className="text-sm font-bold text-[#057a60]">
-                              {(plan.usedPercent ?? 0).toFixed(1)}%
-                            </p>
-                          </div>
-
-                          <div className="h-3 overflow-hidden rounded-full bg-[#edf1ee]">
-                            <div
-                              className={
-                                isWarning
-                                  ? "h-full rounded-full bg-[#f59e0b]"
-                                  : "h-full rounded-full bg-[#00d4a4]"
-                              }
-                              style={{ width: `${plan.usedPercent ?? 0}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="mt-5 grid gap-4 md:grid-cols-2">
-                          <div>
-                            <p className="mb-3 text-sm font-semibold text-[#0b0f0d]">
-                              Model hỗ trợ
-                            </p>
-
-                            <div className="flex flex-wrap gap-2">
-                              {visibleModels.map((model) => (
-                                <span
-                                  key={model}
-                                  className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 font-mono text-xs text-[#47524d]"
-                                >
-                                  {model}
-                                </span>
-                              ))}
-
-                              {hiddenModelCount > 0 && (
-                                <span className="rounded-full border border-[#dfe5e1] bg-[#f7f8f6] px-3 py-1 text-xs font-bold text-[#47524d]">
-                                  +{hiddenModelCount} model
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6a0]">
-                              Hết hạn vào
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-[#0b0f0d]">
-                              {plan.expiresAt}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-[#0b0f0d]">
-                Gói đã hết hạn
-              </h2>
-
-              <p className="mt-1 text-sm text-[#66736d]">
-                Các gói cũ được giữ lại để bạn dễ theo dõi lịch sử sử dụng.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {expiredPlans.map((plan) => (
-                <div
-                  key={plan.name}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#edf1ee] bg-[#f7f8f6] p-4"
-                >
-                  <div>
-                    <p className="font-bold text-[#0b0f0d]">{plan.name}</p>
-                    <p className="mt-1 text-sm text-[#66736d]">
-                      {plan.family} · Hết hạn ngày {plan.expiresAt}
-                    </p>
-                  </div>
-
-                  <span className="rounded-full bg-[#f1f2f1] px-3 py-1 text-xs font-bold text-[#66736d]">
-                    {plan.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* Buckets List */}
+      <section className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-black text-slate-900">Danh sách gói sở hữu</h2>
+          <Link href="/plans" className={btnPrimary + " w-full sm:w-auto"}>
+            <Plus className="h-4 w-4" />
+            Mua thêm credits
+          </Link>
         </div>
 
-        <aside className="space-y-5">
-          <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
-            <h2 className="text-xl font-bold text-[#0b0f0d]">
-              Gợi ý chọn gói
-            </h2>
-
-            <div className="mt-5 space-y-4">
-              {[
-                "Mới dùng thử nên bắt đầu bằng gói nhỏ để kiểm tra mức sử dụng thực tế.",
-                "Nếu dùng thường xuyên với extension, nên chọn gói có thời hạn dài hơn.",
-                "Nên mua riêng từng dòng credits theo đúng nhu cầu sử dụng.",
-                "Khi credits còn thấp, hãy mua thêm trước để tránh gián đoạn.",
-              ].map((note) => (
-                <div key={note} className="flex gap-3">
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#00d4a4]" />
-                  <p className="text-sm leading-6 text-[#47524d]">{note}</p>
-                </div>
-              ))}
+        {isLoading ? (
+          <CardListSkeleton count={2} />
+        ) : buckets.length === 0 ? (
+          <div className="rounded-[40px] border border-dashed border-slate-300 bg-slate-50/50 p-10 sm:p-20 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-400 mb-6">
+              <AppIcon icon={Package} className="h-8 w-8" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900">Bạn chưa sở hữu gói nào.</h3>
+            <p className="mt-2 text-slate-500 font-medium">Khám phá cửa hàng để chọn gói credits phù hợp ngay.</p>
+            <div className="mt-8 flex justify-center">
+              <Link href="/plans" className={btnPrimary + " w-full sm:w-auto"}>
+                <Plus className="h-4 w-4" />
+                Mua gói đầu tiên ngay
+              </Link>
             </div>
           </div>
+        ) : (
+          <div className="grid gap-6">
+            {buckets.map((bucket) => {
+              const status = getBucketStatus(bucket.creditsRemaining, bucket.expiresAt, bucket.isActive);
+              const remainingNum = Number(bucket.creditsRemaining);
+              const totalNum = Number(bucket.creditsTotal);
+              const progress = totalNum > 0 ? Math.round((remainingNum / totalNum) * 100) : 0;
 
-          <div className="rounded-2xl border border-[#dfe5e1] bg-[#0b0f0d] p-6 text-white">
-            <h2 className="text-xl font-bold">Cần thêm credits?</h2>
+              return (
+                <article
+                  key={bucket.id}
+                  className="group relative rounded-[32px] border border-slate-200 bg-white p-5 sm:p-8 shadow-sm transition-all hover:border-emerald-300 hover:shadow-xl hover:shadow-emerald-500/5"
+                >
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+                    <div className="flex-1 min-w-0 space-y-6">
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shrink-0">
+                          <AppIcon icon={Package} className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <h3 className="text-xl font-black text-slate-900 truncate">{bucket.product?.name ?? "Gói Tùy Chỉnh"}</h3>
+                            <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${status === "ACTIVE"
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                              }`}>
+                              <AppIcon icon={status === "ACTIVE" ? CheckCircle2 : AlertCircle} className="h-3.5 w-3.5" />
+                              {status === "ACTIVE" ? "Đang hoạt động" : status === "EXPIRED" ? "Hết hạn" : status === "DEPLETED" ? "Hết credits" : "Đã thu hồi"}
+                            </span>
+                          </div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{getFamilyLabel(bucket.apiFamily)}</p>
+                        </div>
+                      </div>
 
-            <p className="mt-3 text-sm leading-6 text-white/72">
-              Bạn có thể mua thêm gói cùng dòng credits hoặc chọn dòng khác nếu
-              nhu cầu sử dụng thay đổi.
-            </p>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="flex items-center gap-2 text-xs font-black text-slate-600 uppercase">
+                            <AppIcon icon={Zap} className="h-3.5 w-3.5" />
+                            Credits còn lại
+                          </p>
+                          <p className="text-sm font-black text-slate-900">{progress}%</p>
+                        </div>
+                        <div className="h-3 w-full rounded-full bg-slate-100 p-0.5 ring-1 ring-slate-200 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${progress > 20 ? "bg-emerald-500" : "bg-rose-500"}`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-sm font-black gap-2">
+                          <span className="text-emerald-600 truncate">{formatCredits(bucket.creditsRemaining)}</span>
+                          <span className="text-slate-300 truncate">/ {formatCredits(bucket.creditsTotal)}</span>
+                        </div>
+                      </div>
+                    </div>
 
-            <Link
-              href="/plans"
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
-            >
-              Xem bảng giá
-            </Link>
+                    <div className="grid shrink-0 gap-4 sm:grid-cols-2 lg:w-[400px] border-t border-slate-50 pt-6 lg:border-none lg:pt-0">
+                      <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AppIcon icon={KeyRound} className="h-3.5 w-3.5 text-slate-400" />
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">API Keys</p>
+                        </div>
+                        <p className="text-base font-black text-slate-900">{bucket.activeApiKeys} / {bucket.apiKeyLimit}</p>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AppIcon icon={Clock3} className="h-3.5 w-3.5 text-slate-400" />
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Hạn dùng</p>
+                        </div>
+                        <p className="text-base font-black text-slate-900">{new Date(bucket.expiresAt).toLocaleDateString("vi-VN")}</p>
+                      </div>
+                      <div className="col-span-full rounded-2xl bg-slate-50 p-4 sm:p-5 ring-1 ring-slate-100">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <AppIcon icon={Cpu} className="h-4 w-4 text-slate-500" />
+                            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Models được phép</p>
+                          </div>
+                        </div>
+
+                        {bucket.allowedModels && bucket.allowedModels.length > 0 ? (
+                          <div className="space-y-4">
+                            <div className="flex flex-wrap gap-2">
+                              {(expandedModelBucketIds.has(bucket.id)
+                                ? bucket.allowedModels
+                                : bucket.allowedModels.slice(0, 6)
+                              ).map((m) => (
+                                <span
+                                  key={m}
+                                  className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-slate-300"
+                                >
+                                  {m}
+                                </span>
+                              ))}
+                            </div>
+
+                            {bucket.allowedModels.length > 6 && (
+                              <button
+                                onClick={() => toggleExpandModel(bucket.id)}
+                                className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+                              >
+                                {expandedModelBucketIds.has(bucket.id) ? (
+                                  "Thu gọn"
+                                ) : (
+                                  `Xem tất cả ${bucket.allowedModels.length} model`
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs font-medium text-slate-500 italic">
+                            Chưa có model được cấu hình.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
-
-          <div className="rounded-2xl border border-[#dfe5e1] bg-white p-6">
-            <h2 className="text-xl font-bold text-[#0b0f0d]">
-              Lưu ý về credits
-            </h2>
-
-            <p className="mt-3 text-sm leading-6 text-[#66736d]">
-              Credits sẽ được trừ theo quá trình sử dụng. Khi gói hết hạn hoặc
-              credits về 0, bạn cần mua thêm gói mới để tiếp tục sử dụng.
-            </p>
-          </div>
-        </aside>
+        )}
       </section>
+
+      {/* Toast */}
+      {toast && (
+        <ToastMessage
+          message={toast.message}
+          type={toast.type}
+          onClose={clearToast}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,108 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { AlertTriangle, Info } from "lucide-react";
+
+type ConfirmToastType = "danger" | "warning" | "info";
+
+type ConfirmToastProps = {
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  type?: ConfirmToastType;
+  isLoading?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+
+const iconStyles: Record<ConfirmToastType, string> = {
+  danger: "bg-rose-50 text-rose-600 ring-rose-100",
+  warning: "bg-amber-50 text-amber-600 ring-amber-100",
+  info: "bg-sky-50 text-sky-600 ring-sky-100",
+};
+
+const confirmButtonStyles: Record<ConfirmToastType, string> = {
+  danger: "bg-rose-600 hover:bg-rose-700",
+  warning: "bg-amber-600 hover:bg-amber-700",
+  info: "bg-sky-600 hover:bg-sky-700",
+};
+
+const Icons: Record<ConfirmToastType, any> = {
+  danger: AlertTriangle,
+  warning: AlertTriangle,
+  info: Info,
+};
+
+export function ConfirmToast({
+  open,
+  title,
+  description,
+  confirmLabel = "Xác nhận",
+  cancelLabel = "Hủy",
+  type = "warning",
+  isLoading = false,
+  onConfirm,
+  onCancel,
+}: ConfirmToastProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!open || !mounted) return null;
+
+  const Icon = Icons[type];
+
+  const modal = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-start gap-4">
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-1 ${iconStyles[type]}`}>
+            <Icon className="h-6 w-6" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-slate-950">
+              {title}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {cancelLabel}
+          </button>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoading}
+            className={`inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${confirmButtonStyles[type]}`}
+          >
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                <span>Đang xử lý...</span>
+              </div>
+            ) : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+}

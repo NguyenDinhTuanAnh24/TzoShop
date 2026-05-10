@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "react-loading-skeleton/dist/skeleton.css";
+import { SkeletonTheme } from "react-loading-skeleton";
+
+import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
   title: "TzoShop",
@@ -19,7 +23,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <body>{children}</body>
+      <body>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
     </html>
   );
 }
