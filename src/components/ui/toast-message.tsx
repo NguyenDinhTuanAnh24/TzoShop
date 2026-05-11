@@ -1,4 +1,6 @@
 "use client";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
@@ -34,10 +36,17 @@ export function ToastMessage({
   type = "success",
   onClose,
 }: ToastMessageProps) {
-  if (!message) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
-    <div className="fixed right-6 top-24 z-[9999] w-[calc(100%-3rem)] max-w-md animate-in fade-in slide-in-from-top-3 duration-200">
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!message || !mounted) return null;
+
+  const toast = (
+    <div className="fixed right-6 top-24 z-[10000] w-[calc(100%-3rem)] max-w-md animate-in fade-in slide-in-from-top-3 duration-200">
       <div
         className={`flex items-start gap-3 rounded-2xl border px-5 py-4 text-sm font-bold shadow-xl shadow-slate-900/10 ${toastStyles[type]}`}
       >
@@ -62,4 +71,6 @@ export function ToastMessage({
       </div>
     </div>
   );
+
+  return createPortal(toast, document.body);
 }

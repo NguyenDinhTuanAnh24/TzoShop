@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireAdminUser } from "@/lib/server/current-user";
 import { encryptText, decryptText } from "@/lib/crypto";
 
 export const runtime = "nodejs";
@@ -13,11 +13,7 @@ function maskKey(key: string | null | undefined) {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
-    }
+    const user = await requireAdminUser();
 
     const setting = await prisma.paymentProviderSetting.findUnique({
       where: { provider: "PAYOS" },
@@ -49,6 +45,14 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/admin/payment-settings/payos failed:", error);
     return NextResponse.json({ error: { message: "Lỗi hệ thống." } }, { status: 500 });
   }
@@ -56,11 +60,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
-    }
+    const user = await requireAdminUser();
 
     const body = await request.json();
     const { clientId, apiKey, checksumKey, environment, isActive } = body;
@@ -117,6 +117,14 @@ export async function PATCH(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("PATCH /api/admin/payment-settings/payos failed:", error);
     return NextResponse.json({ error: { message: "Lỗi hệ thống." } }, { status: 500 });
   }

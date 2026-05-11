@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TicketPriority } from "@prisma/client";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireCurrentUser, getCurrentUser } from "@/lib/server/current-user";
 import { sendEmail } from "@/lib/server/email";
 import { createSupportTicketEmail } from "@/lib/server/email-templates/support-ticket-email";
 
@@ -15,14 +15,7 @@ const PRIORITY_MAP: Record<string, TicketPriority> = {
 
 export async function GET() {
   try {
-    const user = await getServerUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Vui lòng đăng nhập để xem yêu cầu hỗ trợ." },
-        { status: 401 }
-      );
-    }
+    const user = await requireCurrentUser();
 
     const tickets = await prisma.supportTicket.findMany({
       where: { userId: user.id },
@@ -34,6 +27,14 @@ export async function GET() {
       data: tickets,
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/support failed:", error);
     return NextResponse.json(
       { success: false, message: "Không thể tải danh sách hỗ trợ." },
@@ -44,7 +45,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getServerUser();
+    const user = await getCurrentUser();
     const body = await request.json();
 
     const {
@@ -90,12 +91,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Tạo thông báo cho admin
+    const { createAdminNotification } = await import("@/lib/server/notifications");
+    await createAdminNotification({
+      type: "SUPPORT_CREATED",
+      title: "Ticket hỗ trợ mới",
+      message: `${ticket.email} vừa gửi yêu cầu hỗ trợ.`,
+      href: "/admin/support"
+    });
+
     // Send confirmation email
     try {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3004";
       await sendEmail({
         to: email,
-        subject: `[TzoShop] Xác nhận yêu cầu hỗ trợ #${ticket.id.slice(-6).toUpperCase()}`,
+        subject: `TzoShop đã nhận yêu cầu hỗ trợ`,
         html: createSupportTicketEmail({
           name,
           ticketCode: ticket.id.slice(-6).toUpperCase(),
@@ -114,6 +124,14 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("POST /api/support failed:", error);
     return NextResponse.json(
       { success: false, message: "Có lỗi xảy ra khi gửi yêu cầu hỗ trợ." },

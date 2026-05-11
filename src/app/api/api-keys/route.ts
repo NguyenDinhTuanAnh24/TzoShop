@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 
 import { prisma } from "@/lib/prisma";
 import { encryptText, decryptText } from "@/lib/crypto";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireCurrentUser } from "@/lib/server/current-user";
 
 export const runtime = "nodejs";
 
@@ -16,16 +16,19 @@ function getKeyPrefix(apiKey: string) {
   return `${apiKey.slice(0, 12)}...${apiKey.slice(-6)}`;
 }
 
+function getFamilyLabel(apiFamily: string) {
+  const familyMap: Record<string, string> = {
+    CODEXAI: "CodexAI",
+    CLAUDE: "Claude",
+    GEMINI: "Gemini",
+    DEEPSEEK: "DeepSeek",
+  };
+  return familyMap[apiFamily] || apiFamily;
+}
+
 export async function GET() {
   try {
-    const user = await getServerUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: { message: "Vui lòng đăng nhập để tiếp tục." } },
-        { status: 401 }
-      );
-    }
+    const user = await requireCurrentUser();
 
     const apiKeys = await prisma.apiKey.findMany({
       where: {
@@ -61,12 +64,13 @@ export async function GET() {
     type ApiKeyItem = (typeof apiKeys)[number];
 
     const data = apiKeys.map((apiKey: ApiKeyItem) => {
+      let key = null;
       let maskedKey = apiKey.keyPrefix;
 
       if (apiKey.encryptedKey) {
         try {
-          const fullKey = decryptText(apiKey.encryptedKey);
-          maskedKey = `${fullKey.slice(0, 12)}••••••••••••••••••••${fullKey.slice(-6)}`;
+          key = decryptText(apiKey.encryptedKey);
+          maskedKey = `${key.slice(0, 12)}...${key.slice(-6)}`;
         } catch {
           maskedKey = apiKey.keyPrefix;
         }
@@ -77,6 +81,7 @@ export async function GET() {
         name: apiKey.name,
         apiFamily: apiKey.apiFamily,
         keyPrefix: apiKey.keyPrefix,
+        key,
         maskedKey,
         isActive: apiKey.isActive,
         lastUsedAt: apiKey.lastUsedAt,
@@ -85,10 +90,10 @@ export async function GET() {
         updatedAt: apiKey.updatedAt,
         creditBucket: apiKey.creditBucket
           ? {
-              ...apiKey.creditBucket,
+              id: apiKey.creditBucket.id,
+              productName: apiKey.creditBucket.product?.name ?? getFamilyLabel(apiKey.apiFamily),
               creditsTotal: apiKey.creditBucket.creditsTotal.toString(),
-              creditsRemaining:
-                apiKey.creditBucket.creditsRemaining.toString(),
+              creditsRemaining: apiKey.creditBucket.creditsRemaining.toString(),
             }
           : null,
       };
@@ -98,6 +103,14 @@ export async function GET() {
       data,
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/api-keys failed:", error);
 
     return NextResponse.json(
@@ -115,14 +128,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getServerUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: { message: "Vui lòng đăng nhập để tiếp tục." } },
-        { status: 401 }
-      );
-    }
+    const user = await requireCurrentUser();
 
     const body = await request.json();
 
@@ -204,9 +210,8 @@ export async function POST(request: NextRequest) {
     }
 
     const fullKey = createApiKeyValue();
-    const keyHash = await bcrypt.hash(fullKey, 10);
+    const keyHash = require("crypto").createHash("sha256").update(fullKey).digest("hex");
     const keyPrefix = getKeyPrefix(fullKey);
-    const encryptedKey = encryptText(fullKey);
 
     const apiKey = await prisma.apiKey.create({
       data: {
@@ -216,10 +221,24 @@ export async function POST(request: NextRequest) {
         apiFamily: creditBucket.apiFamily,
         keyHash,
         keyPrefix,
-        encryptedKey,
+        encryptedKey: encryptText(fullKey),
         isActive: true,
       },
     });
+
+    // Thông báo cho user
+    try {
+      const { createNotification } = await import("@/lib/server/notifications");
+      await createNotification({
+        userId: user.id,
+        type: "API_KEY_CREATED",
+        title: "API key đã được tạo",
+        message: "Bạn có thể xem, ẩn/hiện và sao chép API key trong trang API.",
+        href: "/api-keys"
+      });
+    } catch (e) {
+      console.error("API Key notification failed:", e);
+    }
 
     return NextResponse.json(
       {
@@ -251,6 +270,14 @@ export async function POST(request: NextRequest) {
       },
     );
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("POST /api/api-keys failed:", error);
 
     return NextResponse.json(

@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireAdminUser } from "@/lib/server/current-user";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: { message: "Không có quyền truy cập." } },
-        { status: 403 }
-      );
-    }
+    await requireAdminUser();
 
     const models = await prisma.aiModel.findMany({
+      include: {
+        provider: {
+          select: {
+            name: true
+          }
+        }
+      },
       orderBy: {
         publicName: "asc",
       }
@@ -27,6 +27,14 @@ export async function GET() {
     });
 
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/admin/models failed:", error);
     return NextResponse.json(
       { success: false, message: "Lỗi hệ thống khi tải danh sách models." },
@@ -37,27 +45,43 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: { message: "Không có quyền truy cập." } },
-        { status: 403 }
-      );
-    }
+    await requireAdminUser();
 
     const body = await request.json();
-    const { publicName, upstreamName, apiFamily, inputCreditMultiplier, outputCreditMultiplier, isActive } = body;
+    const { publicName, upstreamModel, apiFamily, providerId, inputCreditRate, outputCreditRate, isActive } = body;
+
+    const existingModel = await prisma.aiModel.findUnique({
+      where: { publicName }
+    });
+
+    if (existingModel) {
+      return NextResponse.json(
+        { success: false, message: "Tên publicName đã tồn tại." },
+        { status: 400 }
+      );
+    }
 
     const newModel = await prisma.aiModel.create({
       data: {
         publicName,
-        upstreamName,
+        upstreamModel,
         apiFamily,
-        inputCreditMultiplier: parseFloat(inputCreditMultiplier),
-        outputCreditMultiplier: parseFloat(outputCreditMultiplier),
+        providerId,
+        inputCreditRate: Number(inputCreditRate) || 1,
+        outputCreditRate: Number(outputCreditRate) || 1,
         isActive: isActive ?? true,
+      },
+      include: {
+        provider: { select: { name: true } }
       }
+    });
+
+    const { createAuditLog } = await import("@/lib/server/audit-log");
+    await createAuditLog({
+      action: "ADMIN_CREATE_MODEL",
+      entityType: "MODEL",
+      entityId: newModel.id,
+      metadata: { publicName: newModel.publicName, apiFamily: newModel.apiFamily }
     });
 
     return NextResponse.json({
@@ -66,45 +90,17 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("POST /api/admin/models failed:", error);
     return NextResponse.json(
       { success: false, message: "Lỗi hệ thống khi tạo model." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(request: NextRequest) {
-  try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: { message: "Không có quyền truy cập." } },
-        { status: 403 }
-      );
-    }
-
-    const body = await request.json();
-    const { id, ...data } = body;
-
-    if (data.inputCreditMultiplier) data.inputCreditMultiplier = parseFloat(data.inputCreditMultiplier);
-    if (data.outputCreditMultiplier) data.outputCreditMultiplier = parseFloat(data.outputCreditMultiplier);
-
-    const updatedModel = await prisma.aiModel.update({
-      where: { id },
-      data,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: updatedModel
-    });
-
-  } catch (error) {
-    console.error("PATCH /api/admin/models failed:", error);
-    return NextResponse.json(
-      { success: false, message: "Lỗi hệ thống khi cập nhật model." },
       { status: 500 }
     );
   }

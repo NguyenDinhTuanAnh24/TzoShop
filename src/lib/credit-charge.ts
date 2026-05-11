@@ -17,18 +17,12 @@ export async function calculateChargedCredits(params: {
     throw new Error("Model không tồn tại hoặc chưa được hỗ trợ.");
   }
 
-  const cachedTokens = params.cachedTokens ?? 0;
+  // Rate is credits per 1,000 tokens
+  const inputCredits = (params.inputTokens / 1000) * Number(model.inputCreditRate);
+  const outputCredits = (params.outputTokens / 1000) * Number(model.outputCreditRate);
 
-  const inputCredits =
-    (params.inputTokens / 1000) * model.inputCreditMultiplier;
-
-  const outputCredits =
-    (params.outputTokens / 1000) * model.outputCreditMultiplier;
-
-  const cachedCredits =
-    (cachedTokens / 1000) * model.cacheCreditMultiplier;
-
-  const chargedCredits = Math.ceil(inputCredits + outputCredits + cachedCredits);
+  // We don't have cache rate in the new schema yet, but if we did, it would go here
+  const chargedCredits = Math.ceil(inputCredits + outputCredits);
 
   return {
     model,

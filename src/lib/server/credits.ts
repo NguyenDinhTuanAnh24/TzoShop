@@ -1,0 +1,161 @@
+import { prisma } from "@/lib/prisma";
+import { Prisma, ApiFamily } from "@prisma/client";
+
+/**
+ * Tính toán số credits tiêu thụ dựa trên số lượng token và đơn giá (rate)
+ * Rate mặc định là tính trên 1.000 tokens.
+ */
+export function calculateCreditsUsed(params: {
+  promptTokens: number;
+  completionTokens: number;
+  inputRate: number;
+  outputRate: number;
+}) {
+  const inputCredits = (params.promptTokens / 1000) * params.inputRate;
+  const outputCredits = (params.completionTokens / 1000) * params.outputRate;
+  
+  // Làm tròn lên và tối thiểu là 1 credit nếu có sử dụng
+  const chargedCredits = Math.ceil(inputCredits + outputCredits);
+  return Math.max(chargedCredits, (params.promptTokens + params.completionTokens > 0) ? 1 : 0);
+}
+
+type ConsumeCreditsParams = {
+  userId: string;
+  apiKeyId: string;
+  creditBucketId: string;
+  creditsUsed: number;
+  usageData: {
+    model: string;
+    apiFamily: ApiFamily;
+    endpoint: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    httpStatus?: number;
+  };
+};
+
+/**
+ * Thực hiện trừ credits trong transaction, ghi UsageLog và CreditLedger.
+ * Đảm bảo số dư không bị âm.
+ */
+export async function consumeCredits(params: ConsumeCreditsParams) {
+  const { userId, apiKeyId, creditBucketId, creditsUsed, usageData } = params;
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Kiểm tra và cập nhật số dư (Atomic update với điều kiện gte)
+      const updatedBucket = await tx.creditBucket.update({
+        where: { 
+          id: creditBucketId,
+          creditsRemaining: { gte: BigInt(creditsUsed) }
+        },
+        data: { 
+          creditsRemaining: { decrement: BigInt(creditsUsed) } 
+        },
+      });
+
+      // 2. Ghi Usage Log (SUCCESS)
+      const usageLog = await tx.usageLog.create({
+        data: {
+          userId,
+          apiKeyId,
+          creditBucketId,
+          apiFamily: usageData.apiFamily,
+          model: usageData.model,
+          endpoint: usageData.endpoint,
+          inputTokens: usageData.inputTokens,
+          outputTokens: usageData.outputTokens,
+          totalTokens: usageData.totalTokens,
+          creditsCharged: BigInt(creditsUsed),
+          creditsUsed: creditsUsed,
+          status: "SUCCESS",
+          httpStatus: usageData.httpStatus || 200,
+        },
+      });
+
+      // 3. Ghi Credit Ledger
+      await tx.creditLedger.create({
+        data: {
+          userId,
+          creditBucketId,
+          apiFamily: usageData.apiFamily,
+          type: "USAGE",
+          amount: BigInt(-creditsUsed),
+          balanceAfter: updatedBucket.creditsRemaining,
+          reason: `API Usage: ${usageData.model}`,
+          referenceId: usageLog.id,
+        },
+      });
+
+      // 4. Cập nhật lastUsedAt cho API Key
+      await tx.apiKey.update({
+        where: { id: apiKeyId },
+        data: { lastUsedAt: new Date() },
+      });
+
+      // 5. Kiểm tra cảnh báo số dư thấp (Dưới 10% tổng credits)
+      let shouldAlertLowCredits = false;
+      if (!updatedBucket.lowCreditsAlertSent && updatedBucket.creditsRemaining > BigInt(0)) {
+        const threshold = updatedBucket.creditsTotal / BigInt(10); // 10%
+        if (updatedBucket.creditsRemaining <= threshold) {
+          shouldAlertLowCredits = true;
+          // Đánh dấu đã gửi cảnh báo để không gửi lại
+          await tx.creditBucket.update({
+            where: { id: updatedBucket.id },
+            data: { lowCreditsAlertSent: true },
+          });
+        }
+      }
+
+      return { 
+        success: true, 
+        remaining: updatedBucket.creditsRemaining,
+        shouldAlertLowCredits,
+        bucketId: updatedBucket.id
+      };
+    });
+
+    // 6. Gửi email cảnh báo số dư thấp (ngoài transaction)
+    if (result.shouldAlertLowCredits) {
+      (async () => {
+        try {
+          const bucket = await prisma.creditBucket.findUnique({
+            where: { id: result.bucketId },
+            include: { 
+              user: true,
+              product: true 
+            }
+          });
+          
+          if (bucket?.user?.email) {
+            const { sendEmail } = await import("@/lib/server/email");
+            const { createLowCreditsEmail } = await import("@/lib/server/email-templates/low-credits-email");
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3004";
+
+            await sendEmail({
+              to: bucket.user.email,
+              subject: "Số dư credits thấp - TzoShop",
+              html: createLowCreditsEmail({
+                name: bucket.user.name,
+                productName: bucket.product?.name || "Gói dịch vụ AI",
+                creditsRemaining: new Intl.NumberFormat("vi-VN").format(Number(bucket.creditsRemaining)),
+                rechargeUrl: `${appUrl}/billing`
+              })
+            });
+          }
+        } catch (err) {
+          console.error("[Credits] Failed to send low credits alert:", err);
+        }
+      })();
+    }
+
+    return result;
+  } catch (error) {
+    // Nếu lỗi do RecordNotFound (không thỏa mãn where gte), nghĩa là không đủ tiền
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      throw new Error("INSUFFICIENT_CREDITS");
+    }
+    throw error;
+  }
+}

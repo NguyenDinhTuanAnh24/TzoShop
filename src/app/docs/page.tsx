@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 
@@ -303,6 +304,15 @@ export default function DocsPage() {
               </p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-10 text-center">
+          <Link 
+            href="/faq" 
+            className="inline-flex items-center gap-2 text-sm font-bold text-[#00d4a4] hover:underline"
+          >
+            Xem tất cả câu hỏi thường gặp <ChevronRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
 

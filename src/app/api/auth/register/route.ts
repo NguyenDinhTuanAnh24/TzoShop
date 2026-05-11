@@ -48,6 +48,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Tạo thông báo cho admin
+    const { createAdminNotification } = await import("@/lib/server/notifications");
+    await createAdminNotification({
+      type: "USER_REGISTERED",
+      title: "Người dùng mới",
+      message: `${user.email} vừa tạo tài khoản.`,
+      href: "/admin/users"
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -57,6 +66,14 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("Register Error:", error);
     return NextResponse.json(
       { error: { message: "Đã có lỗi xảy ra trong quá trình đăng ký." } },

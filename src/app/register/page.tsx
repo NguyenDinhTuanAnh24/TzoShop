@@ -278,10 +278,9 @@ function RegisterForm() {
               <button
                 type="button"
                 onClick={() => {
-                  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-                  signIn("google", { callbackUrl });
+                  signIn("google", { callbackUrl: "/auth/redirect" });
                 }}
-                className="inline-flex w-full items-center justify-center gap-3 rounded-full border border-[#dfe5e1] !bg-white px-6 py-4 text-base font-bold !text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                className="inline-flex w-full items-center justify-center gap-3 rounded-full border border-[#dfe5e1] !bg-white px-6 py-4 text-base font-bold !text-[#0b0f0d] transition hover:bg-[#f7f8f6] active:scale-[0.98]"
               >
                 <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

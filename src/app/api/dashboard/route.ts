@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireCurrentUser } from "@/lib/server/current-user";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const user = await getServerUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: { message: "Vui lòng đăng nhập để tiếp tục." } },
-        { status: 401 }
-      );
-    }
+    const user = await requireCurrentUser();
 
     const [creditBuckets, apiKeys, usageLogs, orders, recentUsageLogs] =
       await Promise.all([
@@ -195,6 +188,14 @@ export async function GET() {
       },
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/dashboard failed:", error);
 
     return NextResponse.json(

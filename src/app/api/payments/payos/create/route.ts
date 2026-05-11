@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireCurrentUser } from "@/lib/server/current-user";
 import { getPayOSClient, getAppUrl } from "@/lib/server/payos";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getServerUser();
-    if (!user) {
-      return NextResponse.json({ error: "Vui lòng đăng nhập." }, { status: 401 });
-    }
+    const user = await requireCurrentUser();
 
     const body = await request.json();
     const { orderId } = body;

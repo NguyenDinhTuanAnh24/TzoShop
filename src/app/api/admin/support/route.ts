@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireAdminUser } from "@/lib/server/current-user";
 
 export const runtime = "nodejs";
 
 // Lấy danh sách support ticket
 export async function GET(request: NextRequest) {
   try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: { message: "Không có quyền truy cập." } },
-        { status: 403 }
-      );
-    }
+    const user = await requireAdminUser();
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status") || undefined;
@@ -44,6 +37,14 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/admin/support failed:", error);
     return NextResponse.json(
       { success: false, message: "Lỗi hệ thống khi tải ticket." },
@@ -55,14 +56,7 @@ export async function GET(request: NextRequest) {
 // Cập nhật trạng thái ticket
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: { message: "Không có quyền truy cập." } },
-        { status: 403 }
-      );
-    }
+    const user = await requireAdminUser();
 
     const body = await request.json();
     const { ticketId, status, adminNotes } = body;
@@ -81,7 +75,61 @@ export async function PATCH(request: NextRequest) {
     const updatedTicket = await prisma.supportTicket.update({
       where: { id: ticketId },
       data: updateData,
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+          }
+        }
+      }
     });
+
+    const { createAuditLog } = await import("@/lib/server/audit-log");
+    await createAuditLog({
+      action: "ADMIN_UPDATE_TICKET",
+      entityType: "SUPPORT_TICKET",
+      entityId: updatedTicket.id,
+      metadata: updateData
+    });
+
+    // 1. Gửi Email thông báo
+    try {
+      const { sendEmail } = await import("@/lib/server/email");
+      const { createSupportTicketUpdatedEmail } = await import("@/lib/server/email-templates/support-ticket-updated-email");
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3004";
+
+      await sendEmail({
+        to: updatedTicket.email, // Gửi tới email trong ticket (có thể khác email account)
+        subject: `Yêu cầu hỗ trợ đã được cập nhật - TzoShop`,
+        html: createSupportTicketUpdatedEmail({
+          name: updatedTicket.user?.name || updatedTicket.name,
+          ticketId: updatedTicket.id,
+          subject: updatedTicket.subject,
+          status: updatedTicket.status,
+          adminNote: updatedTicket.adminNotes,
+          supportUrl: `${appUrl}/support`
+        }),
+      });
+    } catch (emailError) {
+      console.error("Support update email failed:", emailError);
+    }
+
+    // 2. Thông báo In-app cho user nếu ticket có userId
+    if (updatedTicket.userId) {
+      try {
+        const { createNotification } = await import("@/lib/server/notifications");
+        await createNotification({
+          userId: updatedTicket.userId,
+          type: "SUPPORT_UPDATED",
+          title: "Yêu cầu hỗ trợ đã được cập nhật",
+          message: `TzoShop đã cập nhật trạng thái yêu cầu #${updatedTicket.id} của bạn.`,
+          href: "/support"
+        });
+      } catch (e) {
+        console.error("Support update notification failed:", e);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -89,6 +137,14 @@ export async function PATCH(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("PATCH /api/admin/support failed:", error);
     return NextResponse.json(
       { success: false, message: "Lỗi hệ thống khi cập nhật ticket." },

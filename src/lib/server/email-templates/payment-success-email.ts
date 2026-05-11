@@ -6,6 +6,7 @@ type PaymentSuccessEmailProps = {
   productName: string;
   amount: string;
   credits: string;
+  duration: string;
   dashboardUrl: string;
 };
 
@@ -15,12 +16,13 @@ export function createPaymentSuccessEmail({
   productName,
   amount,
   credits,
+  duration,
   dashboardUrl,
 }: PaymentSuccessEmailProps) {
   const displayName = name?.trim() || "bạn";
 
   return createBaseEmailTemplate({
-    title: "Thanh toán thành công",
+    title: "Thanh toán thành công - TzoShop",
     previewText: `Đơn hàng ${orderCode} đã được thanh toán thành công.`,
     children: `
       <div style="text-align:center;">
@@ -50,6 +52,10 @@ export function createPaymentSuccessEmail({
           <tr>
             <td style="padding:8px 0; font-size:14px; color:#64748b;">Credits</td>
             <td align="right" style="padding:8px 0; font-size:14px; font-weight:700; color:#059669;">${credits}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0; font-size:14px; color:#64748b;">Thời hạn</td>
+            <td align="right" style="padding:8px 0; font-size:14px; font-weight:700; color:#0f172a;">${duration}</td>
           </tr>
           <tr>
             <td style="padding:8px 0; font-size:14px; color:#64748b;">Số tiền</td>

@@ -52,7 +52,7 @@ export const authOptions: NextAuthOptions = {
       const providerAccountId = account.providerAccountId;
 
       // Chỉ chấp nhận email đã verified
-      const emailVerified = (profile as any)?.email_verified;
+      const emailVerified = (profile as Record<string, unknown>)?.email_verified;
       if (!googleEmail || emailVerified === false) {
         return "/login?error=GoogleEmailNotVerified";
       }
@@ -185,6 +185,7 @@ export const authOptions: NextAuthOptions = {
           ...session,
           user: undefined,
           expires: session.expires,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
       }
 
@@ -205,7 +206,8 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: 7 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60,
   },
 
   secret: process.env.NEXTAUTH_SECRET,

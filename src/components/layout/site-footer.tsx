@@ -7,6 +7,7 @@ const footerColumns = [
     links: [
       { label: "Bảng giá", href: "/pricing" },
       { label: "Hướng dẫn sử dụng", href: "/docs" },
+      { label: "Câu hỏi thường gặp", href: "/docs/faq" },
       { label: "API trực tiếp", href: "/docs/api" },
     ],
   },
@@ -24,7 +25,7 @@ const footerColumns = [
     links: [
       { label: "Câu hỏi thường gặp", href: "/faq" },
       { label: "Hướng dẫn sử dụng", href: "/docs" },
-      { label: "Chính sách", href: "/policy" },
+      { label: "Chính sách", href: "/policies" },
     ],
   },
 ];

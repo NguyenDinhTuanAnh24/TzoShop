@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireCurrentUser } from "@/lib/server/current-user";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const user = await getServerUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: { message: "Vui lòng đăng nhập để tiếp tục." } },
-        { status: 401 }
-      );
-    }
+    const user = await requireCurrentUser();
 
     const usageLogs = await prisma.usageLog.findMany({
       where: {
@@ -63,7 +56,10 @@ export async function GET() {
       totalTokens: log.totalTokens,
       creditsCharged: log.creditsCharged.toString(),
       status: log.status,
+      errorCode: log.errorCode,
       errorMessage: log.errorMessage,
+      httpStatus: log.httpStatus,
+      creditsUsed: log.creditsUsed,
       createdAt: log.createdAt,
       apiKey: log.apiKey,
       creditBucket: log.creditBucket
@@ -79,6 +75,14 @@ export async function GET() {
       data,
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/usage failed:", error);
 
     return NextResponse.json(

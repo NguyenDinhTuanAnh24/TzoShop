@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireCurrentUser } from "@/lib/server/current-user";
 import { completePaidOrder } from "@/lib/payment-helper";
 
 export const runtime = "nodejs";
@@ -17,14 +17,7 @@ type RouteContext = {
 export async function POST(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const user = await getServerUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: { message: "Vui lòng đăng nhập để tiếp tục." } },
-        { status: 401 }
-      );
-    }
+    const user = await requireCurrentUser();
 
     const order = await prisma.order.findUnique({
       where: {
@@ -90,6 +83,14 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       },
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("POST /api/orders/[id]/mock-pay failed:", error);
 
     return NextResponse.json(

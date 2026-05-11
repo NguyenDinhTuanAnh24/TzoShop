@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +33,7 @@ type ApiKeyItem = {
   apiFamily: ApiFamily;
   keyPrefix: string;
   maskedKey?: string;
+  key?: string | null;
   isActive: boolean;
   lastUsedAt: string | null;
   revokedAt: string | null;
@@ -39,17 +41,9 @@ type ApiKeyItem = {
   updatedAt?: string;
   creditBucket: {
     id: string;
-    apiFamily: ApiFamily;
-    apiKeyLimit: number;
+    productName: string;
     creditsTotal: string;
     creditsRemaining: string;
-    expiresAt: string;
-    product: {
-      id: string;
-      name: string;
-      slug: string;
-      tier: string;
-    } | null;
   } | null;
 };
 
@@ -98,8 +92,9 @@ export default function ApiKeysPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
 
+  const [newKeyData, setNewKeyData] = useState<{ id: string, fullKey: string, name: string } | null>(null);
   const [visibleKeyIds, setVisibleKeyIds] = useState<string[]>([]);
-  const [revealedKeys, setRevealedKeys] = useState<Record<string, string>>({});
+  const [mounted, setMounted] = useState(false);
 
   const { toast, showToast, clearToast } = useToast(3000);
   const {
@@ -134,7 +129,9 @@ export default function ApiKeysPage() {
   }, [showToast]);
 
   useEffect(() => {
+    setMounted(true);
     loadData();
+    return () => setMounted(false);
   }, [loadData]);
 
   const activePlans = useMemo(() => plans.filter(p => p.isActive), [plans]);
@@ -158,6 +155,11 @@ export default function ApiKeysPage() {
       if (!response.ok) throw new Error(data?.error?.message ?? "Lỗi tạo API key.");
 
       showToast("API key mới đã được tạo.", "success");
+      setNewKeyData({
+        id: data.data.id,
+        fullKey: data.data.fullKey,
+        name: data.data.name,
+      });
       setKeyName("");
       setSelectedCreditBucketId("");
       await loadData();
@@ -181,46 +183,28 @@ export default function ApiKeysPage() {
     }
   };
 
-  const handleReveal = async (id: string) => {
-    if (visibleKeyIds.includes(id)) {
-      setVisibleKeyIds(prev => prev.filter(kid => kid !== id));
+  const toggleVisibility = (id: string) => {
+    setVisibleKeyIds(prev => 
+      prev.includes(id) ? prev.filter(kid => kid !== id) : [...prev, id]
+    );
+  };
+
+  const handleCopy = async (id: string, textToCopy: string | null | undefined) => {
+    if (!textToCopy) {
+      showToast("Không thể copy full API key. Vui lòng tạo key mới.", "error");
       return;
     }
-
-    if (revealedKeys[id]) {
-      setVisibleKeyIds(prev => [...prev, id]);
-      return;
-    }
-
     try {
-      const res = await fetch(`/api/api-keys/${id}/reveal`, { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message ?? "Lỗi hiển thị API key.");
-
-      setRevealedKeys(prev => ({ ...prev, [id]: data.data.fullKey }));
-      setVisibleKeyIds(prev => [...prev, id]);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Không thể hiển thị API key này.", "error");
+      await navigator.clipboard.writeText(textToCopy);
+      showToast("Đã copy API key.", "success");
+    } catch {
+      showToast("Không thể copy API key.", "error");
     }
   };
 
-  const handleCopy = async (id: string) => {
-    let keyToCopy = revealedKeys[id];
-
-    if (!keyToCopy) {
-      try {
-        const res = await fetch(`/api/api-keys/${id}/reveal`, { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error?.message ?? "Lỗi lấy API key.");
-        keyToCopy = data.data.fullKey;
-        setRevealedKeys(prev => ({ ...prev, [id]: keyToCopy }));
-      } catch (error) {
-        showToast("Không thể copy API key này.", "error");
-        return;
-      }
-    }
-
-    await navigator.clipboard.writeText(keyToCopy);
+  const copyNewKey = async () => {
+    if (!newKeyData) return;
+    await navigator.clipboard.writeText(newKeyData.fullKey);
     showToast("Đã copy API key.", "success");
   };
 
@@ -372,7 +356,6 @@ export default function ApiKeysPage() {
           <div className="grid gap-4">
             {apiKeys.map((apiKey) => {
               const isVisible = visibleKeyIds.includes(apiKey.id);
-              const revealedValue = revealedKeys[apiKey.id];
 
               return (
                 <article
@@ -395,17 +378,41 @@ export default function ApiKeysPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 sm:px-5 sm:py-3.5 ring-1 ring-slate-100 max-w-full overflow-x-auto">
-                      <code className="font-mono text-sm font-black text-slate-700 tracking-tight whitespace-nowrap">
-                        {isVisible ? (revealedValue ?? apiKey.keyPrefix) : apiKey.maskedKey ?? apiKey.keyPrefix}
+                    <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 sm:px-5 sm:py-3 ring-1 ring-slate-100 max-w-full overflow-hidden">
+                      <code className="flex-1 font-mono text-sm font-black text-slate-700 tracking-tight truncate">
+                        {isVisible && apiKey.key ? apiKey.key : (apiKey.maskedKey ?? apiKey.keyPrefix)}
                       </code>
+                      
+                      {apiKey.isActive && (
+                        <div className="flex items-center gap-1">
+                          <button 
+                            type="button" 
+                            onClick={(e) => { e.preventDefault(); toggleVisibility(apiKey.id); }} 
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all disabled:opacity-30" 
+                            disabled={!apiKey.key}
+                            aria-label={isVisible ? "Ẩn API Key" : "Hiện API Key"}
+                            title={isVisible ? "Ẩn" : "Hiện"}
+                          >
+                            <AppIcon icon={isVisible ? EyeOff : Eye} className="h-4 w-4" />
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={(e) => { e.preventDefault(); handleCopy(apiKey.id, apiKey.key); }} 
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all" 
+                            aria-label="Sao chép API Key"
+                            title="Copy"
+                          >
+                            <AppIcon icon={Copy} className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-x-10 gap-y-3">
                       <div className="min-w-[140px]">
                         <p className="text-[13px] font-semibold text-slate-500">Gói:</p>
                         <p className="mt-1 text-sm font-semibold text-slate-900">
-                          {apiKey.creditBucket?.product?.name ?? "Gói đã xóa"}
+                          {apiKey.creditBucket?.productName ?? "Gói đã xóa"}
                         </p>
                       </div>
 
@@ -428,14 +435,6 @@ export default function ApiKeysPage() {
                     <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-slate-50 pt-5 lg:mt-0 lg:border-none lg:pt-0">
                       {apiKey.isActive && (
                         <>
-                          <button type="button" onClick={() => handleReveal(apiKey.id)} className={btnSecondary + " flex-1 sm:flex-none h-11"} title={isVisible ? "Ẩn" : "Hiện"}>
-                            <AppIcon icon={isVisible ? EyeOff : Eye} className="h-4 w-4" />
-                            {isVisible ? "Ẩn" : "Hiện"}
-                          </button>
-                          <button type="button" onClick={() => handleCopy(apiKey.id)} className={btnSecondary + " flex-1 sm:flex-none h-11"} title="Copy">
-                            <AppIcon icon={Copy} className="h-4 w-4" />
-                            Copy
-                          </button>
                           <button
                             type="button"
                             onClick={() => askConfirm({
@@ -462,6 +461,43 @@ export default function ApiKeysPage() {
           </div>
         )}
       </section>
+
+      {/* New Key Modal */}
+      {newKeyData && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-[2rem] bg-white p-6 sm:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-5">
+              <AppIcon icon={CheckCircle2} className="h-7 w-7" />
+            </div>
+            <h2 className="text-xl font-black text-slate-900 text-center mb-6">Tạo API key thành công</h2>
+            
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 mb-6 ring-1 ring-emerald-100">
+              <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-2 text-center">{newKeyData.name}</p>
+              <code className="block w-full text-center font-mono text-sm font-black text-emerald-900 tracking-tight break-all">
+                {newKeyData.fullKey}
+              </code>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={copyNewKey}
+                className={btnPrimary + " w-full h-12"}
+              >
+                <AppIcon icon={Copy} className="h-4 w-4" /> Sao chép API key
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewKeyData(null)}
+                className={btnSecondary + " w-full h-12"}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Toast & Confirm */}
       {toast && (

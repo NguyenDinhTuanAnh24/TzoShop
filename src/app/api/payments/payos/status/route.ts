@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const payosData = await (payos as any).paymentRequests.get(Number(order.payosOrderCode));
 
     // 5. Cập nhật DB dựa trên trạng thái từ PayOS
-    let currentStatus = payosData.status; // PAID, PENDING, CANCELLED, EXPIRED
+    const currentStatus = payosData.status; // PAID, PENDING, CANCELLED, EXPIRED
     let orderStatus: string = order.status;
 
     if (currentStatus === "PAID") {

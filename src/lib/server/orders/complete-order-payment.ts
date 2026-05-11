@@ -91,19 +91,34 @@ export async function completeOrderPayment(orderId: string) {
 
     await sendEmail({
       to: order.user.email,
-      subject: `[TzoShop] Thanh toán thành công đơn hàng #${order.orderCode}`,
+      subject: `Thanh toán thành công - TzoShop`,
       html: createPaymentSuccessEmail({
         name: order.user.name,
         orderCode: order.orderCode,
         productName: order.product.name,
         amount: amountStr,
         credits: creditsStr,
+        duration: `${order.product.durationDays} ngày`,
         dashboardUrl: `${appUrl}/my-plans`,
       }),
     });
   } catch (emailError) {
     console.error("[completeOrderPayment] Failed to send success email:", emailError);
     // Không throw error ở đây vì thanh toán đã xong trong DB
+  }
+
+  // 6. Gửi thông báo tới User
+  try {
+    const { createNotification } = await import("@/lib/server/notifications");
+    await createNotification({
+      userId: order.userId,
+      type: "PAYMENT_SUCCESS",
+      title: "Thanh toán thành công",
+      message: "Gói credits của bạn đã được kích hoạt.",
+      href: "/my-plans"
+    });
+  } catch (notifError) {
+    console.error("[completeOrderPayment] Failed to create notification:", notifError);
   }
 
   return result;

@@ -37,7 +37,10 @@ type UsageLogItem = {
   totalTokens: number;
   creditsCharged: string;
   status: "SUCCESS" | "FAILED";
+  errorCode: string | null;
   errorMessage: string | null;
+  httpStatus: number | null;
+  creditsUsed: number;
   createdAt: string;
   apiKey: {
     id: string;
@@ -274,13 +277,17 @@ export default function UsagePage() {
                           }`}>
                           <AppIcon icon={log.status === "SUCCESS" ? CheckCircle2 : XCircle} className="h-3.5 w-3.5" />
                           {log.status === "SUCCESS" ? "Thành công" : "Thất bại"}
+                          {log.httpStatus && <span className="opacity-50 ml-0.5">({log.httpStatus})</span>}
                         </span>
                       </div>
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tight line-clamp-1">
                         {new Date(log.createdAt).toLocaleString("vi-VN")} · {log.apiKey?.name ?? "API Key"} ({log.apiKey?.keyPrefix ?? "..."})
                       </p>
-                      {log.errorMessage && (
-                        <p className="text-xs font-bold text-rose-600 line-clamp-2">Lỗi: {log.errorMessage}</p>
+                      {(log.errorCode || log.errorMessage) && (
+                        <div className="flex flex-col gap-0.5">
+                          {log.errorCode && <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">{log.errorCode}</p>}
+                          {log.errorMessage && <p className="text-xs font-bold text-rose-600 line-clamp-2">{log.errorMessage}</p>}
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-6 justify-between border-t border-slate-50 pt-4 sm:pt-0 sm:border-none sm:text-right sm:justify-end">
@@ -290,7 +297,9 @@ export default function UsagePage() {
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Credits</p>
-                        <p className="text-lg font-black text-emerald-600">-{new Intl.NumberFormat("vi-VN").format(Number(log.creditsCharged))}</p>
+                        <p className={`text-lg font-black ${log.creditsUsed > 0 ? "text-emerald-600" : "text-slate-400"}`}>
+                          -{new Intl.NumberFormat("vi-VN").format(log.creditsUsed)}
+                        </p>
                       </div>
                     </div>
                   </article>

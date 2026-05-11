@@ -75,9 +75,42 @@ function LoginForm() {
       if (result?.error) {
         showToast(result.error, "error");
       } else {
+        let finalCallbackUrl = searchParams.get("callbackUrl");
+        
+        if (!finalCallbackUrl) {
+          // Fetch current session to get role
+          const sessionRes = await fetch("/api/auth/session");
+          const sessionData = await sessionRes.json();
+          const role = sessionData?.user?.role;
+          finalCallbackUrl = role === "ADMIN" ? "/admin" : "/dashboard";
+        } else {
+          // Validate callbackUrl based on role
+          const sessionRes = await fetch("/api/auth/session");
+          const sessionData = await sessionRes.json();
+          const role = sessionData?.user?.role;
+          
+          const isUserRoute = finalCallbackUrl.startsWith("/dashboard") || 
+                             finalCallbackUrl.startsWith("/plans") || 
+                             finalCallbackUrl.startsWith("/my-plans") || 
+                             finalCallbackUrl.startsWith("/settings") || 
+                             finalCallbackUrl.startsWith("/billing") ||
+                             finalCallbackUrl.startsWith("/api-keys") ||
+                             finalCallbackUrl.startsWith("/api-docs") ||
+                             finalCallbackUrl.startsWith("/docs/api") ||
+                             finalCallbackUrl.startsWith("/usage") ||
+                             finalCallbackUrl.startsWith("/support");
+          
+          const isAdminRoute = finalCallbackUrl.startsWith("/admin");
+
+          if (role === "ADMIN" && isUserRoute) {
+            finalCallbackUrl = "/admin";
+          } else if (role !== "ADMIN" && isAdminRoute) {
+            finalCallbackUrl = "/dashboard";
+          }
+        }
+        
         showToast("Đăng nhập thành công!", "success");
-        const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-        router.push(callbackUrl);
+        router.push(finalCallbackUrl);
         router.refresh();
       }
     } catch {
@@ -256,8 +289,8 @@ function LoginForm() {
 
               <button
                 type="button"
-                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-                className="inline-flex w-full items-center justify-center gap-3 rounded-full border border-[#dfe5e1] !bg-white px-6 py-4 text-base font-bold !text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
+                onClick={() => signIn("google", { callbackUrl: "/auth/redirect" })}
+                className="inline-flex w-full items-center justify-center gap-3 rounded-full border border-[#dfe5e1] !bg-white px-6 py-4 text-base font-bold !text-[#0b0f0d] transition hover:bg-[#f7f8f6] active:scale-[0.98]"
               >
                 <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

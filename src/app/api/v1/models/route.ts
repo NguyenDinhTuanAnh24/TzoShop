@@ -1,17 +1,30 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-import { MODEL_REGISTRY } from "@/lib/model-registry";
+export const runtime = "nodejs";
 
 export async function GET() {
-  return NextResponse.json({
-    object: "list",
-    data: MODEL_REGISTRY.map((model) => ({
-      id: model.id,
-      object: "model",
-      name: model.name,
-      family: model.family,
-      provider_model: model.providerModel,
-      description: model.description,
-    })),
-  });
+  try {
+    const activeModels = await prisma.aiModel.findMany({
+      where: { isActive: true },
+      include: { provider: true },
+      orderBy: { publicName: "asc" }
+    });
+
+    return NextResponse.json({
+      object: "list",
+      data: activeModels.map((model) => ({
+        id: model.publicName,
+        object: "model",
+        name: model.publicName,
+        family: model.apiFamily,
+        provider_model: model.upstreamModel,
+        provider: model.provider.name,
+        description: `TzoShop AI Model - ${model.publicName}`,
+      })),
+    });
+  } catch (error) {
+    console.error("GET /api/v1/models error:", error);
+    return NextResponse.json({ error: { message: "Internal Server Error" } }, { status: 500 });
+  }
 }

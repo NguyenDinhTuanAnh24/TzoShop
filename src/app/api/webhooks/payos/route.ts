@@ -40,6 +40,15 @@ export async function POST(request: NextRequest) {
     if (webhookData.code === "00") {
       await completeOrderPayment(order.id);
       console.log(`[Webhook] Đã xác nhận thanh toán cho đơn hàng ${order.orderCode}`);
+      
+      // Tạo thông báo cho admin
+      const { createAdminNotification } = await import("@/lib/server/notifications");
+      await createAdminNotification({
+        type: "ORDER_PAID",
+        title: "Thanh toán thành công",
+        message: `Đơn ${order.orderCode} đã được thanh toán.`,
+        href: "/admin/orders"
+      });
     } else {
       console.log(`[Webhook] Thanh toán đơn hàng ${order.orderCode} không thành công (Code: ${webhookData.code})`);
       // Cập nhật trạng thái nếu cần

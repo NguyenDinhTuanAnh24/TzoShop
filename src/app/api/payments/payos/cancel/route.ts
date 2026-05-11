@@ -73,11 +73,33 @@ export async function POST(request: Request) {
       },
     });
 
+    // Thông báo cho user
+    try {
+      const { createNotification } = await import("@/lib/server/notifications");
+      await createNotification({
+        userId: order.userId,
+        type: "ORDER_CANCELLED",
+        title: "Đơn hàng đã hủy",
+        message: "Đơn hàng chờ thanh toán đã được hủy.",
+        href: "/billing"
+      });
+    } catch (e) {
+      console.error("Order cancel notification failed:", e);
+    }
+
     return NextResponse.json({
       success: true,
       status: cancelledPayment.status ?? "CANCELLED",
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("PayOS Cancel Error:", error);
 
     return NextResponse.json(

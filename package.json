@@ -16,9 +16,10 @@
     "@payos/node": "^2.0.5",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@radix-ui/react-switch": "^1.2.6",
     "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "dotenv": "^17.4.2",
     "lucide-react": "^1.14.0",
     "nanoid": "^5.1.11",
     "next": "16.2.5",
@@ -29,6 +30,7 @@
     "react-dom": "19.2.4",
     "react-loading-skeleton": "^3.5.0",
     "resend": "^6.12.3",
+    "tailwind-merge": "^3.5.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -38,6 +40,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
     "prisma": "^7.8.0",

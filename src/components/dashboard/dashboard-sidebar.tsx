@@ -12,7 +12,8 @@ import {
   KeyRound, 
   CreditCard, 
   UserRound,
-  LogOut
+  LogOut,
+  ShieldCheck
 } from "lucide-react";
 import { AppIcon } from "@/components/ui/icon";
 

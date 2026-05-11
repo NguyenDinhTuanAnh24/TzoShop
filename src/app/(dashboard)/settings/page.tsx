@@ -21,7 +21,8 @@ import {
   Info,
   KeyRound,
   CheckCircle2,
-  Link as LinkIcon
+  Link as LinkIcon,
+  LockKeyhole
 } from "lucide-react";
 import { AppIcon } from "@/components/ui/icon";
 import DashboardSubNav from "@/components/dashboard/dashboard-sub-nav";
@@ -71,6 +72,12 @@ function SettingsContent() {
     googleLinked: false,
     googleEmail: null,
   });
+
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const { toast, showToast, clearToast } = useToast(4000);
   
   const {
@@ -97,6 +104,7 @@ function SettingsContent() {
     const googleLinked = searchParams.get("googleLinked");
     if (googleLinked === "success") {
       showToast("Đã liên kết Google thành công.", "success");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAuthMethods((prev) => ({ ...prev, googleLinked: true }));
       // Xóa query params khỏi URL
       window.history.replaceState({}, "", "/settings");
@@ -132,6 +140,46 @@ function SettingsContent() {
       showToast("Không thể lưu thay đổi.", "error");
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    
+    if (newPassword.length < 8) {
+      return showToast("Mật khẩu mới tối thiểu 8 ký tự.", "error");
+    }
+    if (newPassword !== confirmPassword) {
+      return showToast("Xác nhận mật khẩu không khớp.", "error");
+    }
+
+    try {
+      setIsChangingPassword(true);
+      
+      const res = await fetch("/api/settings/change-password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data?.error?.message || "Không thể đổi mật khẩu.");
+      }
+      
+      showToast("Mật khẩu đã được cập nhật.", "success");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      if (err instanceof Error) {
+        showToast(err.message, "error");
+      } else {
+        showToast("Không thể đổi mật khẩu.", "error");
+      }
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -295,6 +343,66 @@ function SettingsContent() {
                 )}
               </div>
             </div>
+          </section>
+
+          {/* Section 2.5: Change Password */}
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+            <div className="mb-6 flex items-center gap-3">
+              <AppIcon icon={LockKeyhole} className="h-5 w-5 text-emerald-600" />
+              <h2 className="text-xl font-black text-slate-900">Đổi mật khẩu</h2>
+            </div>
+            
+            <p className="text-sm font-medium text-slate-500 mb-6">
+              Cập nhật mật khẩu đăng nhập cho tài khoản của bạn.
+            </p>
+
+            <form onSubmit={handleChangePassword} className="space-y-5 max-w-xl">
+              {/* Nếu tài khoản có email/password mới yêu cầu mật khẩu hiện tại. 
+                  Tuy nhiên ta để server quyết định (hoặc ta cứ show input, nếu họ chưa từng có password, server sẽ bỏ qua) */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Mật khẩu hiện tại</label>
+                <input
+                  type="password"
+                  placeholder="Nhập mật khẩu hiện tại..."
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Mật khẩu mới</label>
+                <input
+                  type="password"
+                  placeholder="Tối thiểu 8 ký tự"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Xác nhận mật khẩu mới</label>
+                <input
+                  type="password"
+                  placeholder="Nhập lại mật khẩu mới"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button type="submit" disabled={isChangingPassword} className={btnPrimary}>
+                  {isChangingPassword ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <AppIcon icon={Save} className="h-4 w-4" />
+                  )}
+                  Lưu mật khẩu
+                </button>
+              </div>
+            </form>
           </section>
 
           {/* Section 3: Notifications */}

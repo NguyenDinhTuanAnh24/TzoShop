@@ -55,6 +55,8 @@ model User {
   ledgers        CreditLedger[]
   supportTickets SupportTicket[]
   oauthAccounts  OAuthAccount[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
 }
 
 enum TicketStatus {
@@ -116,6 +118,7 @@ model Product {
 
   isPopular Boolean @default(false)
   isActive  Boolean @default(true)
+  isContactOnly Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,6 +184,9 @@ model CreditBucket {
 
   isActive Boolean @default(true)
 
+  lowCreditsAlertSent   Boolean @default(false)
+  expiringSoonAlertSent Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -229,35 +235,36 @@ model ApiKey {
   @@index([isActive])
 }
 
-model AiModel {
-  id           String    @id @default(cuid())
-  publicName   String    @unique
-  upstreamName String
-  apiFamily    ApiFamily
+model AiProvider {
+  id              String   @id @default(cuid())
+  name            String
+  apiFamily       ApiFamily
+  baseUrl         String
+  encryptedApiKey String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  inputCreditMultiplier  Float @default(1)
-  outputCreditMultiplier Float @default(1)
-  cacheCreditMultiplier  Float @default(0)
-
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  models AiModel[]
 }
 
-model ProviderKey {
-  id        String    @id @default(cuid())
-  name      String
-  apiFamily ApiFamily
+model AiModel {
+  id               String   @id @default(cuid())
+  publicName       String   @unique
+  apiFamily        ApiFamily
+  providerId       String
+  upstreamModel    String
+  inputCreditRate  Decimal  @default(1)
+  outputCreditRate Decimal  @default(1)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  baseUrl      String
-  encryptedKey String
+  provider AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
-  status   ProviderStatus @default(ACTIVE)
-  priority Int            @default(1)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([apiFamily])
+  @@index([providerId])
+  @@index([isActive])
 }
 
 model UsageLog {
@@ -278,8 +285,11 @@ model UsageLog {
 
   creditsCharged BigInt @default(0)
 
-  status       String
+  status       String @default("SUCCESS")
+  errorCode    String?
   errorMessage String?
+  httpStatus   Int?
+  creditsUsed  Int @default(0)
 
   createdAt DateTime @default(now())
 
@@ -357,5 +367,42 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([email])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  adminUserId String
+  action      String
+  entityType  String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  adminUser   User     @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String?
+  roleTarget  String?
+  type        String
+  title       String
+  message     String
+  href        String?
+  isRead      Boolean  @default(false)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([roleTarget])
+  @@index([isRead])
+  @@index([createdAt])
 }
 

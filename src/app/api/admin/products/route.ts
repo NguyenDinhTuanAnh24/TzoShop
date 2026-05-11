@@ -1,32 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireAdminUser } from "@/lib/server/current-user";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: { message: "Không có quyền truy cập." } },
-        { status: 403 }
-      );
-    }
+    await requireAdminUser();
 
     const products = await prisma.product.findMany({
-      orderBy: {
-        priceVnd: "asc",
-      }
+      orderBy: [
+        { apiFamily: "asc" },
+        { priceVnd: "asc" }
+      ],
     });
 
-    return NextResponse.json({
-      success: true,
-      data: products
-    });
+    // Convert BigInt to string for JSON
+    const data = products.map(p => ({
+      ...p,
+      credits: p.credits.toString()
+    }));
 
+    return NextResponse.json({ success: true, data });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/admin/products failed:", error);
     return NextResponse.json(
       { success: false, message: "Lỗi hệ thống khi tải danh sách gói." },
@@ -37,91 +41,84 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getServerUser();
+    await requireAdminUser();
+    const body = await request.json();
 
-    if (!user || user.role !== "ADMIN") {
+    const {
+      name,
+      slug: providedSlug,
+      apiFamily,
+      credits,
+      durationDays,
+      priceVnd,
+      apiKeyLimit,
+      allowedModels,
+      isActive,
+      isPopular,
+      isContactOnly,
+    } = body;
+
+    if (!name || !apiFamily || !durationDays || (!isContactOnly && priceVnd === undefined)) {
       return NextResponse.json(
-        { error: { message: "Không có quyền truy cập." } },
-        { status: 403 }
+        { success: false, message: "Thiếu thông tin bắt buộc." },
+        { status: 400 }
       );
     }
 
-    const body = await request.json();
-    const { 
-      name, slug, apiFamily, tier, credits, 
-      durationDays, priceVnd, apiKeyLimit, 
-      allowedModels, allowedReasoning, isActive 
-    } = body;
+    // Tự sinh slug nếu không có
+    let slug = providedSlug;
+    if (!slug) {
+      const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const timestamp = Date.now().toString().slice(-4);
+      slug = `${baseSlug}-${timestamp}`;
+    }
 
     const newProduct = await prisma.product.create({
       data: {
         name,
         slug,
         apiFamily,
-        tier,
-        credits: BigInt(credits),
-        durationDays: parseInt(durationDays),
-        priceVnd: parseInt(priceVnd),
-        apiKeyLimit: parseInt(apiKeyLimit),
+        tier: "Standard",
+        credits: BigInt(credits || 0),
+        durationDays: Number(durationDays),
+        priceVnd: Number(priceVnd || 0),
+        apiKeyLimit: Number(apiKeyLimit || 1),
         allowedModels: allowedModels || [],
-        allowedReasoning: allowedReasoning ?? false,
-        isActive: isActive ?? true,
+        allowedReasoning: [],
+        isActive: isActive !== undefined ? isActive : true,
+        isPopular: isPopular !== undefined ? isPopular : false,
+        isContactOnly: isContactOnly !== undefined ? isContactOnly : false,
       }
+    });
+
+    const { createAuditLog } = await import("@/lib/server/audit-log");
+    await createAuditLog({
+      action: "CREATE",
+      entityType: "PRODUCT",
+      entityId: newProduct.id,
+      metadata: { name: newProduct.name, apiFamily: newProduct.apiFamily }
     });
 
     return NextResponse.json({
       success: true,
       data: {
         ...newProduct,
-        credits: newProduct.credits.toString(),
+        credits: newProduct.credits.toString()
       }
     });
 
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("POST /api/admin/products failed:", error);
     return NextResponse.json(
       { success: false, message: "Lỗi hệ thống khi tạo gói." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(request: NextRequest) {
-  try {
-    const user = await getServerUser();
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: { message: "Không có quyền truy cập." } },
-        { status: 403 }
-      );
-    }
-
-    const body = await request.json();
-    const { id, ...data } = body;
-
-    if (data.credits) data.credits = BigInt(data.credits);
-    if (data.durationDays) data.durationDays = parseInt(data.durationDays);
-    if (data.priceVnd) data.priceVnd = parseInt(data.priceVnd);
-    if (data.apiKeyLimit) data.apiKeyLimit = parseInt(data.apiKeyLimit);
-
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...updatedProduct,
-        credits: updatedProduct.credits.toString(),
-      }
-    });
-
-  } catch (error) {
-    console.error("PATCH /api/admin/products failed:", error);
-    return NextResponse.json(
-      { success: false, message: "Lỗi hệ thống khi cập nhật gói." },
       { status: 500 }
     );
   }

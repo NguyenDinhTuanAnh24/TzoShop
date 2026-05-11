@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { getServerUser } from "@/lib/auth-helper";
+import { requireCurrentUser } from "@/lib/server/current-user";
 
 export const runtime = "nodejs";
 
@@ -11,14 +11,7 @@ function createOrderCode() {
 
 export async function GET() {
   try {
-    const user = await getServerUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: { message: "Vui lòng đăng nhập để tiếp tục." } },
-        { status: 401 }
-      );
-    }
+    const user = await requireCurrentUser();
 
     const orders = await prisma.order.findMany({
       where: {
@@ -67,6 +60,14 @@ export async function GET() {
       data,
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("GET /api/orders failed:", error);
 
     return NextResponse.json(
@@ -84,14 +85,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getServerUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: { message: "Vui lòng đăng nhập để tiếp tục." } },
-        { status: 401 }
-      );
-    }
+    const user = await requireCurrentUser();
 
     const body = await request.json();
 
@@ -169,6 +163,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Tạo thông báo cho admin
+    const { createAdminNotification, createNotification } = await import("@/lib/server/notifications");
+    await createAdminNotification({
+      type: "ORDER_CREATED",
+      title: "Có đơn hàng mới",
+      message: `${user.email} vừa tạo đơn ${order.orderCode}.`,
+      href: "/admin/orders"
+    });
+
+    // Tạo thông báo cho user
+    await createNotification({
+      userId: user.id,
+      type: "ORDER_CREATED",
+      title: "Đơn hàng đã được tạo",
+      message: "Đơn hàng của bạn đang chờ thanh toán.",
+      href: "/billing"
+    }).catch(e => console.error("User notification failed:", e));
+
     return NextResponse.json(
       {
         data: {
@@ -189,6 +201,14 @@ export async function POST(request: NextRequest) {
       },
     );
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("POST /api/orders failed:", error);
 
     return NextResponse.json(

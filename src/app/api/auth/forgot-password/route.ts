@@ -72,6 +72,14 @@ export async function POST(request: NextRequest) {
         }),
       });
     } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
       console.error("[forgot-password] Send email failed:", error);
       
       // In terminal để test trong dev nếu gửi thật lỗi
@@ -88,6 +96,14 @@ export async function POST(request: NextRequest) {
       message: SUCCESS_RESPONSE.message,
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("[forgot-password]", error);
     return NextResponse.json(
       { message: "Đã có lỗi xảy ra. Vui lòng thử lại." },

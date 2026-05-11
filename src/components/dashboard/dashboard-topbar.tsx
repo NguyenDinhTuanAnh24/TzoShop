@@ -41,6 +41,8 @@ const pageMeta: Record<string, { title: string; description: string }> = {
   },
 };
 
+import { NotificationBell } from "@/components/notifications/notification-bell";
+
 export default function DashboardTopbar() {
   const pathname = usePathname();
 
@@ -66,17 +68,15 @@ export default function DashboardTopbar() {
           </div>
         </div>
 
-        <div className="hidden shrink-0 items-center gap-3 sm:flex">
+        <div className="flex shrink-0 items-center gap-4">
           <Link
             href="/plans"
-            className={`flex items-center justify-center ${buttonStyles.primary}`}
+            className={`hidden sm:flex items-center justify-center ${buttonStyles.primary}`}
           >
             Mua credits
           </Link>
 
-          <button className={`flex items-center justify-center ${buttonStyles.secondary}`}>
-            Đăng xuất
-          </button>
+          <NotificationBell />
         </div>
       </div>
     </header>
