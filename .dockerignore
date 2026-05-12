@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.env
+.env.local
+.env.production
+npm-debug.log
+pnpm-debug.log
+artifacts
+coverage
+dist
+.cache
+.vscode
+*.log
