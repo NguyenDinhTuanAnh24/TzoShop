@@ -9,11 +9,12 @@ type PricingCardProps = {
   name: string;
   slug: string;
   credits: bigint | number;
-  durationDays: number;
+  durationDays: number | null;
   priceVnd: number;
   allowedModels: string[];
   apiKeyLimit?: number;
   featured?: boolean;
+  isContactOnly?: boolean;
 };
 
 export function PricingCard({
@@ -25,11 +26,13 @@ export function PricingCard({
   allowedModels,
   apiKeyLimit = 1,
   featured = false,
+  isContactOnly = false,
 }: PricingCardProps) {
   const router = useRouter();
   const { status } = useSession();
 
   const isContactPlan = 
+    isContactOnly ||
     priceVnd === 0 ||
     name.toLowerCase().includes("enterprise") || 
     name.toLowerCase().includes("custom") || 
@@ -105,7 +108,7 @@ export function PricingCard({
 
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-3xl bg-slate-50 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">Thời hạn</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">Hiệu lực</p>
           <p className="mt-1 font-bold text-slate-950">
             {formatDuration(durationDays)}
           </p>

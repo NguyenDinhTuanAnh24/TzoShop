@@ -32,8 +32,9 @@ export async function POST(
       if (product) apiFamily = product.apiFamily;
     }
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (durationDays || 30));
+    const expiresAt = (durationDays && durationDays > 0)
+      ? new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000)
+      : null;
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create CreditBucket
@@ -44,7 +45,7 @@ export async function POST(
           apiFamily,
           creditsTotal: BigInt(credits),
           creditsRemaining: BigInt(credits),
-          expiresAt,
+          expiresAt: expiresAt as any,
           isActive: true
         }
       });
@@ -70,13 +71,15 @@ export async function POST(
       });
 
       // 4. Create Notification
-      await (tx as any).notification.create({
-        data: {
-          userId: id,
-          title: "Bạn đã được cấp Credits!",
-          message: `Hệ thống vừa cấp cho bạn ${new Intl.NumberFormat('vi-VN').format(credits)} credits. ${note ? `Lý do: ${note}` : ''}`,
-          type: "SUCCESS"
-        }
+      const { createNotificationOnce } = await import("@/lib/server/notifications");
+      await createNotificationOnce({
+        userId: id,
+        title: "Bạn vừa được cấp credits",
+        message: `Tài khoản của bạn vừa được quản trị viên cấp ${new Intl.NumberFormat('vi-VN').format(credits)} credits.`,
+        type: "SUCCESS",
+        href: "/my-plans",
+        dedupeKey: `admin-grant-credits:${bucket.id}`,
+        metadata: { bucketId: bucket.id }
       });
 
       return bucket;

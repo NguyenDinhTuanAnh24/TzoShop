@@ -212,7 +212,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
                   <div className="mt-4 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-tight">
                     <span className="flex items-center gap-1.5">
                        <Clock className="h-3.5 w-3.5" />
-                       Hết hạn: {format(new Date(bucket.expiresAt), "dd/MM/yyyy")}
+                       Hết hạn: {bucket.expiresAt ? format(new Date(bucket.expiresAt), "dd/MM/yyyy") : "Không thời hạn"}
                     </span>
                     <span className={bucket.isActive ? "text-emerald-600" : "text-rose-500"}>
                       {bucket.isActive ? "Đang kích hoạt" : "Đã khóa"}

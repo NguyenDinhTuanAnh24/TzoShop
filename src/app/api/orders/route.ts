@@ -163,23 +163,27 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Tạo thông báo cho admin
-    const { createAdminNotification, createNotification } = await import("@/lib/server/notifications");
-    await createAdminNotification({
+    // Tạo thông báo cho admin & user
+    const { notifyAdmins, createNotificationOnce } = await import("@/lib/server/notifications");
+    
+    await notifyAdmins({
       type: "ORDER_CREATED",
       title: "Có đơn hàng mới",
       message: `${user.email} vừa tạo đơn ${order.orderCode}.`,
-      href: "/admin/orders"
+      href: "/admin/orders",
+      dedupeKey: `order-created-admin:${order.id}`,
+      metadata: { orderId: order.id }
     });
 
-    // Tạo thông báo cho user
-    await createNotification({
+    await createNotificationOnce({
       userId: user.id,
       type: "ORDER_CREATED",
       title: "Đơn hàng đã được tạo",
-      message: "Đơn hàng của bạn đang chờ thanh toán.",
-      href: "/billing"
-    }).catch(e => console.error("User notification failed:", e));
+      message: `Đơn hàng ${order.orderCode} của bạn đang chờ thanh toán.`,
+      href: "/billing",
+      dedupeKey: `order-created-user:${order.id}`,
+      metadata: { orderId: order.id }
+    });
 
     return NextResponse.json(
       {

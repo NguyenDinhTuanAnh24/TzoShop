@@ -1,53 +1,76 @@
 import { prisma } from "@/lib/prisma";
 
-export async function createNotification(data: {
+export async function createNotificationOnce(data: {
   userId: string;
-  type: string;
+  type?: string;
   title: string;
   message: string;
   href?: string;
+  dedupeKey?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
 }) {
   try {
-    return await prisma.notification.create({
+    if (data.dedupeKey) {
+      const existing = await (prisma as any).notification.findFirst({
+        where: {
+          userId: data.userId,
+          dedupeKey: data.dedupeKey,
+        },
+      });
+      if (existing) return existing;
+    }
+
+    return await (prisma as any).notification.create({
       data: {
         userId: data.userId,
-        type: data.type,
+        type: data.type || "INFO",
         title: data.title,
         message: data.message,
         href: data.href,
+        dedupeKey: data.dedupeKey,
         metadata: data.metadata,
       },
     });
   } catch (error) {
-    console.error(`[Notification] Failed to create for user ${data.userId}:`, error instanceof Error ? error.message : error);
+    // If unique constraint error due to race condition, ignore and return null
+    return null;
   }
 }
 
-export async function createAdminNotification(data: {
-  type: string;
+export async function notifyAdmins(data: {
+  type?: string;
   title: string;
   message: string;
   href?: string;
+  dedupeKey?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
 }) {
   try {
-    return await prisma.notification.create({
-      data: {
-        roleTarget: "ADMIN",
-        type: data.type,
-        title: data.title,
-        message: data.message,
-        href: data.href,
-        metadata: data.metadata,
-      },
+    const admins = await prisma.user.findMany({
+      where: { role: "ADMIN" },
+      select: { id: true },
     });
+
+    return await Promise.all(
+      admins.map((admin) =>
+        createNotificationOnce({
+          ...data,
+          userId: admin.id,
+          dedupeKey: data.dedupeKey ? `${data.dedupeKey}:admin:${admin.id}` : undefined,
+        })
+      )
+    );
   } catch (error) {
-    console.error(`[Notification] Failed to create admin notification:`, error instanceof Error ? error.message : error);
+    console.error(`[Notification] Failed to notify admins:`, error);
   }
 }
+
+// Keep the old createNotification as an alias for createNotificationOnce for compatibility
+export const createNotification = createNotificationOnce;
+export const createAdminNotification = notifyAdmins;
+
 
 export async function markNotificationAsRead(id: string, userId: string, isAdmin: boolean) {
   try {
@@ -64,7 +87,7 @@ export async function markNotificationAsRead(id: string, userId: string, isAdmin
       ];
     }
 
-    return await prisma.notification.updateMany({
+    return await (prisma as any).notification.updateMany({
       where,
       data: {
         isRead: true,
@@ -91,7 +114,7 @@ export async function markAllNotificationsAsRead(userId: string, isAdmin: boolea
     
     where.isRead = false;
 
-    return await prisma.notification.updateMany({
+    return await (prisma as any).notification.updateMany({
       where,
       data: {
         isRead: true,
@@ -100,5 +123,64 @@ export async function markAllNotificationsAsRead(userId: string, isAdmin: boolea
     });
   } catch (error) {
     console.error(`[Notification] Failed to mark all read for user ${userId}:`, error);
+  }
+}
+
+export async function checkCreditAlertsForUser(userId: string) {
+  try {
+    const now = new Date();
+    // 1. Lấy tất cả bucket active của user
+    const buckets = await (prisma.creditBucket.findMany({
+      where: {
+        userId,
+        isActive: true,
+        OR: [
+          { expiresAt: { gt: now } },
+          { expiresAt: null as any },
+        ],
+      },
+      include: {
+        product: { select: { name: true } },
+      },
+    }) as Promise<any[]>);
+
+    for (const bucket of buckets) {
+      const remaining = Number(bucket.creditsRemaining);
+      const total = Number(bucket.creditsTotal);
+      const productName = bucket.product?.name || "AI Credits";
+
+      // A. OUT_OF_CREDITS
+      if (remaining <= 0) {
+        await createNotification({
+          userId,
+          type: "ERROR",
+          title: "Gói credits đã hết",
+          message: `Gói ${productName} của bạn đã hết credits. Vui lòng mua thêm credits để tiếp tục sử dụng API.`,
+          href: "/my-plans",
+          dedupeKey: `credit-alert:${bucket.id}:OUT_OF_CREDITS`,
+          metadata: {
+            bucketId: bucket.id,
+            alertType: "OUT_OF_CREDITS",
+          },
+        });
+      }
+      // B. LOW_CREDITS (chỉ báo khi còn > 0 và <= 10%)
+      else if (total > 0 && remaining <= total * 0.1) {
+        await createNotification({
+          userId,
+          type: "WARNING",
+          title: "Gói credits sắp hết",
+          message: `Gói ${productName} của bạn chỉ còn ${new Intl.NumberFormat('vi-VN').format(remaining)} credits (${Math.round((remaining / total) * 100)}%).`,
+          href: "/my-plans",
+          dedupeKey: `credit-alert:${bucket.id}:LOW_CREDITS`,
+          metadata: {
+            bucketId: bucket.id,
+            alertType: "LOW_CREDITS",
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error(`[Notification] Failed to check credit alerts for user ${userId}:`, error);
   }
 }

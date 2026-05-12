@@ -39,7 +39,7 @@ type Product = {
   slug: string;
   apiFamily: string;
   credits: string;
-  durationDays: number;
+  durationDays: number | null;
   priceVnd: number;
   apiKeyLimit: number;
   allowedModels: string[];
@@ -71,15 +71,27 @@ export default function AdminProductsPage() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    slug: string;
+    apiFamily: string;
+    credits: string;
+    durationDays: number | null;
+    priceVnd: number;
+    apiKeyLimit: number;
+    allowedModels: string[];
+    isActive: boolean;
+    isPopular: boolean;
+    isContactOnly: boolean;
+  }>({
     name: "",
     slug: "",
     apiFamily: "CODEXAI",
     credits: "100000",
-    durationDays: 30,
+    durationDays: 0,
     priceVnd: 50000,
     apiKeyLimit: 1,
-    allowedModels: [] as string[],
+    allowedModels: [],
     isActive: true,
     isPopular: false,
     isContactOnly: false,
@@ -136,7 +148,7 @@ export default function AdminProductsPage() {
         slug: "",
         apiFamily: "CODEXAI",
         credits: "100000",
-        durationDays: 30,
+        durationDays: 0,
         priceVnd: 50000,
         apiKeyLimit: 1,
         allowedModels: [],
@@ -183,7 +195,7 @@ export default function AdminProductsPage() {
       title: `${action} gói ${product.name}?`,
       description: isActivating 
         ? "Gói này sẽ xuất hiện lại trên bảng giá cho người dùng mua."
-        : "Người dùng sẽ không thể mua gói này nữa. Các gói đã mua vẫn tiếp tục sử dụng đến khi hết hạn.",
+        : "Người dùng sẽ không thể mua gói này nữa. Các gói đã mua vẫn tiếp tục sử dụng đến khi hết credits hoặc hết hạn (nếu có).",
       confirmLabel: `Xác nhận ${action}`,
       cancelLabel: "Hủy",
       type: isActivating ? "warning" : "danger",
@@ -347,7 +359,7 @@ export default function AdminProductsPage() {
                        <p className="text-sm font-black text-indigo-600 whitespace-nowrap">{new Intl.NumberFormat('vi-VN').format(Number(product.credits))} <span className="text-[10px] text-slate-400">CR</span></p>
                     </td>
                     <td className="px-8 py-6">
-                       <p className="text-sm font-black text-slate-900">{product.durationDays} ngày</p>
+                       <p className="text-sm font-black text-slate-900">{product.durationDays && product.durationDays > 0 ? `${product.durationDays} ngày` : "Không giới hạn"}</p>
                     </td>
                     <td className="px-8 py-6">
                        <div className="flex items-center gap-1.5">
@@ -527,13 +539,13 @@ export default function AdminProductsPage() {
 
               <div className="grid gap-6 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Hạn dùng (ngày)</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Thời hạn (ngày, 0 = vĩnh viễn)</label>
                   <input
                     type="number"
-                    required
-                    min="1"
-                    value={formData.durationDays}
-                    onChange={e => setFormData({...formData, durationDays: Number(e.target.value)})}
+                    min="0"
+                    value={formData.durationDays ?? ""}
+                    onChange={e => setFormData({...formData, durationDays: e.target.value === "" ? null : Number(e.target.value)})}
+                    placeholder="Bỏ trống hoặc 0 để không hết hạn"
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 focus:bg-white transition-all"
                   />
                 </div>

@@ -228,13 +228,15 @@ export async function POST(request: NextRequest) {
 
     // Thông báo cho user
     try {
-      const { createNotification } = await import("@/lib/server/notifications");
-      await createNotification({
+      const { createNotificationOnce } = await import("@/lib/server/notifications");
+      await createNotificationOnce({
         userId: user.id,
         type: "API_KEY_CREATED",
         title: "API key đã được tạo",
-        message: "Bạn có thể xem, ẩn/hiện và sao chép API key trong trang API.",
-        href: "/api-keys"
+        message: `API key cho gói ${creditBucket.product?.name || creditBucket.apiFamily} đã sẵn sàng.`,
+        href: "/api-keys",
+        dedupeKey: `api-key-created:${apiKey.id}`,
+        metadata: { apiKeyId: apiKey.id }
       });
     } catch (e) {
       console.error("API Key notification failed:", e);

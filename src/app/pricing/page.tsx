@@ -18,17 +18,23 @@ const faqItems = [
   {
     question: "Gói có thời hạn không?",
     answer:
-      "Có. Mỗi gói có số credits và thời hạn sử dụng riêng. Credits dùng đến khi hết hoặc hết hạn, tùy điều kiện nào đến trước.",
+      "Không. Các gói credits tại TzoShop thường không giới hạn thời gian sử dụng. Bạn có thể yên tâm dùng đến khi hết credits thì thôi.",
   },
   {
     question: "Có thể nâng cấp gói sau này không?",
     answer:
-      "Có. Bạn có thể chọn gói cao hơn hoặc mua thêm credits khi nhu cầu sử dụng tăng lên.",
+      "Có. Bạn có thể chọn gói cao hơn hoặc mua thêm credits bất cứ lúc nào khi nhu cầu sử dụng tăng lên.",
   },
 ];
 
 export default async function PricingPage() {
-  const products = await getActiveProducts();
+  const rawProducts = await getActiveProducts();
+  
+  // Convert BigInt to number for client-side serialization
+  const products = rawProducts.map(p => ({
+    ...p,
+    credits: Number(p.credits)
+  }));
 
   return (
     <main className="min-h-screen bg-white text-[#0b0f0d]">
@@ -47,7 +53,7 @@ export default async function PricingPage() {
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#47524d]">
               Mỗi dòng AI có các gói credits riêng, giúp bạn dễ lựa chọn theo
-              mục đích sử dụng, thời hạn và ngân sách.
+              mục đích sử dụng, ngân sách và nhu cầu.
             </p>
           </div>
         </div>

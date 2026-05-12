@@ -111,7 +111,7 @@ model Product {
 
   tier         String @default("Mini")
   credits      BigInt
-  durationDays Int
+  durationDays Int?
   priceVnd     Int
   apiKeyLimit  Int    @default(1)
 
@@ -181,8 +181,8 @@ model CreditBucket {
   allowedModels    String[]
   allowedReasoning String[]
 
-  startsAt  DateTime @default(now())
-  expiresAt DateTime
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime?
 
   isActive Boolean @default(true)
 

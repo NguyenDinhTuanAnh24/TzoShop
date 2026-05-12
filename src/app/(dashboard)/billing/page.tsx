@@ -302,7 +302,7 @@ export default function BillingPage() {
                     <div>
                       <h3 className="text-lg font-black text-slate-900 truncate">{order.product.name}</h3>
                       <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-tight line-clamp-1">
-                        {formatCredits(order.product.credits)} credits · {order.product.durationDays} ngày · {new Date(order.createdAt).toLocaleString("vi-VN")}
+                        {formatCredits(order.product.credits)} credits · {order.product.durationDays && order.product.durationDays > 0 ? `${order.product.durationDays} ngày` : "Dùng đến khi hết credits"} · {new Date(order.createdAt).toLocaleString("vi-VN")}
                       </p>
                     </div>
                   </div>

@@ -92,12 +92,14 @@ export async function POST(request: NextRequest) {
     });
 
     // Tạo thông báo cho admin
-    const { createAdminNotification } = await import("@/lib/server/notifications");
-    await createAdminNotification({
+    const { notifyAdmins } = await import("@/lib/server/notifications");
+    await notifyAdmins({
       type: "SUPPORT_CREATED",
-      title: "Ticket hỗ trợ mới",
-      message: `${ticket.email} vừa gửi yêu cầu hỗ trợ.`,
-      href: "/admin/support"
+      title: "Yêu cầu hỗ trợ mới",
+      message: `${ticket.email} vừa gửi yêu cầu hỗ trợ: ${ticket.subject}`,
+      href: "/admin/support",
+      dedupeKey: `support-ticket-created:${ticket.id}`,
+      metadata: { ticketId: ticket.id }
     });
 
     // Send confirmation email

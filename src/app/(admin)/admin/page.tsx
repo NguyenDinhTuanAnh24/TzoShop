@@ -22,7 +22,7 @@ import {
 import { AppIcon } from "@/components/ui/icon";
 import { formatVnd } from "@/lib/format";
 import Link from "next/link";
-import { AdminAlertsBlock } from "@/components/admin/admin-alerts-block";
+
 
 type AdminStats = {
   totalUsers: number;
@@ -215,7 +215,7 @@ export default function AdminOverviewPage() {
         ))}
       </div>
 
-      <AdminAlertsBlock />
+
 
       {/* Lists Grid */}
       <div className="grid gap-8 lg:grid-cols-2">

@@ -5,6 +5,7 @@ import { findActiveApiKeyByPlainTextKey } from "@/lib/api-key-auth";
 import { decryptText } from "@/lib/crypto";
 import { checkRateLimit } from "@/lib/server/rate-limit";
 import { calculateCreditsUsed, consumeCredits } from "@/lib/server/credits";
+import { checkCreditAlertsForUser } from "@/lib/server/notifications";
 
 export const runtime = "nodejs";
 
@@ -32,7 +33,7 @@ async function logFailedUsage(params: {
   status?: string;
 }) {
   try {
-    await prisma.usageLog.create({
+    await (prisma as any).usageLog.create({
       data: {
         userId: params.userId,
         apiKeyId: params.apiKeyId,
@@ -49,7 +50,7 @@ async function logFailedUsage(params: {
         inputTokens: 0,
         outputTokens: 0,
         totalTokens: 0,
-      },
+      } as any,
     });
   } catch (error) {
     console.error("[UsageLog] Failed to log failed usage:", error);
@@ -103,17 +104,29 @@ export async function POST(request: NextRequest) {
 
     // 2. Kiểm tra Credit Bucket liên kết
     const bucket = apiKey.creditBucket;
-    if (!bucket || !bucket.isActive || new Date(bucket.expiresAt) < new Date()) {
+    const isExpired = bucket?.expiresAt && new Date(bucket.expiresAt) < new Date();
+
+    if (!bucket || !bucket.isActive || isExpired) {
+      const errorMsg = isExpired 
+        ? "Gói credits liên kết đã hết hạn." 
+        : "Gói credits liên kết không khả dụng hoặc không còn hoạt động.";
+
       await logFailedUsage({
         userId: apiKey.userId,
         apiKeyId: apiKey.id,
         apiFamily: apiKey.apiFamily,
         model: "unknown",
-        errorMessage: "Gói credits liên kết không khả dụng hoặc đã hết hạn.",
+        errorMessage: errorMsg,
         errorCode: "quota_exceeded",
         httpStatus: 401,
       });
-      return NextResponse.json({ error: { message: "Gói credits liên kết không khả dụng hoặc đã hết hạn.", type: "insufficient_quota", code: "quota_exceeded" } }, { status: 401 });
+      return NextResponse.json({ 
+        error: { 
+          message: errorMsg, 
+          type: "insufficient_quota", 
+          code: "quota_exceeded" 
+        } 
+      }, { status: 401 });
     }
 
     if (bucket.creditsRemaining <= BigInt(0)) {
@@ -158,7 +171,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Tìm cấu hình AiModel & Provider
-    const aiModel = await prisma.aiModel.findFirst({
+    const aiModel: any = await (prisma as any).aiModel.findFirst({
       where: { publicName: modelName, isActive: true },
       include: { provider: true }
     });
@@ -260,6 +273,11 @@ export async function POST(request: NextRequest) {
           outputTokens: completionTokens,
           totalTokens: promptTokens + completionTokens,
         },
+      });
+
+      // Kiểm tra và tạo notification nếu hết/sắp hết credits (không block response)
+      checkCreditAlertsForUser(apiKey.userId).catch(err => {
+        console.error("[Notification] Background credit check failed:", err);
       });
 
       // 9. Trả kết quả cho Client (OpenAI-compatible)

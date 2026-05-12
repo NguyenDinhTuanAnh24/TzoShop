@@ -12,10 +12,12 @@ type Product = {
   slug: string;
   apiFamily: ApiFamily;
   credits: bigint | number;
-  durationDays: number;
+  durationDays: number | null;
   priceVnd: number;
   allowedModels: string[];
   apiKeyLimit?: number;
+  isPopular?: boolean;
+  isContactOnly?: boolean;
 };
 
 type FamilyItem = {
@@ -62,8 +64,8 @@ const familyInfo: Record<
 const commonFeatures = [
   {
     icon: CheckCircle2,
-    title: "Quản lý credits và thời hạn",
-    desc: "Theo dõi số dư và ngày hết hạn cho từng dòng AI."
+    title: "Quản lý credits linh hoạt",
+    desc: "Theo dõi số dư credits cho từng dòng AI của bạn."
   },
   {
     icon: ShieldCheck,
@@ -154,7 +156,9 @@ export function PricingContainer({ products }: PricingContainerProps) {
             priceVnd={product.priceVnd}
             allowedModels={product.allowedModels}
             apiKeyLimit={product.apiKeyLimit}
+            isContactOnly={product.isContactOnly}
             featured={
+              product.isPopular ||
               product.name.includes("Plus") ||
               product.name.includes("Pro")
             }

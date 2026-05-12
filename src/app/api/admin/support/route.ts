@@ -118,13 +118,15 @@ export async function PATCH(request: NextRequest) {
     // 2. Thông báo In-app cho user nếu ticket có userId
     if (updatedTicket.userId) {
       try {
-        const { createNotification } = await import("@/lib/server/notifications");
-        await createNotification({
+        const { createNotificationOnce } = await import("@/lib/server/notifications");
+        await createNotificationOnce({
           userId: updatedTicket.userId,
           type: "SUPPORT_UPDATED",
-          title: "Yêu cầu hỗ trợ đã được cập nhật",
-          message: `TzoShop đã cập nhật trạng thái yêu cầu #${updatedTicket.id} của bạn.`,
-          href: "/support"
+          title: "Yêu cầu hỗ trợ đã được phản hồi",
+          message: `Admin đã phản hồi yêu cầu hỗ trợ: ${updatedTicket.subject}`,
+          href: "/support",
+          dedupeKey: `support-ticket-updated:${updatedTicket.id}:${status || 'updated'}`,
+          metadata: { ticketId: updatedTicket.id, status }
         });
       } catch (e) {
         console.error("Support update notification failed:", e);

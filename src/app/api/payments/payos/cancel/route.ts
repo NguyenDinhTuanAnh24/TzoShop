@@ -73,15 +73,27 @@ export async function POST(request: Request) {
       },
     });
 
-    // Thông báo cho user
+    // Thông báo cho user & admin
     try {
-      const { createNotification } = await import("@/lib/server/notifications");
-      await createNotification({
+      const { createNotificationOnce, notifyAdmins } = await import("@/lib/server/notifications");
+      
+      await createNotificationOnce({
         userId: order.userId,
         type: "ORDER_CANCELLED",
         title: "Đơn hàng đã hủy",
-        message: "Đơn hàng chờ thanh toán đã được hủy.",
-        href: "/billing"
+        message: `Đơn hàng ${order.orderCode} đã được hủy theo yêu cầu.`,
+        href: "/billing",
+        dedupeKey: `order-cancelled-user:${order.id}`,
+        metadata: { orderId: order.id }
+      });
+
+      await notifyAdmins({
+        type: "WARNING",
+        title: "Đơn hàng bị hủy",
+        message: `Đơn hàng ${order.orderCode} đã bị hủy bởi người dùng.`,
+        href: "/admin/orders?status=CANCELLED",
+        dedupeKey: `order-cancelled-admin:${order.id}`,
+        metadata: { orderId: order.id }
       });
     } catch (e) {
       console.error("Order cancel notification failed:", e);

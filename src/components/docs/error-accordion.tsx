@@ -20,7 +20,7 @@ const ERRORS: ErrorItem[] = [
   {
     code: "403",
     title: "Forbidden",
-    description: "Model không nằm trong gói, gói hết hạn hoặc tài khoản không đủ quyền.",
+    description: "Model không nằm trong gói, gói không hoạt động hoặc tài khoản không đủ quyền.",
     solution: "Kiểm tra My Plans và chọn model được phép."
   },
   {

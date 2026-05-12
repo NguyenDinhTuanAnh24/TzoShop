@@ -276,7 +276,9 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
                     </div>
                     <div className="p-5 rounded-[32px] bg-white border border-emerald-100 shadow-sm">
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hết hạn</p>
-                       <p className="text-sm font-black text-slate-900">{format(new Date(order.creditBucket.expiresAt), "dd/MM/yyyy HH:mm")}</p>
+                       <p className="text-sm font-black text-slate-900">
+                         {order.creditBucket.expiresAt ? format(new Date(order.creditBucket.expiresAt), "dd/MM/yyyy HH:mm") : "Không thời hạn"}
+                       </p>
                     </div>
                   </div>
                 ) : (
@@ -310,7 +312,9 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
                        </div>
                        <div className="p-4 rounded-3xl bg-slate-50 border border-slate-100">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thời hạn</p>
-                          <p className="text-lg font-black text-slate-900">{order.product.durationDays} ngày</p>
+                          <p className="text-lg font-black text-slate-900">
+                            {order.product.durationDays && order.product.durationDays > 0 ? `${order.product.durationDays} ngày` : "Không giới hạn"}
+                          </p>
                        </div>
                     </div>
                  </div>

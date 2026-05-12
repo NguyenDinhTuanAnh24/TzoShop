@@ -34,9 +34,9 @@ export async function completeOrderPayment(orderId: string) {
   }
 
   // 3. Tính toán ngày hết hạn
-  const expiresAt = new Date(
-    now.getTime() + order.product.durationDays * 24 * 60 * 60 * 1000
-  );
+  const expiresAt = (order.product.durationDays && order.product.durationDays > 0)
+    ? new Date(now.getTime() + order.product.durationDays * 24 * 60 * 60 * 1000)
+    : null;
 
   // 4. Thực hiện transaction
   const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -61,7 +61,7 @@ export async function completeOrderPayment(orderId: string) {
         allowedModels: order.product.allowedModels,
         allowedReasoning: order.product.allowedReasoning,
         startsAt: now,
-        expiresAt,
+        expiresAt: expiresAt as any,
         isActive: true,
       },
     });
@@ -98,7 +98,7 @@ export async function completeOrderPayment(orderId: string) {
         productName: order.product.name,
         amount: amountStr,
         credits: creditsStr,
-        duration: `${order.product.durationDays} ngày`,
+        duration: expiresAt ? `${order.product.durationDays} ngày` : "Dùng đến khi hết credits",
         dashboardUrl: `${appUrl}/my-plans`,
       }),
     });
@@ -107,18 +107,32 @@ export async function completeOrderPayment(orderId: string) {
     // Không throw error ở đây vì thanh toán đã xong trong DB
   }
 
-  // 6. Gửi thông báo tới User
+  // 6. Gửi thông báo tới User & Admin
   try {
-    const { createNotification } = await import("@/lib/server/notifications");
-    await createNotification({
+    const { createNotificationOnce, notifyAdmins } = await import("@/lib/server/notifications");
+    
+    // Cho User
+    await createNotificationOnce({
       userId: order.userId,
       type: "PAYMENT_SUCCESS",
       title: "Thanh toán thành công",
-      message: "Gói credits của bạn đã được kích hoạt.",
-      href: "/my-plans"
+      message: `Gói ${order.product.name} đã được kích hoạt với ${new Intl.NumberFormat('vi-VN').format(Number(order.product.credits))} credits.`,
+      href: "/my-plans",
+      dedupeKey: `order-paid-user:${order.id}`,
+      metadata: { orderId: order.id, productId: order.productId }
+    });
+
+    // Cho Admin
+    await notifyAdmins({
+      type: "SUCCESS",
+      title: "Đơn hàng đã thanh toán",
+      message: `${order.user.email} vừa thanh toán đơn ${order.orderCode} - ${new Intl.NumberFormat('vi-VN').format(order.amountVnd)}đ.`,
+      href: `/admin/orders?status=PAID`,
+      dedupeKey: `order-paid-admin:${order.id}`,
+      metadata: { orderId: order.id }
     });
   } catch (notifError) {
-    console.error("[completeOrderPayment] Failed to create notification:", notifError);
+    console.error("[completeOrderPayment] Failed to create notifications:", notifError);
   }
 
   return result;

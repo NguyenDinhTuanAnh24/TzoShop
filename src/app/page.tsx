@@ -49,8 +49,8 @@ const benefits = [
   "Dễ bắt đầu, phù hợp cho cả người mới và người dùng thường xuyên.",
   "Nhiều lựa chọn dòng AI cho các nhu cầu học tập, làm việc và sáng tạo.",
   "Có thể sử dụng cùng các extension và công cụ hỗ trợ phổ biến.",
-  "Dễ quản lý gói đã mua, thời hạn sử dụng và mức credits còn lại.",
-  "Linh hoạt lựa chọn gói ngắn hạn hoặc dài hạn theo nhu cầu.",
+  "Dễ quản lý gói đã mua, số dư credits và mức credits đã sử dụng.",
+  "Linh hoạt lựa chọn gói credits phù hợp với ngân sách cá nhân.",
   "Thuận tiện nâng cấp khi nhu cầu sử dụng tăng lên.",
 ];
 

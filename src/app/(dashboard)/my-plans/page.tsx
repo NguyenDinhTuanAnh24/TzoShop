@@ -32,7 +32,7 @@ type MyPlanItem = {
   activeApiKeys: number;
   allowedModels: string[];
   startsAt: string;
-  expiresAt: string;
+  expiresAt: string | null;
   isActive: boolean;
   product: {
     id: string;
@@ -57,13 +57,12 @@ function formatCredits(value: string | number) {
   return new Intl.NumberFormat("vi-VN").format(num);
 }
 
-function getBucketStatus(remaining: string, expiresAt: string, isActive: boolean) {
+function getBucketStatus(remaining: string, expiresAt: string | null, isActive: boolean) {
   const now = new Date();
-  const exp = new Date(expiresAt);
   const rem = Number(remaining);
 
   if (!isActive) return "REVOKED";
-  if (exp < now) return "EXPIRED";
+  if (expiresAt && new Date(expiresAt) < now) return "EXPIRED";
   if (rem <= 0) return "DEPLETED";
   return "ACTIVE";
 }
@@ -261,9 +260,16 @@ export default function MyPlansPage() {
                       <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
                         <div className="flex items-center gap-2 mb-2">
                           <AppIcon icon={Clock3} className="h-3.5 w-3.5 text-slate-400" />
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Hạn dùng</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                            {bucket.expiresAt ? "Ngày hết hạn" : "Hiệu lực"}
+                          </p>
                         </div>
-                        <p className="text-base font-black text-slate-900">{new Date(bucket.expiresAt).toLocaleDateString("vi-VN")}</p>
+                        <p className="text-base font-black text-slate-900">
+                          {bucket.expiresAt 
+                            ? new Date(bucket.expiresAt).toLocaleDateString("vi-VN") 
+                            : "Không giới hạn thời gian"
+                          }
+                        </p>
                       </div>
                       <div className="col-span-full rounded-2xl bg-slate-50 p-4 sm:p-5 ring-1 ring-slate-100">
                         <div className="flex items-center justify-between mb-3">

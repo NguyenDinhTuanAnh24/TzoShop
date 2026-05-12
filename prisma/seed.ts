@@ -11,17 +11,17 @@ async function main() {
 }
 
 async function seedModels() {
-  let codexProvider = await prisma.aiProvider.findFirst({ where: { apiFamily: 'CODEXAI' } });
-  if (!codexProvider) codexProvider = await prisma.aiProvider.create({ data: { name: 'CodeXAI', apiFamily: 'CODEXAI', baseUrl: 'https://api.openai.com/v1', encryptedApiKey: 'dummy' } });
+  let codexProvider = await (prisma as any).aiProvider.findFirst({ where: { apiFamily: 'CODEXAI' } });
+  if (!codexProvider) codexProvider = await (prisma as any).aiProvider.create({ data: { name: 'CodeXAI', apiFamily: 'CODEXAI', baseUrl: 'https://api.openai.com/v1', encryptedApiKey: 'dummy' } });
 
-  let claudeProvider = await prisma.aiProvider.findFirst({ where: { apiFamily: 'CLAUDE' } });
-  if (!claudeProvider) claudeProvider = await prisma.aiProvider.create({ data: { name: 'Claude', apiFamily: 'CLAUDE', baseUrl: 'https://api.anthropic.com', encryptedApiKey: 'dummy' } });
+  let claudeProvider = await (prisma as any).aiProvider.findFirst({ where: { apiFamily: 'CLAUDE' } });
+  if (!claudeProvider) claudeProvider = await (prisma as any).aiProvider.create({ data: { name: 'Claude', apiFamily: 'CLAUDE', baseUrl: 'https://api.anthropic.com', encryptedApiKey: 'dummy' } });
 
-  let geminiProvider = await prisma.aiProvider.findFirst({ where: { apiFamily: 'GEMINI' } });
-  if (!geminiProvider) geminiProvider = await prisma.aiProvider.create({ data: { name: 'Gemini', apiFamily: 'GEMINI', baseUrl: 'https://generativelanguage.googleapis.com', encryptedApiKey: 'dummy' } });
+  let geminiProvider = await (prisma as any).aiProvider.findFirst({ where: { apiFamily: 'GEMINI' } });
+  if (!geminiProvider) geminiProvider = await (prisma as any).aiProvider.create({ data: { name: 'Gemini', apiFamily: 'GEMINI', baseUrl: 'https://generativelanguage.googleapis.com', encryptedApiKey: 'dummy' } });
 
-  let deepseekProvider = await prisma.aiProvider.findFirst({ where: { apiFamily: 'DEEPSEEK' } });
-  if (!deepseekProvider) deepseekProvider = await prisma.aiProvider.create({ data: { name: 'DeepSeek', apiFamily: 'DEEPSEEK', baseUrl: 'https://api.deepseek.com', encryptedApiKey: 'dummy' } });
+  let deepseekProvider = await (prisma as any).aiProvider.findFirst({ where: { apiFamily: 'DEEPSEEK' } });
+  if (!deepseekProvider) deepseekProvider = await (prisma as any).aiProvider.create({ data: { name: 'DeepSeek', apiFamily: 'DEEPSEEK', baseUrl: 'https://api.deepseek.com', encryptedApiKey: 'dummy' } });
 
   const providers = {
     CODEXAI: codexProvider.id,
@@ -249,10 +249,10 @@ async function seedModels() {
   ];
 
   for (const model of models) {
-    await prisma.aiModel.upsert({
+    await (prisma as any).aiModel.upsert({
       where: { publicName: model.publicName },
-      update: model,
-      create: model,
+      update: model as any,
+      create: model as any,
     });
   }
 
@@ -389,7 +389,7 @@ async function seedProducts() {
       slug: "codexai-mini",
       apiFamily: "CODEXAI",
       credits: BigInt(250_000),
-      durationDays: 30,
+      durationDays: null,
       priceVnd: 39_000,
     },
     {
@@ -397,7 +397,7 @@ async function seedProducts() {
       slug: "codexai-plus",
       apiFamily: "CODEXAI",
       credits: BigInt(1_000_000),
-      durationDays: 45,
+      durationDays: null,
       priceVnd: 139_000,
     },
     {
@@ -405,7 +405,7 @@ async function seedProducts() {
       slug: "codexai-pro",
       apiFamily: "CODEXAI",
       credits: BigInt(2_000_000),
-      durationDays: 60,
+      durationDays: null,
       priceVnd: 249_000,
     },
     {
@@ -413,7 +413,7 @@ async function seedProducts() {
       slug: "codexai-max",
       apiFamily: "CODEXAI",
       credits: BigInt(5_000_000),
-      durationDays: 90,
+      durationDays: null,
       priceVnd: 699_000,
     },
     {
@@ -421,7 +421,7 @@ async function seedProducts() {
       slug: "codexai-ultra",
       apiFamily: "CODEXAI",
       credits: BigInt(15_000_000),
-      durationDays: 180,
+      durationDays: null,
       priceVnd: 2_199_000,
     },
 
@@ -433,7 +433,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 710000,
       credits: BigInt(6_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "CodexAI Pro 6M",
@@ -442,7 +442,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 1345000,
       credits: BigInt(12_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "CodexAI Pro Year",
@@ -451,7 +451,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 2540000,
       credits: BigInt(24_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "CodexAI Max 3M",
@@ -460,7 +460,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 1992000,
       credits: BigInt(15_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "CodexAI Max 6M",
@@ -469,7 +469,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 3775000,
       credits: BigInt(30_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "CodexAI Max Year",
@@ -478,7 +478,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 7130000,
       credits: BigInt(60_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "CodexAI Ultra 3M",
@@ -487,7 +487,7 @@ async function seedProducts() {
       tier: "Ultra",
       priceVnd: 8990000,
       credits: BigInt(75_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "CodexAI Ultra 6M",
@@ -496,7 +496,7 @@ async function seedProducts() {
       tier: "Ultra",
       priceVnd: 13990000,
       credits: BigInt(120_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "CodexAI Ultra Year",
@@ -505,7 +505,7 @@ async function seedProducts() {
       tier: "Ultra",
       priceVnd: 19990000,
       credits: BigInt(180_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "CodexAI Enterprise",
@@ -514,7 +514,7 @@ async function seedProducts() {
       tier: "Enterprise",
       priceVnd: 0,
       credits: BigInt(300_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
 
     // Claude thường
@@ -531,7 +531,7 @@ async function seedProducts() {
       slug: "claude-mini",
       apiFamily: "CLAUDE",
       credits: BigInt(1_000_000),
-      durationDays: 30,
+      durationDays: null,
       priceVnd: 69_000,
     },
     {
@@ -539,7 +539,7 @@ async function seedProducts() {
       slug: "claude-plus",
       apiFamily: "CLAUDE",
       credits: BigInt(2_500_000),
-      durationDays: 45,
+      durationDays: null,
       priceVnd: 149_000,
     },
     {
@@ -547,7 +547,7 @@ async function seedProducts() {
       slug: "claude-pro",
       apiFamily: "CLAUDE",
       credits: BigInt(6_000_000),
-      durationDays: 90,
+      durationDays: null,
       priceVnd: 399_000,
     },
     {
@@ -555,7 +555,7 @@ async function seedProducts() {
       slug: "claude-max",
       apiFamily: "CLAUDE",
       credits: BigInt(18_000_000),
-      durationDays: 180,
+      durationDays: null,
       priceVnd: 1_199_000,
     },
     {
@@ -563,7 +563,7 @@ async function seedProducts() {
       slug: "claude-ultra",
       apiFamily: "CLAUDE",
       credits: BigInt(45_000_000),
-      durationDays: 365,
+      durationDays: null,
       priceVnd: 3_299_000,
     },
 
@@ -575,7 +575,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 425000,
       credits: BigInt(7_500_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "Claude Plus 6M",
@@ -584,7 +584,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 805000,
       credits: BigInt(15_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "Claude Plus Year",
@@ -593,7 +593,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 1520000,
       credits: BigInt(30_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "Claude Pro 3M",
@@ -602,7 +602,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 1137000,
       credits: BigInt(18_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "Claude Pro 6M",
@@ -611,7 +611,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 2154000,
       credits: BigInt(36_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "Claude Pro Year",
@@ -620,7 +620,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 4070000,
       credits: BigInt(72_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "Claude Max 3M",
@@ -629,7 +629,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 3990000,
       credits: BigInt(54_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "Claude Max 6M",
@@ -638,7 +638,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 7990000,
       credits: BigInt(108_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "Claude Max Year",
@@ -647,7 +647,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 0,
       credits: BigInt(108_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "Claude Ultra Year",
@@ -656,7 +656,7 @@ async function seedProducts() {
       tier: "Ultra",
       priceVnd: 0,
       credits: BigInt(150_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
 
     // Gemini thường
@@ -673,7 +673,7 @@ async function seedProducts() {
       slug: "gemini-mini",
       apiFamily: "GEMINI",
       credits: BigInt(1_000_000),
-      durationDays: 30,
+      durationDays: null,
       priceVnd: 29_000,
     },
     {
@@ -681,7 +681,7 @@ async function seedProducts() {
       slug: "gemini-plus",
       apiFamily: "GEMINI",
       credits: BigInt(5_000_000),
-      durationDays: 60,
+      durationDays: null,
       priceVnd: 99_000,
     },
     {
@@ -689,7 +689,7 @@ async function seedProducts() {
       slug: "gemini-pro",
       apiFamily: "GEMINI",
       credits: BigInt(10_000_000),
-      durationDays: 90,
+      durationDays: null,
       priceVnd: 179_000,
     },
     {
@@ -697,7 +697,7 @@ async function seedProducts() {
       slug: "gemini-max",
       apiFamily: "GEMINI",
       credits: BigInt(30_000_000),
-      durationDays: 180,
+      durationDays: null,
       priceVnd: 499_000,
     },
     {
@@ -705,7 +705,7 @@ async function seedProducts() {
       slug: "gemini-ultra",
       apiFamily: "GEMINI",
       credits: BigInt(100_000_000),
-      durationDays: 365,
+      durationDays: null,
       priceVnd: 1_499_000,
     },
 
@@ -717,7 +717,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 282000,
       credits: BigInt(15_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "Gemini Plus 6M",
@@ -726,7 +726,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 535000,
       credits: BigInt(30_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "Gemini Plus Year",
@@ -735,7 +735,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 1010000,
       credits: BigInt(60_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "Gemini Pro 3M",
@@ -744,7 +744,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 579000,
       credits: BigInt(30_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "Gemini Pro 6M",
@@ -753,7 +753,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 1099000,
       credits: BigInt(60_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "Gemini Pro Year",
@@ -762,7 +762,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 2099000,
       credits: BigInt(120_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "Gemini Max 6M",
@@ -771,7 +771,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 1399000,
       credits: BigInt(90_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "Gemini Max Year",
@@ -780,7 +780,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 2599000,
       credits: BigInt(180_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "Gemini Ultra Year",
@@ -789,7 +789,7 @@ async function seedProducts() {
       tier: "Ultra",
       priceVnd: 3499000,
       credits: BigInt(250_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
 
     // DeepSeek thường
@@ -806,7 +806,7 @@ async function seedProducts() {
       slug: "deepseek-mini",
       apiFamily: "DEEPSEEK",
       credits: BigInt(5_000_000),
-      durationDays: 30,
+      durationDays: null,
       priceVnd: 79_000,
       isPopular: true,
     },
@@ -815,7 +815,7 @@ async function seedProducts() {
       slug: "deepseek-plus",
       apiFamily: "DEEPSEEK",
       credits: BigInt(10_000_000),
-      durationDays: 60,
+      durationDays: null,
       priceVnd: 139_000,
     },
     {
@@ -823,7 +823,7 @@ async function seedProducts() {
       slug: "deepseek-pro",
       apiFamily: "DEEPSEEK",
       credits: BigInt(30_000_000),
-      durationDays: 90,
+      durationDays: null,
       priceVnd: 399_000,
     },
     {
@@ -831,7 +831,7 @@ async function seedProducts() {
       slug: "deepseek-max",
       apiFamily: "DEEPSEEK",
       credits: BigInt(100_000_000),
-      durationDays: 180,
+      durationDays: null,
       priceVnd: 1_299_000,
     },
     {
@@ -839,7 +839,7 @@ async function seedProducts() {
       slug: "deepseek-ultra",
       apiFamily: "DEEPSEEK",
       credits: BigInt(300_000_000),
-      durationDays: 365,
+      durationDays: null,
       priceVnd: 3_699_000,
     },
 
@@ -851,7 +851,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 396000,
       credits: BigInt(30_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "DeepSeek Plus 6M",
@@ -860,7 +860,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 751000,
       credits: BigInt(60_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "DeepSeek Plus Year",
@@ -869,7 +869,7 @@ async function seedProducts() {
       tier: "Plus",
       priceVnd: 1418000,
       credits: BigInt(120_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "DeepSeek Pro 3M",
@@ -878,7 +878,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 568000,
       credits: BigInt(45_000_000),
-      durationDays: 90,
+      durationDays: null,
     },
     {
       name: "DeepSeek Pro 6M",
@@ -887,7 +887,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 1077000,
       credits: BigInt(90_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "DeepSeek Pro Year",
@@ -896,7 +896,7 @@ async function seedProducts() {
       tier: "Pro",
       priceVnd: 2035000,
       credits: BigInt(180_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "DeepSeek Max 6M",
@@ -905,7 +905,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 2468000,
       credits: BigInt(200_000_000),
-      durationDays: 180,
+      durationDays: null,
     },
     {
       name: "DeepSeek Max Year",
@@ -914,7 +914,7 @@ async function seedProducts() {
       tier: "Max",
       priceVnd: 4676000,
       credits: BigInt(400_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
     {
       name: "DeepSeek Ultra Year",
@@ -923,7 +923,7 @@ async function seedProducts() {
       tier: "Ultra",
       priceVnd: 7028000,
       credits: BigInt(600_000_000),
-      durationDays: 365,
+      durationDays: null,
     },
   ];
 
@@ -943,7 +943,7 @@ async function seedProducts() {
         tier,
         priceVnd: product.priceVnd,
         credits: product.credits,
-        durationDays: product.durationDays,
+        durationDays: product.durationDays as any,
         apiKeyLimit,
         allowedModels,
         allowedReasoning: [],
@@ -957,7 +957,7 @@ async function seedProducts() {
         tier,
         priceVnd: product.priceVnd,
         credits: product.credits,
-        durationDays: product.durationDays,
+        durationDays: product.durationDays as any,
         apiKeyLimit,
         allowedModels,
         allowedReasoning: [],

@@ -17,9 +17,9 @@ export async function completePaidOrder(orderId: string, paidAt: Date = new Date
   }
 
   // 3. Process completion in transaction
-  const expiresAt = new Date(
-    paidAt.getTime() + order.product.durationDays * 24 * 60 * 60 * 1000
-  );
+  const expiresAt = (order.product.durationDays && order.product.durationDays > 0)
+    ? new Date(paidAt.getTime() + order.product.durationDays * 24 * 60 * 60 * 1000)
+    : null;
 
   const result = await prisma.$transaction(async (tx) => {
     // Update order status
@@ -43,7 +43,7 @@ export async function completePaidOrder(orderId: string, paidAt: Date = new Date
         allowedModels: order.product.allowedModels,
         allowedReasoning: order.product.allowedReasoning,
         startsAt: paidAt,
-        expiresAt,
+        expiresAt: expiresAt as any,
         isActive: true,
       },
     });

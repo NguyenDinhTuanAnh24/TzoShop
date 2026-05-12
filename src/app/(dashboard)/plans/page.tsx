@@ -35,7 +35,7 @@ type ApiPlan = {
   apiFamily: "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
   tier: "Trial" | "Mini" | "Plus" | "Pro" | "Max" | "Ultra" | "Enterprise";
   credits: string;
-  durationDays: number;
+  durationDays: number | null;
   priceVnd: number;
   apiKeyLimit: number;
   allowedModels: string[];
@@ -207,7 +207,7 @@ function PlansPageContent() {
       case "price-asc": return plansCopy.sort((a, b) => a.priceVnd - b.priceVnd);
       case "price-desc": return plansCopy.sort((a, b) => b.priceVnd - a.priceVnd);
       case "credits-desc": return plansCopy.sort((a, b) => Number(b.credits) - Number(a.credits));
-      case "duration-desc": return plansCopy.sort((a, b) => b.durationDays - a.durationDays);
+      case "duration-desc": return plansCopy.sort((a, b) => (b.durationDays ?? 0) - (a.durationDays ?? 0));
       default: return plansCopy.sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0));
     }
   }, [filteredPlans, sortBy]);
@@ -327,10 +327,10 @@ function PlansPageContent() {
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24">
-                  <AppIcon icon={Clock3} className="h-3.5 w-3.5" />
-                  Thời hạn:
-                </span>
+                  <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 w-24">
+                    <AppIcon icon={Clock3} className="h-3.5 w-3.5" />
+                    Hiệu lực:
+                  </span>
                 {durationTabs.map((tab) => (
                   <button
                     key={tab.value}
@@ -437,7 +437,7 @@ function PlansPageContent() {
                       {formatCreditAmount(plan.credits)}
                     </p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                      {plan.durationDays} ngày · {plan.apiKeyLimit} keys
+                      {plan.durationDays && plan.durationDays > 0 ? `${plan.durationDays} ngày` : "Dùng đến khi hết credits"} · {plan.apiKeyLimit} keys
                     </p>
                   </div>
 
@@ -564,9 +564,9 @@ function PlansPageContent() {
               </div>
 
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Thời hạn</span>
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Hiệu lực</span>
                 <span className="text-sm font-black text-slate-900">
-                  {selectedPlanToBuy.durationDays} ngày
+                  {selectedPlanToBuy.durationDays && selectedPlanToBuy.durationDays > 0 ? `${selectedPlanToBuy.durationDays} ngày` : "Không giới hạn thời gian"}
                 </span>
               </div>
 

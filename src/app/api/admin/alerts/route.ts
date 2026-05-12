@@ -20,13 +20,16 @@ export async function GET() {
       prisma.creditBucket.findMany({
         where: {
           isActive: true,
-          expiresAt: { gt: now },
+          OR: [
+            { expiresAt: { gt: now } },
+            { expiresAt: null as any }
+          ]
         },
         include: {
           user: { select: { email: true, id: true } },
           product: { select: { name: true } },
         },
-      }),
+      }) as Promise<any[]>,
       // Fetch stale pending orders
       prisma.order.findMany({
         where: {
@@ -85,7 +88,7 @@ export async function GET() {
       }
 
       // EXPIRING_BUCKET
-      if (bucket.expiresAt <= threeDaysFromNow) {
+      if (bucket.expiresAt && bucket.expiresAt <= threeDaysFromNow) {
         alerts.push({
           id: `expiring-${bucket.id}`,
           type: "EXPIRING_BUCKET",
@@ -175,15 +178,20 @@ export async function GET() {
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "UNAUTHORIZED") {
-        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+        return NextResponse.json({ success: false, error: "UNAUTHORIZED", message: "Vui lòng đăng nhập để tiếp tục." }, { status: 401 });
       }
       if (error.message === "FORBIDDEN") {
-        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+        return NextResponse.json({ success: false, error: "FORBIDDEN", message: "Không có quyền truy cập." }, { status: 403 });
       }
     }
     console.error("GET /api/admin/alerts failed:", error);
     return NextResponse.json(
-      { success: false, message: "Lỗi hệ thống khi quét cảnh báo." },
+      { 
+        success: false, 
+        message: "Lỗi hệ thống khi quét cảnh báo.",
+        summary: { total: 0, danger: 0, warning: 0 },
+        alerts: []
+      },
       { status: 500 }
     );
   }

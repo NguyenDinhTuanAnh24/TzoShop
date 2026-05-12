@@ -24,7 +24,11 @@ export function formatCredits(value: bigint | number) {
   return `${numberValue} credits`;
 }
 
-export function formatDuration(days: number) {
+export function formatDuration(days: number | null) {
+  if (!days || days <= 0) {
+    return "Dùng đến khi hết credits";
+  }
+
   if (days >= 365) {
     return "1 năm";
   }
