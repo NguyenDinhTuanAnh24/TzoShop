@@ -11,11 +11,12 @@ export default function DashboardBrand({ isDark = false }: { isDark?: boolean })
     >
       <div className="shrink-0">
         <Image
-          src="/favicon.png"
+          src="/logo.png"
           alt="TzoShop"
           width={42}
           height={42}
-          className="h-10 w-10 rounded-xl object-contain"
+          className="h-10 w-10 object-contain"
+          priority
         />
       </div>
 

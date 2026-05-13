@@ -35,6 +35,25 @@ type NavGroup = {
   items: NavItem[];
 };
 
+function TzoShopLogo({
+  size = 36,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <Image
+      src="/logo.png"
+      alt="TzoShop"
+      width={size}
+      height={size}
+      className={`h-auto w-auto object-contain ${className}`}
+      priority
+    />
+  );
+}
+
 const navGroups: NavGroup[] = [
   { label: "TỔNG QUAN", items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
   {
@@ -103,25 +122,14 @@ export default function DashboardSidebar({
           href="/dashboard"
           onClick={() => mobile && onCloseMobile()}
           aria-label="TzoShop Dashboard"
-          className={`inline-flex items-center justify-center border-4 border-black bg-[#FFD93D] text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-            collapsed && !mobile ? "h-12 w-12 p-0" : "h-12 gap-2 px-3"
+          title={collapsed && !mobile ? "TzoShop Dashboard" : undefined}
+          className={`inline-flex max-w-full items-center gap-3 text-black transition-all duration-100 ease-linear ${
+            collapsed && !mobile ? "mx-auto justify-center" : ""
           }`}
         >
-          <Image
-            src="/logo.png"
-            alt="TzoShop"
-            width={32}
-            height={32}
-            className="h-8 w-8 shrink-0 object-contain"
-            priority
-          />
+          {collapsed && !mobile ? <TzoShopLogo size={34} /> : <TzoShopLogo size={30} />}
           {(!collapsed || mobile) && (
-            <span
-              className="text-lg font-black uppercase leading-none tracking-tight text-black"
-              style={{ animation: "tzoshopGlow 2.4s ease-in-out infinite" }}
-            >
-              TZOSHOP
-            </span>
+            <span className="min-w-0 truncate text-xl font-black uppercase leading-none tracking-tight text-black md:text-2xl">TZOSHOP</span>
           )}
         </Link>
       </div>
@@ -221,23 +229,6 @@ export default function DashboardSidebar({
           onCancel={closeConfirm}
         />
       )}
-
-      <style jsx>{`
-        @keyframes tzoshopGlow {
-          0% {
-            opacity: 0.88;
-            text-shadow: 0 0 0 rgba(255, 255, 255, 0), 0 0 0 rgba(255, 217, 61, 0);
-          }
-          50% {
-            opacity: 1;
-            text-shadow: 0 0 5px rgba(255, 255, 255, 0.35), 0 0 10px rgba(255, 217, 61, 0.3);
-          }
-          100% {
-            opacity: 0.88;
-            text-shadow: 0 0 0 rgba(255, 255, 255, 0), 0 0 0 rgba(255, 217, 61, 0);
-          }
-        }
-      `}</style>
     </>
   );
 }

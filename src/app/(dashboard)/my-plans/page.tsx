@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { PlanSetupInstructions } from "@/components/dashboard/plan-setup-instructions";
 import { formatModelName } from "@/lib/model-display";
@@ -306,11 +306,11 @@ export default function MyPlansPage() {
                   return (
                     <article
                       key={bucket.id}
-                      className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-6"
+                      className="w-full min-w-0 max-w-full overflow-hidden border-4 border-black bg-white p-6 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-7"
                     >
                       <div className="mb-5 flex flex-wrap items-center gap-3">
-                        <h3 className="text-xl font-black text-black">{bucket.product?.name ?? "Gói tùy chỉnh"}</h3>
-                        <span className="inline-flex border-2 border-black bg-[#FFFDF5] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+                        <h3 className="text-2xl font-black tracking-tight text-black md:text-3xl">{bucket.product?.name ?? "Gói tùy chỉnh"}</h3>
+                        <span className="inline-flex border-2 border-black bg-[#FFFDF5] px-3 py-1 text-xs font-black uppercase tracking-tight text-black shadow-[2px_2px_0px_0px_#000] md:text-sm">
                           {getFamilyLabel(bucket.apiFamily)}
                         </span>
                         <StatusBadge
@@ -331,41 +331,44 @@ export default function MyPlansPage() {
                       </div>
 
                       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <div className="w-full min-w-0 border-4 border-black bg-[#C7F0D8] px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
-                          <p className="text-[11px] font-bold uppercase text-black/70">Credits còn lại</p>
-                          <p className="text-xl font-black text-black">{formatCredits(bucket.creditsRemaining)}</p>
+                        <div className="w-full min-w-0 border-4 border-black bg-[#C7F0D8] px-4 py-3 shadow-[3px_3px_0px_0px_#000]">
+                          <p className="text-xs font-bold uppercase tracking-[0.08em] text-black/70 md:text-sm">Credits còn lại</p>
+                          <p className="text-2xl font-black text-black md:text-3xl">{formatCredits(bucket.creditsRemaining)}</p>
                         </div>
-                        <div className="w-full min-w-0 border-4 border-black bg-[#E9E1D0] px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
-                          <p className="text-[11px] font-bold uppercase text-black/70">Credits đã dùng</p>
-                          <p className="text-xl font-black text-black">{formatCredits(bucket.usedCredits)}</p>
+                        <div className="w-full min-w-0 border-4 border-black bg-[#E9E1D0] px-4 py-3 shadow-[3px_3px_0px_0px_#000]">
+                          <p className="text-xs font-bold uppercase tracking-[0.08em] text-black/70 md:text-sm">Credits đã dùng</p>
+                          <p className="text-2xl font-black text-black md:text-3xl">{formatCredits(bucket.usedCredits)}</p>
                         </div>
-                        <div className="w-full min-w-0 border-4 border-black bg-[#FFFDF5] px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
-                          <p className="text-[11px] font-bold uppercase text-black/70">Hiệu lực</p>
-                          <p className="text-base font-black text-black">{bucket.expiresAt ? new Date(bucket.expiresAt).toLocaleDateString("vi-VN") : "Vô hạn"}</p>
+                        <div className="w-full min-w-0 border-4 border-black bg-[#FFFDF5] px-4 py-3 shadow-[3px_3px_0px_0px_#000]">
+                          <p className="text-xs font-bold uppercase tracking-[0.08em] text-black/70 md:text-sm">Hiệu lực</p>
+                          <p className="text-lg font-black text-black md:text-xl">{bucket.expiresAt ? new Date(bucket.expiresAt).toLocaleDateString("vi-VN") : "Vô hạn"}</p>
                         </div>
-                        <div className="w-full min-w-0 border-4 border-black bg-[#FFFDF5] px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
-                          <p className="text-[11px] font-bold uppercase text-black/70">API key đang dùng</p>
-                          <p className="text-xl font-black text-black">{bucket.activeApiKeys}/{bucket.apiKeyLimit}</p>
+                        <div className="w-full min-w-0 border-4 border-black bg-[#FFFDF5] px-4 py-3 shadow-[3px_3px_0px_0px_#000]">
+                          <p className="text-xs font-bold uppercase tracking-[0.08em] text-black/70 md:text-sm">API key đang dùng</p>
+                          <p className="text-2xl font-black text-black md:text-3xl">{bucket.activeApiKeys}/{bucket.apiKeyLimit}</p>
                         </div>
                       </div>
 
                       <div className="mt-5">
-                        <p className="mb-2 text-xs font-black uppercase text-black">Tiến độ sử dụng {usedPercent}%</p>
-                        <div className="h-5 overflow-hidden border-4 border-black bg-[#E9E1D0] shadow-[2px_2px_0px_0px_#000]" aria-label={`Đã dùng ${usedPercent}%`}>
+                        <p className="mb-2 text-sm font-black uppercase tracking-tight text-black md:text-base">Tiến độ sử dụng {usedPercent}%</p>
+                        <div className="h-6 overflow-hidden border-4 border-black bg-[#E9E1D0] shadow-[2px_2px_0px_0px_#000]" aria-label={`Đã dùng ${usedPercent}%`}>
                           <div className="h-full bg-[#FFD93D]" style={{ width: `${usedPercent}%` }} />
                         </div>
                       </div>
 
-                      <div className="mt-5 flex flex-wrap gap-3">
-                        <AppButton variant="primary" onClick={() => window.location.href = "/api-keys"} className="h-11">
+                      <div className="mt-5 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
+                        <AppButton variant="primary" onClick={() => window.location.href = "/api-keys"} className="h-12 w-full min-w-0 justify-center border-4 border-black bg-[#FF6B6B] px-5 text-sm font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none sm:w-auto md:text-base">
                           Tạo API key
                         </AppButton>
-                        <AppButton variant="secondary" onClick={() => window.location.href = "/api-keys"} className="h-11">
+                        <AppButton variant="secondary" onClick={() => window.location.href = "/api-keys"} className="h-12 w-full min-w-0 justify-center border-4 border-black bg-white px-5 text-sm font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none sm:w-auto md:text-base">
                           Xem API Keys
                         </AppButton>
                         <AppButton
                           variant={isInstructionOpen ? "primary" : "secondary"}
-                          className="h-11"
+                          className={cn(
+                            "h-12 w-full min-w-0 justify-center border-4 border-black px-5 text-sm font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none sm:w-auto md:text-base",
+                            isInstructionOpen ? "bg-[#FFD93D]" : "bg-white",
+                          )}
                           onClick={() => toggleInstruction(bucket.id)}
                         >
                           <Settings className={cn("mr-2 h-4 w-4 transition-transform", isInstructionOpen && "rotate-90")} />
@@ -373,14 +376,14 @@ export default function MyPlansPage() {
                         </AppButton>
                       </div>
 
-                      <div className="mt-5 rounded-[8px] border-4 border-black bg-[#FFFDF5] p-4">
-                        <p className="mb-3 text-[11px] font-black uppercase text-black/70">Models được phép</p>
+                      <div className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[8px] border-4 border-black bg-[#FFFDF5] p-5">
+                        <p className="mb-3 text-xs font-black uppercase tracking-[0.08em] text-black/70 md:text-sm">Models được phép</p>
                         {bucket.allowedModels && bucket.allowedModels.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex max-w-full min-w-0 flex-wrap gap-2">
                             {(expandedModelBucketIds.has(bucket.id) ? bucket.allowedModels : bucket.allowedModels.slice(0, 6)).map((m) => (
                               <span
                                 key={m.publicName}
-                                className="inline-flex items-center border-2 border-black bg-white px-3 py-1.5 text-[11px] font-black text-black shadow-[2px_2px_0px_0px_#000]"
+                                className="inline-flex max-w-full min-w-0 items-center break-all whitespace-normal border-2 border-black bg-white px-2.5 py-1.5 text-xs font-black text-black shadow-[2px_2px_0px_0px_#000] md:text-sm"
                               >
                                 {formatModelName(m.publicName)}
                               </span>
@@ -388,7 +391,7 @@ export default function MyPlansPage() {
                             {bucket.allowedModels.length > 6 && (
                               <button
                                 onClick={() => toggleExpandModel(bucket.id)}
-                                className="inline-flex items-center border-2 border-black bg-[#C7F0D8] px-3 py-1.5 text-[11px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]"
+                                className="inline-flex max-w-full min-w-0 items-center break-all whitespace-normal border-2 border-black bg-[#C7F0D8] px-2.5 py-1.5 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] md:text-sm"
                               >
                                 {expandedModelBucketIds.has(bucket.id) ? "Thu gọn" : `+${bucket.allowedModels.length - 6}`}
                               </button>
@@ -420,3 +423,4 @@ export default function MyPlansPage() {
     </div>
   );
 }
+
