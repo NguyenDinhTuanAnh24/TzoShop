@@ -1,64 +1,85 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import DashboardBrand from "./dashboard-brand";
-
 import { useSession, signOut } from "next-auth/react";
-import { 
-  LayoutDashboard, 
-  Wallet,
-  KeyRound, 
-  CreditCard, 
-  UserRound,
+import {
+  BookOpenText,
+  ChartNoAxesColumnIncreasing,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  KeyRound,
+  LayoutDashboard,
+  LifeBuoy,
   LogOut,
-  TicketPercent
+  PackageCheck,
+  Settings,
+  ShoppingCart,
+  TicketPercent,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AppIcon } from "@/components/ui/icon";
-
-const menuItems = [
-  { 
-    href: "/dashboard", 
-    label: "Tổng quan", 
-    icon: LayoutDashboard,
-    activePaths: ["/dashboard"]
-  },
-  { 
-    href: "/plans", 
-    label: "Credits", 
-    icon: Wallet,
-    activePaths: ["/plans", "/my-plans"]
-  },
-  { 
-    href: "/api-keys", 
-    label: "API", 
-    icon: KeyRound,
-    activePaths: ["/api-keys", "/api-docs", "/usage"]
-  },
-  { 
-    href: "/billing", 
-    label: "Thanh toán", 
-    icon: CreditCard,
-    activePaths: ["/billing"]
-  },
-  { 
-    href: "/coupons", 
-    label: "Mã giảm giá", 
-    icon: TicketPercent,
-    activePaths: ["/coupons"]
-  },
-  { 
-    href: "/settings", 
-    label: "Tài khoản", 
-    icon: UserRound,
-    activePaths: ["/settings", "/support"]
-  },
-];
-
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmDialog } from "@/components/ui/confirm-toast";
 
-export default function DashboardSidebar() {
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
+  { label: "TỔNG QUAN", items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    label: "CREDITS",
+    items: [
+      { href: "/plans", label: "Mua credits", icon: ShoppingCart },
+      { href: "/my-plans", label: "Gói của tôi", icon: PackageCheck },
+      { href: "/billing", label: "Thanh toán", icon: CreditCard },
+      { href: "/coupons", label: "Mã giảm giá", icon: TicketPercent },
+    ],
+  },
+  {
+    label: "API",
+    items: [
+      { href: "/api-keys", label: "API Keys", icon: KeyRound },
+      { href: "/api-docs", label: "Tài liệu API", icon: BookOpenText },
+      { href: "/usage", label: "Lịch sử sử dụng", icon: ChartNoAxesColumnIncreasing },
+    ],
+  },
+  {
+    label: "TÀI KHOẢN",
+    items: [
+      { href: "/settings", label: "Cài đặt", icon: Settings },
+      { href: "/support", label: "Hỗ trợ", icon: LifeBuoy },
+    ],
+  },
+];
+
+function isActivePath(pathname: string, href: string) {
+  if (href === "/plans") return pathname === "/plans" || pathname.startsWith("/plans/");
+  if (href === "/my-plans") return pathname === "/my-plans" || pathname.startsWith("/my-plans/");
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export default function DashboardSidebar({
+  collapsed,
+  onToggleCollapsed,
+  mobileOpen,
+  onCloseMobile,
+}: {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+}) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { confirmState, isConfirming, askConfirm, closeConfirm, handleConfirm } = useConfirm();
@@ -76,64 +97,135 @@ export default function DashboardSidebar() {
     });
   };
 
-  return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-white">
-      {/* Logo */}
-      <div className="shrink-0 border-b border-black/5 px-4 py-5">
-        <DashboardBrand />
+  const sidebarBody = (mobile = false) => (
+    <>
+      <div className="flex h-20 shrink-0 items-center justify-center border-b-4 border-black px-3">
+        <Link
+          href="/dashboard"
+          onClick={() => mobile && onCloseMobile()}
+          aria-label="TzoShop Dashboard"
+          className={`inline-flex items-center justify-center border-4 border-black bg-[#FFD93D] text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
+            collapsed && !mobile ? "h-12 w-12 p-0" : "h-12 gap-2 px-3"
+          }`}
+        >
+          <Image
+            src="/logo.png"
+            alt="TzoShop"
+            width={32}
+            height={32}
+            className="h-8 w-8 shrink-0 object-contain"
+            priority
+          />
+          {(!collapsed || mobile) && (
+            <span
+              className="text-lg font-black uppercase leading-none tracking-tight text-black"
+              style={{ animation: "tzoshopGlow 2.4s ease-in-out infinite" }}
+            >
+              TZOSHOP
+            </span>
+          )}
+        </Link>
       </div>
 
-      {/* Menu */}
-      <div className="flex-1 overflow-y-auto px-3 py-5">
-        <nav className="space-y-1">
-          {menuItems.map((item) => {
-            const isActive = item.activePaths.some(p => pathname === p || pathname.startsWith(p + "/"));
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        {navGroups.map((group) => (
+          <div key={group.label} className="mb-4">
+            {(!collapsed || mobile) && (
+              <p className="mb-2 mt-5 px-3 text-[11px] font-black uppercase tracking-[0.12em] text-black/55">{group.label}</p>
+            )}
+            <div className="space-y-2">
+              {group.items.map((item) => {
+                const active = isActivePath(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    title={collapsed && !mobile ? item.label : undefined}
+                    aria-label={collapsed && !mobile ? item.label : undefined}
+                    onClick={() => mobile && onCloseMobile()}
+                    className={`flex h-11 items-center gap-3 border-4 px-3 text-sm font-bold text-black transition-all ${
+                      collapsed && !mobile ? "justify-center" : ""
+                    } ${
+                      active
+                        ? "border-black bg-[#FFD93D] font-black shadow-[4px_4px_0px_0px_#000]"
+                        : "border-transparent hover:-translate-y-0.5 hover:border-black hover:bg-[#FFD93D] hover:shadow-[3px_3px_0px_0px_#000]"
+                    }`}
+                  >
+                    <AppIcon icon={item.icon} className="h-5 w-5 shrink-0 text-black" strokeWidth={2.5} />
+                    {(!collapsed || mobile) && <span className="truncate">{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                  isActive
-                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                <AppIcon icon={item.icon} className={`h-5 w-5 ${isActive ? "text-emerald-600" : "text-slate-400"}`} />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* User & Logout */}
-      <div className="shrink-0 border-t border-black/5 px-3 py-4 space-y-3">
+      <div className="shrink-0 border-t-4 border-black bg-[#FFFDF5] p-3">
         {session?.user && (
-          <div className="flex items-center gap-3 px-3 py-1">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700 ring-2 ring-white">
-              {session.user.name?.[0]?.toUpperCase() || "U"}
+          <div
+            className={`mb-3 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000] ${
+              collapsed && !mobile ? "mx-auto flex h-14 w-14 items-center justify-center" : "flex items-center gap-3 p-3"
+            }`}
+          >
+            <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#C7F0D8] text-sm font-black uppercase text-black">
+              {session.user.name?.[0] ?? "U"}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-slate-900">
-                {session.user.name}
-              </p>
-              <p className="truncate text-xs text-slate-500">
-                {session.user.email}
-              </p>
-            </div>
+            {(!collapsed || mobile) && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-black text-black">{session.user.name}</p>
+                <p className="truncate text-xs font-bold text-black/70">{session.user.email}</p>
+              </div>
+            )}
           </div>
         )}
 
         <button
           type="button"
+          aria-label={collapsed && !mobile ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+          aria-expanded={!collapsed}
+          title={collapsed && !mobile ? "Mở rộng sidebar" : undefined}
+          onClick={onToggleCollapsed}
+          className={`mb-3 border-4 border-black bg-white font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all hover:bg-[#FFD93D] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
+            collapsed && !mobile ? "mx-auto flex h-12 w-12 items-center justify-center" : "flex h-12 w-full items-center justify-center gap-2"
+          }`}
+        >
+          {collapsed && !mobile ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+          {(!collapsed || mobile) && "THU GỌN"}
+        </button>
+
+        <button
+          type="button"
+          title={collapsed && !mobile ? "Đăng xuất" : undefined}
           onClick={handleRequestLogout}
-          className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+          className={`border-4 border-black bg-[#FF6B6B] font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
+            collapsed && !mobile ? "mx-auto flex h-12 w-12 items-center justify-center" : "flex h-12 w-full items-center justify-center gap-2"
+          }`}
         >
           <LogOut className="h-5 w-5" />
-          Đăng xuất
+          {(!collapsed || mobile) && "ĐĂNG XUẤT"}
         </button>
       </div>
+    </>
+  );
+
+  return (
+    <>
+      <aside
+        className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r-4 border-black bg-[#FFFDF5] lg:flex ${
+          collapsed ? "w-20" : "w-[250px]"
+        }`}
+      >
+        {sidebarBody(false)}
+      </aside>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button type="button" aria-label="Đóng menu" className="absolute inset-0 bg-black/50" onClick={onCloseMobile} />
+          <aside className="relative z-10 flex h-full w-[280px] flex-col border-r-4 border-black bg-[#FFFDF5]">{sidebarBody(true)}</aside>
+        </div>
+      )}
 
       {confirmState && (
         <ConfirmDialog
@@ -148,6 +240,23 @@ export default function DashboardSidebar() {
           onCancel={closeConfirm}
         />
       )}
-    </div>
+
+      <style jsx>{`
+        @keyframes tzoshopGlow {
+          0% {
+            opacity: 0.88;
+            text-shadow: 0 0 0 rgba(255, 255, 255, 0), 0 0 0 rgba(255, 217, 61, 0);
+          }
+          50% {
+            opacity: 1;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.35), 0 0 10px rgba(255, 217, 61, 0.3);
+          }
+          100% {
+            opacity: 0.88;
+            text-shadow: 0 0 0 rgba(255, 255, 255, 0), 0 0 0 rgba(255, 217, 61, 0);
+          }
+        }
+      `}</style>
+    </>
   );
 }

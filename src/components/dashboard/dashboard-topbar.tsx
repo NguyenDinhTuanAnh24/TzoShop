@@ -1,81 +1,91 @@
-"use client";
+﻿"use client";
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import DashboardMobileNav from "./dashboard-mobile-nav";
-import { buttonStyles } from "@/lib/ui-styles";
+import { Menu } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 const pageMeta: Record<string, { title: string; description: string }> = {
   "/dashboard": {
-    title: "Khu vực quản lý",
+    title: "KHU VỰC QUẢN LÝ",
     description: "Theo dõi credits, API key và mức sử dụng của bạn.",
   },
   "/plans": {
-    title: "Mua credits",
+    title: "MUA CREDITS",
     description: "Chọn gói credits phù hợp để sử dụng trong tài khoản của bạn.",
   },
   "/my-plans": {
-    title: "Gói của tôi",
+    title: "GÓI CỦA TÔI",
     description: "Xem các gói credits đang hoạt động và thời hạn sử dụng.",
   },
+  "/billing": {
+    title: "THANH TOÁN",
+    description: "Quản lý đơn hàng, thanh toán và lịch sử giao dịch.",
+  },
+  "/coupons": {
+    title: "MÃ GIẢM GIÁ",
+    description: "Quản lý và sử dụng các mã ưu đãi dành riêng cho bạn.",
+  },
   "/api-keys": {
-    title: "API Keys",
+    title: "API KEYS",
     description: "Tạo, quản lý và bảo vệ các API key trong tài khoản của bạn.",
   },
   "/api-docs": {
-    title: "Tài liệu API",
-    description:
-      "Hướng dẫn tích hợp API, endpoint chung và danh sách model hỗ trợ.",
+    title: "TÀI LIỆU API",
+    description: "Hướng dẫn tích hợp API, endpoint chung và danh sách model hỗ trợ.",
   },
   "/usage": {
-    title: "Lịch sử sử dụng",
+    title: "LỊCH SỬ SỬ DỤNG",
     description: "Theo dõi request, credits đã dùng và phát hiện bất thường.",
   },
-  "/billing": {
-    title: "Thanh toán",
-    description: "Quản lý đơn hàng, thanh toán và lịch sử giao dịch.",
-  },
   "/settings": {
-    title: "Cài đặt",
+    title: "CÀI ĐẶT",
     description: "Cập nhật hồ sơ, thông báo và các tùy chọn tài khoản.",
+  },
+  "/support": {
+    title: "HỖ TRỢ",
+    description: "Liên hệ và gửi yêu cầu hỗ trợ khi sử dụng TzoShop.",
   },
 };
 
-import { NotificationBell } from "@/components/notifications/notification-bell";
+function getMeta(pathname: string) {
+  const exact = pageMeta[pathname];
+  if (exact) return exact;
+  const matched = Object.keys(pageMeta)
+    .sort((a, b) => b.length - a.length)
+    .find((p) => pathname.startsWith(`${p}/`));
+  return matched ? pageMeta[matched] : pageMeta["/dashboard"];
+}
 
-export default function DashboardTopbar() {
+export default function DashboardTopbar({ onOpenMobile }: { onOpenMobile: () => void }) {
   const pathname = usePathname();
-
-  const meta = pageMeta[pathname] ?? {
-    title: "Khu vực quản lý",
-    description: "Quản lý tài khoản và theo dõi trạng thái sử dụng của bạn.",
-  };
+  const meta = getMeta(pathname);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-black/5 bg-white/90 backdrop-blur">
-      <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 lg:px-8">
+    <header className="sticky top-0 z-40 h-20 border-b-4 border-black bg-[#FFFDF5]">
+      <div className="flex h-full items-center justify-between gap-3 px-5 md:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
-          {/* Menu mobile nằm trên topbar */}
-          <DashboardMobileNav />
-
-          <div className="flex min-w-0 flex-col justify-center">
-            <h1 className="truncate text-[20px] font-semibold leading-tight text-[#0b0f0d] lg:text-[24px]">
-              {meta.title}
-            </h1>
-            <p className="mt-1 line-clamp-1 text-xs leading-5 text-[#5f6b66] sm:text-sm">
-              {meta.description}
-            </p>
+          <button
+            type="button"
+            onClick={onOpenMobile}
+            className="flex h-11 w-11 items-center justify-center border-4 border-black bg-white shadow-[3px_3px_0px_0px_#000] lg:hidden"
+            aria-label="Mở menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-black uppercase text-black sm:text-xl">{meta.title}</h1>
+            <p className="truncate text-xs font-bold text-black/70 sm:text-sm">{meta.description}</p>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-4">
+        <div className="flex items-center gap-3">
           <Link
             href="/plans"
-            className={`hidden sm:flex items-center justify-center ${buttonStyles.primary}`}
+            className="hidden h-11 items-center justify-center border-4 border-black bg-[#FFD93D] px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none sm:flex"
           >
-            Mua credits
+            MUA CREDITS
           </Link>
-
           <NotificationBell />
         </div>
       </div>

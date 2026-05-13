@@ -1,15 +1,16 @@
-import Skeleton from "react-loading-skeleton";
+﻿import { Skeleton } from "@/components/ui/skeleton";
 
 export function StatCardsSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" aria-hidden="true">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <Skeleton width={80} height={12} />
-            <Skeleton circle width={16} height={16} />
+        <div key={i} className="min-h-[120px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] md:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-10 w-10" />
           </div>
-          <Skeleton width={120} height={32} />
+          <Skeleton className="mt-5 h-9 w-24" />
+          <Skeleton className="mt-2 h-3 w-24" />
         </div>
       ))}
     </div>
@@ -18,30 +19,27 @@ export function StatCardsSkeleton() {
 
 export function CardListSkeleton({ count = 3 }: { count?: number }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-hidden="true">
       {[...Array(count)].map((_, i) => (
-        <div
-          key={i}
-          className="flex flex-col gap-6 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center"
-        >
+        <div key={i} className="flex flex-col gap-6 border-4 border-black bg-white p-6 shadow-[6px_6px_0px_0px_#000] lg:flex-row lg:items-center">
           <div className="w-full shrink-0 lg:w-[220px]">
-            <Skeleton width={150} height={24} />
-            <Skeleton width={100} height={12} className="mt-2" />
+            <Skeleton className="h-6 w-36" />
+            <Skeleton className="mt-2 h-3 w-24" />
           </div>
-          <div className="flex flex-col gap-1 w-full shrink-0 lg:w-[150px]">
-            <Skeleton width={80} height={20} />
-            <Skeleton width={120} height={12} />
+          <div className="w-full shrink-0 space-y-2 lg:w-[150px]">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-3 w-28" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap gap-1.5">
               {[...Array(4)].map((_, j) => (
-                <Skeleton key={j} width={60} height={24} borderRadius="0.5rem" />
+                <Skeleton key={j} className="h-6 w-16" />
               ))}
             </div>
           </div>
-          <div className="flex items-center justify-between gap-6 border-t border-slate-50 pt-6 lg:border-none lg:pt-0">
-            <Skeleton width={100} height={28} />
-            <Skeleton width={80} height={40} borderRadius="2rem" />
+          <div className="flex items-center justify-between gap-6 border-t-2 border-black/20 pt-6 lg:border-none lg:pt-0">
+            <Skeleton className="h-7 w-24" />
+            <Skeleton className="h-10 w-24" />
           </div>
         </div>
       ))}
@@ -51,24 +49,24 @@ export function CardListSkeleton({ count = 3 }: { count?: number }) {
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="rounded-[32px] border border-slate-200 bg-white overflow-hidden shadow-sm">
+    <div className="overflow-hidden border-4 border-black bg-white shadow-[6px_6px_0px_0px_#000]" aria-hidden="true">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/50">
+            <tr className="border-b-4 border-black bg-[#FFFDF5]">
               {[...Array(5)].map((_, i) => (
                 <th key={i} className="px-6 py-4 text-left">
-                  <Skeleton width={80} height={12} />
+                  <Skeleton className="h-3 w-20" />
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y-2 divide-black/10">
             {[...Array(rows)].map((_, i) => (
               <tr key={i}>
                 {[...Array(5)].map((_, j) => (
                   <td key={j} className="px-6 py-4">
-                    <Skeleton width={j === 0 ? 150 : 100} height={16} />
+                    <Skeleton className={j === 0 ? "h-4 w-40" : "h-4 w-24"} />
                   </td>
                 ))}
               </tr>
@@ -82,17 +80,17 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
 
 export function FormSkeleton() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" aria-hidden="true">
       <div className="grid gap-6 md:grid-cols-2">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="space-y-2">
-            <Skeleton width={100} height={14} className="ml-1" />
-            <Skeleton height={48} borderRadius="1rem" />
+            <Skeleton className="ml-1 h-3 w-24" />
+            <Skeleton className="h-12 w-full" />
           </div>
         ))}
       </div>
       <div className="flex justify-end pt-4">
-        <Skeleton width={140} height={48} borderRadius="2rem" />
+        <Skeleton className="h-12 w-36" />
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import { HTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/utils";
-import { ui } from "@/lib/ui-tokens";
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: "default" | "interactive" | "muted";
@@ -9,9 +8,10 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 const AppCard = forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = "default", ...props }, ref) => {
     const variants = {
-      default: ui.card,
-      interactive: ui.cardInteractive,
-      muted: ui.cardMuted,
+      default: "border-4 border-black bg-white shadow-[6px_6px_0px_0px_#000]",
+      interactive:
+        "border-4 border-black bg-white shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000]",
+      muted: "border-4 border-black bg-[#FFFDF5] shadow-[6px_6px_0px_0px_#000]",
     };
 
     return (

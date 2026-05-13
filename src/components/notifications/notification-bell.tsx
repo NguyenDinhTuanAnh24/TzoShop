@@ -1,19 +1,19 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { 
-  Bell, 
-  ShoppingCart, 
-  CreditCard, 
-  LifeBuoy, 
-  UserPlus, 
-  Info, 
+import {
+  Bell,
+  ShoppingCart,
+  CreditCard,
+  LifeBuoy,
+  UserPlus,
+  Info,
   ChevronRight,
   CheckCircle2,
   XCircle,
   KeyRound,
   AlertCircle,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -29,7 +29,7 @@ type Notification = {
   isRead: boolean;
   createdAt: string;
   severity?: "WARNING" | "DANGER";
-  isAlert?: boolean; // true = realtime admin alert, not in DB
+  isAlert?: boolean;
 };
 
 export function NotificationBell() {
@@ -39,10 +39,9 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMarkingRead, setIsMarkingRead] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const hasMarkedRef = useRef(false); // Track if we already marked read for this open
+  const hasMarkedRef = useRef(false);
   const router = useRouter();
 
-  // Fetch notifications (GET only — no mark read)
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications");
@@ -53,7 +52,6 @@ export function NotificationBell() {
       }));
       const dbUnread: number = result.unreadCount || 0;
 
-      // Admin: fetch realtime alerts (separate from DB notifications)
       const user = session?.user as { role?: string } | undefined;
       if (user?.role === "ADMIN") {
         try {
@@ -63,7 +61,7 @@ export function NotificationBell() {
             const mappedAlerts: Notification[] = alertData.alerts.slice(0, 10).map((a: Notification) => ({
               ...a,
               isRead: false,
-              isAlert: true, // Mark as realtime alert — not in DB, no mark-read
+              isAlert: true,
             }));
             allNotifications = [...mappedAlerts, ...allNotifications];
           }
@@ -72,18 +70,15 @@ export function NotificationBell() {
         }
       }
 
-      // Sort by createdAt descending
       allNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setNotifications(allNotifications);
-      // Only DB notifications count toward unreadCount badge
       setUnreadCount(dbUnread);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
     }
   }, [session]);
 
-  // Initial fetch + polling
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void fetchNotifications();
@@ -97,19 +92,17 @@ export function NotificationBell() {
     };
   }, [fetchNotifications]);
 
-  // Close on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
-        hasMarkedRef.current = false; // Reset for next open
+        hasMarkedRef.current = false;
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Mark all DB notifications as read when dropdown opens
   const markAllRead = useCallback(async () => {
     if (isMarkingRead || hasMarkedRef.current) return;
     if (unreadCount <= 0) return;
@@ -121,31 +114,25 @@ export function NotificationBell() {
       const res = await fetch("/api/notifications/mark-read", { method: "POST" });
       const data = await res.json();
       if (data.success) {
-        // Update local state: mark all DB notifications as read
-        setNotifications(prev =>
-          prev.map(n => n.isAlert ? n : { ...n, isRead: true })
-        );
+        setNotifications((prev) => prev.map((n) => (n.isAlert ? n : { ...n, isRead: true })));
         setUnreadCount(0);
       } else {
-        hasMarkedRef.current = false; // Allow retry
+        hasMarkedRef.current = false;
       }
     } catch (error) {
       console.error("Failed to mark all read:", error);
-      hasMarkedRef.current = false; // Allow retry
+      hasMarkedRef.current = false;
     } finally {
       setIsMarkingRead(false);
     }
   }, [isMarkingRead, unreadCount]);
 
-  // Toggle dropdown
   const handleToggle = () => {
     const willOpen = !isOpen;
     setIsOpen(willOpen);
 
     if (willOpen) {
-      // Refresh data when opening
       fetchNotifications();
-      // Mark read after a short delay to let data load
       if (unreadCount > 0) {
         setTimeout(() => markAllRead(), 300);
       }
@@ -154,7 +141,6 @@ export function NotificationBell() {
     }
   };
 
-  // Click on a notification
   const handleClickNotification = (notif: Notification) => {
     if (notif.href) {
       setIsOpen(false);
@@ -164,157 +150,179 @@ export function NotificationBell() {
   };
 
   const getIcon = (notif: Notification) => {
-    // Admin alerts use severity-based icons
     if (notif.severity) {
-      if (notif.severity === "DANGER") return <AlertCircle className="h-4 w-4 text-rose-500" />;
-      return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+      if (notif.severity === "DANGER") return <AlertCircle className="h-4 w-4 text-black" />;
+      return <AlertTriangle className="h-4 w-4 text-black" />;
     }
 
     switch (notif.type) {
-      case "PAYMENT_SUCCESS": return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-      case "ORDER_CREATED": return <ShoppingCart className="h-4 w-4 text-blue-500" />;
-      case "ORDER_CANCELLED": return <XCircle className="h-4 w-4 text-rose-500" />;
-      case "API_KEY_CREATED": return <KeyRound className="h-4 w-4 text-indigo-500" />;
-      case "SUPPORT_UPDATED": return <LifeBuoy className="h-4 w-4 text-amber-500" />;
-      case "SYSTEM": return <Info className="h-4 w-4 text-slate-500" />;
-      case "ORDER_PAID": return <CreditCard className="h-4 w-4 text-emerald-500" />;
-      case "SUPPORT_CREATED": return <LifeBuoy className="h-4 w-4 text-amber-500" />;
-      case "USER_REGISTERED": return <UserPlus className="h-4 w-4 text-indigo-500" />;
+      case "PAYMENT_SUCCESS":
+        return <CheckCircle2 className="h-4 w-4 text-black" />;
+      case "ORDER_CREATED":
+        return <ShoppingCart className="h-4 w-4 text-black" />;
+      case "ORDER_CANCELLED":
+        return <XCircle className="h-4 w-4 text-black" />;
+      case "API_KEY_CREATED":
+        return <KeyRound className="h-4 w-4 text-black" />;
+      case "SUPPORT_UPDATED":
+      case "SUPPORT_CREATED":
+        return <LifeBuoy className="h-4 w-4 text-black" />;
+      case "SYSTEM":
+        return <Info className="h-4 w-4 text-black" />;
+      case "ORDER_PAID":
+        return <CreditCard className="h-4 w-4 text-black" />;
+      case "USER_REGISTERED":
+        return <UserPlus className="h-4 w-4 text-black" />;
       case "OUT_OF_CREDITS":
       case "HIGH_FAILED_REQUESTS":
-        return <AlertCircle className="h-4 w-4 text-rose-500" />;
+        return <AlertCircle className="h-4 w-4 text-black" />;
       case "LOW_CREDITS":
       case "EXPIRING_BUCKET":
       case "EXPIRING_PLAN":
       case "STALE_PENDING_ORDER":
       case "MODEL_FAILED_SPIKE":
-        return <AlertTriangle className="h-4 w-4 text-amber-500" />;
-      default: return <Bell className="h-4 w-4 text-slate-400" />;
+        return <AlertTriangle className="h-4 w-4 text-black" />;
+      default:
+        return <Bell className="h-4 w-4 text-black" />;
     }
   };
 
-  const getBgColor = (notif: Notification) => {
-    if (notif.isRead) return "bg-white";
-    
-    // Check type for unread background colors
-    if (notif.severity === "DANGER" || notif.type === "OUT_OF_CREDITS") {
-      return "bg-rose-50/50";
-    }
-    
-    if (notif.severity === "WARNING" || notif.type === "LOW_CREDITS" || notif.type === "EXPIRING_PLAN" || notif.type === "EXPIRING_BUCKET") {
-      return "bg-amber-50/50";
-    }
+  const getIconBg = (notif: Notification) => {
+    if (notif.severity === "DANGER" || notif.type === "OUT_OF_CREDITS") return "bg-[#FF6B6B]";
+    if (
+      notif.severity === "WARNING" ||
+      notif.type === "LOW_CREDITS" ||
+      notif.type === "EXPIRING_PLAN" ||
+      notif.type === "EXPIRING_BUCKET"
+    )
+      return "bg-[#FFD93D]";
+    if (notif.type === "API_KEY_CREATED") return "bg-[#A78BFA]";
+    if (notif.type.includes("SUPPORT") || notif.type === "SYSTEM") return "bg-[#C7F0D8]";
+    return "bg-[#FFFDF5]";
+  };
 
-    return "bg-emerald-50/30"; // Default unread color
+  const getUnreadDot = (notif: Notification) => {
+    if (notif.type === "OUT_OF_CREDITS" || notif.severity === "DANGER") return "bg-[#FF6B6B]";
+    if (notif.type === "LOW_CREDITS" || notif.type === "EXPIRING_PLAN" || notif.severity === "WARNING") return "bg-[#FFD93D]";
+    return "bg-[#C7F0D8]";
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Bell Button */}
-      <button 
+      <button
         onClick={handleToggle}
-        className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border transition-all active:scale-95 ${
-          isOpen ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-200" : "bg-white border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300 shadow-sm"
+        className={`relative inline-flex h-12 w-12 items-center justify-center border-4 border-black bg-white text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:bg-[#FFD93D] hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
+          isOpen ? "bg-[#FFD93D]" : ""
         }`}
+        aria-label="Mở thông báo"
       >
-        <Bell className={`h-5 w-5 ${unreadCount > 0 && !isOpen ? 'animate-[bell-swing_2s_infinite_ease-in-out]' : ''}`} />
+        <Bell className={`h-5 w-5 ${unreadCount > 0 && !isOpen ? "animate-[bell-swing_2s_infinite_ease-in-out]" : ""}`} />
         {unreadCount > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white ring-4 ring-white">
+          <span className="absolute -right-2 -top-2 flex h-6 min-w-[24px] items-center justify-center border-2 border-black bg-[#FF6B6B] px-1 text-[10px] font-black text-black animate-pulse">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-4 w-[360px] origin-top-right rounded-[32px] border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-[1000] overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 p-6">
-            <div>
-               <h3 className="text-lg font-black text-slate-900">Thông báo</h3>
-               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                  {unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : "Bạn đã đọc hết thông báo"}
-               </p>
-            </div>
-          </div>
-
-          {/* List */}
-          <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
-            {notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
-                 <div className="h-16 w-16 rounded-3xl bg-slate-50 flex items-center justify-center mb-4">
-                    <Bell className="h-8 w-8 text-slate-200" />
-                 </div>
-                 <p className="text-sm font-black text-slate-900 mb-2">Chưa có thông báo mới</p>
-                 <p className="text-xs font-bold text-slate-400 italic">
-                    Các cập nhật về đơn hàng, API key và hỗ trợ sẽ hiển thị tại đây.
-                 </p>
+        <div className="absolute right-0 z-[1000] mt-3 w-[calc(100vw-2rem)] max-w-[380px] origin-top-right animate-in fade-in slide-in-from-top-2 zoom-in-95 duration-200 sm:w-[360px]">
+          <div className="overflow-hidden border-4 border-black bg-[#FFFDF5] shadow-[8px_8px_0px_0px_#000]">
+            <div className="border-b-4 border-black bg-white px-5 py-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]">
+                  <Bell className="h-4 w-4 text-black" />
+                </span>
+                <h3 className="text-lg font-black uppercase text-black">Thông báo</h3>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-50">
-                {notifications.map((notif) => (
+              <p className="mt-2 text-xs font-bold uppercase tracking-wide text-black/70">
+                {unreadCount > 0 ? `BẠN CÓ ${unreadCount} THÔNG BÁO MỚI` : "BẠN ĐÃ ĐỌC HẾT THÔNG BÁO"}
+              </p>
+            </div>
+
+            <div className="max-h-[420px] space-y-3 overflow-y-auto p-4">
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center">
+                  <div className="mx-auto mb-4 flex h-[72px] w-[72px] items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000] animate-dashboard-float">
+                    <Bell className="h-8 w-8 text-black" />
+                  </div>
+                  <p className="text-lg font-black uppercase text-black">Chưa có thông báo mới</p>
+                  <p className="mx-auto mt-2 max-w-[270px] text-sm font-bold leading-6 text-black/70">
+                    Các cập nhật về đơn hàng, API key và hỗ trợ sẽ hiển thị tại đây.
+                  </p>
+                </div>
+              ) : (
+                notifications.map((notif) => (
                   <button
                     key={notif.id}
                     onClick={() => handleClickNotification(notif)}
-                    className={`w-full flex gap-4 p-5 text-left transition-all hover:bg-slate-50/80 ${getBgColor(notif)}`}
+                    className={`w-full border-4 border-black p-3 text-left shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:bg-[#FFF7CC] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
+                      notif.isRead ? "bg-white" : "bg-[#FFF2B0]"
+                    }`}
                   >
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-slate-100 shadow-sm ${
-                      !notif.isRead ? "bg-white" : "bg-slate-50"
-                    }`}>
-                      {getIcon(notif)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h4 className={`text-sm tracking-tight truncate ${notif.isRead ? "font-bold text-slate-700" : "font-black text-slate-900"}`}>
-                          {notif.title}
-                        </h4>
-                        {!notif.isRead && (
-                           <div className={`h-2 w-2 rounded-full mt-1.5 shadow-sm shrink-0 ${
-                             notif.type === "OUT_OF_CREDITS" || notif.severity === "DANGER" ? "bg-rose-500 shadow-rose-200" :
-                             notif.type === "LOW_CREDITS" || notif.type === "EXPIRING_PLAN" || notif.severity === "WARNING" ? "bg-amber-500 shadow-amber-200" :
-                             "bg-emerald-500 shadow-emerald-200"
-                           }`} />
-                        )}
-                      </div>
-                      <p className={`text-xs leading-relaxed mb-2 line-clamp-2 ${notif.isRead ? "text-slate-400 font-medium" : "text-slate-500 font-bold"}`}>
-                        {notif.message}
-                      </p>
-                      <div className="flex items-center justify-between">
-                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                    <div className="flex items-start gap-3">
+                      <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center border-2 border-black ${getIconBg(notif)}`}>
+                        {getIcon(notif)}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-start justify-between gap-2">
+                          <p className="truncate text-sm font-black uppercase text-black">{notif.title}</p>
+                          {!notif.isRead && <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 border border-black ${getUnreadDot(notif)}`} />}
+                        </div>
+
+                        <p className="line-clamp-2 text-xs font-bold leading-5 text-black/75">{notif.message}</p>
+
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wide text-black/60">
                             {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true, locale: vi })}
-                         </span>
-                         {notif.href && (
-                            <ChevronRight className="h-3 w-3 text-slate-300" />
-                         )}
+                          </span>
+                          {notif.href && <ChevronRight className="h-3 w-3 text-black/70" />}
+                        </div>
                       </div>
                     </div>
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
+                ))
+              )}
+            </div>
 
-          {/* Footer */}
-          <div className="border-t border-slate-100 p-4 bg-slate-50/50 text-center">
-             <button 
-                onClick={() => { setIsOpen(false); hasMarkedRef.current = false; }}
-                className="py-2 px-6 rounded-2xl text-[10px] font-black text-slate-400 hover:text-slate-900 transition-all uppercase tracking-widest"
-             >
-                Đóng cửa sổ
-             </button>
+            <div className="border-t-4 border-black bg-white p-4">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  hasMarkedRef.current = false;
+                }}
+                className="inline-flex h-12 w-full items-center justify-center border-4 border-black bg-[#FF6B6B] text-sm font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                Đóng thông báo
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       <style jsx global>{`
         @keyframes bell-swing {
-          0% { transform: rotate(0); }
-          5% { transform: rotate(10deg); }
-          10% { transform: rotate(-10deg); }
-          15% { transform: rotate(8deg); }
-          20% { transform: rotate(-8deg); }
-          25% { transform: rotate(0); }
-          100% { transform: rotate(0); }
+          0% {
+            transform: rotate(0);
+          }
+          5% {
+            transform: rotate(10deg);
+          }
+          10% {
+            transform: rotate(-10deg);
+          }
+          15% {
+            transform: rotate(8deg);
+          }
+          20% {
+            transform: rotate(-8deg);
+          }
+          25% {
+            transform: rotate(0);
+          }
+          100% {
+            transform: rotate(0);
+          }
         }
       `}</style>
     </div>

@@ -1,30 +1,15 @@
 "use client";
 
 import { PlanSetupInstructions } from "@/components/dashboard/plan-setup-instructions";
-
 import { formatModelName } from "@/lib/model-display";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Package,
-  Zap,
-  History,
-  CheckCircle2,
-  KeyRound,
-  Clock3,
-  Cpu,
-  Plus,
-  Settings
-} from "lucide-react";
-import DashboardSubNav from "@/components/dashboard/dashboard-sub-nav";
+import { Package, PackageCheck, Zap, History, CheckCircle2, KeyRound, Plus, Settings, RefreshCw } from "lucide-react";
 import { AppButton } from "@/components/ui/app-button";
-import { AppCard } from "@/components/ui/app-card";
-import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ui } from "@/lib/ui-tokens";
 import { cn } from "@/lib/utils";
-import { StatCardsSkeleton, CardListSkeleton } from "@/components/ui/page-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ApiFamily = "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
 
@@ -67,22 +52,86 @@ function formatCredits(value: string | number) {
 function getBucketStatus(remaining: string, expiresAt: string | null, isActive: boolean) {
   const now = new Date();
   const rem = Number(remaining);
-
   if (!isActive) return "REVOKED";
   if (expiresAt && new Date(expiresAt) < now) return "EXPIRED";
   if (rem <= 0) return "DEPLETED";
   return "ACTIVE";
 }
 
+function MyPlansPageSkeleton() {
+  return (
+    <div className="space-y-8" aria-hidden="true">
+      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-14 w-14" />
+              <Skeleton className="h-9 w-52" />
+            </div>
+            <Skeleton className="h-4 w-full max-w-[500px]" />
+          </div>
+          <Skeleton className="h-12 w-44" />
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="min-h-[120px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] md:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-9 w-9" />
+            </div>
+            <Skeleton className="mt-5 h-8 w-16" />
+            <Skeleton className="mt-2 h-4 w-28" />
+          </div>
+        ))}
+      </div>
+
+      <section className="space-y-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-6 w-56" />
+          </div>
+          <Skeleton className="h-11 w-44" />
+        </div>
+        <div className="space-y-4">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="border-4 border-black bg-white p-6 shadow-[6px_6px_0px_0px_#000]">
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-6 w-28" />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {[...Array(4)].map((__, j) => (
+                  <Skeleton key={j} className="h-20 w-full" />
+                ))}
+              </div>
+              <Skeleton className="mt-5 h-5 w-full" />
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function MyPlansPage() {
   const [buckets, setBuckets] = useState<MyPlanItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [expandedModelBucketIds, setExpandedModelBucketIds] = useState<Set<string>>(new Set());
   const [openInstructionBucketId, setOpenInstructionBucketId] = useState<string | null>(null);
+  const [nowTs] = useState(() => Date.now());
   const { toast, showToast, clearToast } = useToast(3000);
 
   const toggleExpandModel = (id: string) => {
-    setExpandedModelBucketIds(prev => {
+    setExpandedModelBucketIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -91,17 +140,19 @@ export default function MyPlansPage() {
   };
 
   const toggleInstruction = (id: string) => {
-    setOpenInstructionBucketId(prev => prev === id ? null : id);
+    setOpenInstructionBucketId((prev) => (prev === id ? null : id));
   };
 
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
+      setLoadError(false);
       const response = await fetch("/api/my-plans", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error?.message ?? "Lỗi tải dữ liệu.");
       setBuckets(data.data ?? []);
     } catch {
+      setLoadError(true);
       showToast("Không thể tải dữ liệu gói.", "error");
     } finally {
       setIsLoading(false);
@@ -116,263 +167,256 @@ export default function MyPlansPage() {
   }, [loadData]);
 
   const stats = useMemo(() => {
-    const activeBuckets = buckets.filter(b => b.isActive);
+    const activeBuckets = buckets.filter((b) => b.isActive);
     const totalRemaining = buckets.reduce((sum, b) => sum + Number(b.creditsRemaining), 0);
     const totalUsed = buckets.reduce((sum, b) => sum + Number(b.usedCredits), 0);
     const activeKeys = buckets.reduce((sum, b) => sum + b.activeApiKeys, 0);
-
     return { totalRemaining, totalUsed, activeCount: activeBuckets.length, activeKeys };
   }, [buckets]);
 
-
-
   return (
-    <div className="space-y-10 pb-20">
-      <DashboardSubNav 
-        items={[
-          { label: "Mua credits", href: "/plans" },
-          { label: "Gói của tôi", href: "/my-plans" },
-        ]} 
-      />
-      <PageHeader 
-        title="Gói của tôi" 
-        description="Theo dõi credits, thời hạn và quản lý các gói credits đã sở hữu."
-        icon={<Package className="h-8 w-8" />}
-      />
-
-      {/* Stats Cards */}
-      {isLoading ? (
-        <StatCardsSkeleton />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AppCard className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className={ui.statLabel}>Credits còn lại</p>
-              <Zap className="h-4 w-4 text-[#00d4a4]" />
+    <div className="space-y-8 overflow-x-hidden px-5 py-6 md:px-6 lg:px-8 lg:py-8" aria-busy={isLoading}>
+      <section className="relative overflow-visible border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
+        <div className="pointer-events-none absolute -right-3 -top-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
+                <PackageCheck className="h-7 w-7 text-black" strokeWidth={2.5} />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-black md:text-4xl">GÓI CỦA TÔI</h1>
             </div>
-            <p className={cn(ui.statValue, "text-[#00d4a4]")}>{formatCredits(stats.totalRemaining)}</p>
-          </AppCard>
-          <AppCard className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className={ui.statLabel}>Credits đã dùng</p>
-              <History className="h-4 w-4 text-[#8a9690]" />
-            </div>
-            <p className={ui.statValue}>{formatCredits(stats.totalUsed)}</p>
-          </AppCard>
-          <AppCard className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className={ui.statLabel}>Gói hoạt động</p>
-              <CheckCircle2 className="h-4 w-4 text-[#00d4a4]" />
-            </div>
-            <p className={ui.statValue}>{stats.activeCount}</p>
-          </AppCard>
-          <AppCard className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className={ui.statLabel}>API Key đang dùng</p>
-              <KeyRound className="h-4 w-4 text-[#8a9690]" />
-            </div>
-            <p className={ui.statValue}>{stats.activeKeys}</p>
-          </AppCard>
-        </div>
-      )}
-
-      {/* Buckets List */}
-      <section className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className={ui.h3}>Danh sách gói sở hữu</h2>
-          <AppButton variant="accent" onClick={() => window.location.href = "/plans"}>
-            <Plus className="h-4 w-4 mr-2" />
+            <p className="text-sm font-bold text-black/70 md:text-base">
+              Theo dõi credits, thời hạn và quản lý các gói credits đã sở hữu.
+            </p>
+          </div>
+          <AppButton variant="accent" onClick={() => window.location.href = "/plans"} className="h-12 w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
             Mua thêm credits
           </AppButton>
         </div>
+      </section>
 
-        {isLoading ? (
-          <CardListSkeleton count={2} />
-        ) : buckets.length === 0 ? (
-          <div className="rounded-[40px] border border-dashed border-[#dfe5e1] bg-[#fbfbf8] p-10 sm:p-20 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-white border border-[#dfe5e1] text-[#8a9690] mb-6 shadow-sm">
-              <Package className="h-8 w-8" />
-            </div>
-            <h3 className={ui.h3}>Bạn chưa sở hữu gói nào.</h3>
-            <p className={ui.p}>Khám phá cửa hàng để chọn gói credits phù hợp ngay.</p>
-            <div className="mt-8 flex justify-center">
-              <AppButton variant="accent" onClick={() => window.location.href = "/plans"}>
-                <Plus className="h-4 w-4 mr-2" />
-                Mua gói đầu tiên ngay
+      {isLoading ? (
+        <MyPlansPageSkeleton />
+      ) : loadError ? (
+        <div className="border-4 border-black bg-[#FF6B6B] p-6 shadow-[8px_8px_0px_0px_#000]">
+          <h3 className="text-xl font-black uppercase text-black">KHÔNG THỂ TẢI GÓI CỦA BẠN</h3>
+          <p className="mt-2 text-sm font-bold text-black/80">
+            Vui lòng thử lại sau hoặc liên hệ hỗ trợ nếu lỗi tiếp tục xảy ra.
+          </p>
+          <button
+            type="button"
+            onClick={() => void loadData()}
+            className="mt-5 inline-flex h-11 items-center justify-center border-4 border-black bg-white px-5 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all hover:bg-[#FFD93D]"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            THỬ LẠI
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                label: "Credits còn lại",
+                value: formatCredits(stats.totalRemaining),
+                sub: "Có thể sử dụng",
+                icon: Zap,
+                bg: "bg-[#C7F0D8]",
+              },
+              {
+                label: "Credits đã dùng",
+                value: formatCredits(stats.totalUsed),
+                sub: "Đã tiêu thụ",
+                icon: History,
+                bg: "bg-[#A78BFA]",
+              },
+              {
+                label: "Gói hoạt động",
+                value: String(stats.activeCount),
+                sub: "Đang hoạt động",
+                icon: CheckCircle2,
+                bg: "bg-[#FFD93D]",
+              },
+              {
+                label: "API key đang dùng",
+                value: String(stats.activeKeys),
+                sub: "Đang sử dụng",
+                icon: KeyRound,
+                bg: "bg-[#FF6B6B]",
+              },
+            ].map((s) => (
+              <article
+                key={s.label}
+                className="min-h-[120px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-6"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-black uppercase tracking-[0.08em] text-black">{s.label}</p>
+                  <div className={`flex h-9 w-9 items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000] ${s.bg}`}>
+                    <s.icon className="h-4 w-4 text-black" />
+                  </div>
+                </div>
+                <p className="mt-5 text-3xl font-black leading-none text-black">{s.value}</p>
+                <p className="mt-2 text-xs font-bold uppercase text-black/70">{s.sub}</p>
+              </article>
+            ))}
+          </div>
+
+          <section className="space-y-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]">
+                  <Package className="h-5 w-5 text-black" />
+                </span>
+                <h2 className="text-2xl font-black text-black">DANH SÁCH GÓI SỞ HỮU</h2>
+              </div>
+              <AppButton variant="accent" onClick={() => window.location.href = "/plans"} className="h-11 w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Mua thêm credits
               </AppButton>
             </div>
-          </div>
-        ) : (
-          <div className="grid gap-8">
-            {buckets.map((bucket) => {
-              const status = getBucketStatus(bucket.creditsRemaining, bucket.expiresAt, bucket.isActive);
-              const remainingNum = Number(bucket.creditsRemaining);
-              const totalNum = Number(bucket.creditsTotal);
-              const progress = totalNum > 0 ? Math.round((remainingNum / totalNum) * 100) : 0;
-              const isInstructionOpen = openInstructionBucketId === bucket.id;
 
-              return (
-                <AppCard
-                  key={bucket.id}
-                  variant="interactive"
-                  className="p-8 sm:p-10"
-                >
-                  <div className="grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_420px]">
-                    {/* Left side: Plan info + Progress */}
-                    <div className="space-y-8">
-                      <div className="flex flex-wrap items-start gap-5">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-slate-950 text-white shrink-0 shadow-lg shadow-slate-950/20">
-                          <Package className="h-7 w-7" />
+            {buckets.length === 0 ? (
+              <div className="relative flex min-h-[320px] flex-col items-center justify-center overflow-visible border-4 border-black bg-[#FFFDF5] p-10 text-center shadow-[8px_8px_0px_0px_#000]">
+                <div className="pointer-events-none absolute -bottom-3 -right-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="mb-6 flex h-16 w-16 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
+                    <Package className="h-8 w-8 text-black" />
+                  </div>
+                  <h3 className="text-xl font-black leading-tight text-black md:text-2xl">BẠN CHƯA SỞ HỮU GÓI NÀO</h3>
+                  <p className="mt-3 max-w-[520px] text-sm font-bold text-black/70 md:text-base">
+                    Khám phá cửa hàng để chọn gói credits phù hợp ngay.
+                  </p>
+                  <AppButton variant="accent" onClick={() => window.location.href = "/plans"} className="mt-6 h-12 px-8">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Mua gói đầu tiên ngay
+                  </AppButton>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-5">
+                {buckets.map((bucket) => {
+                  const status = getBucketStatus(bucket.creditsRemaining, bucket.expiresAt, bucket.isActive);
+                  const remainingNum = Number(bucket.creditsRemaining);
+                  const totalNum = Number(bucket.creditsTotal);
+                  const usedPercent = totalNum > 0 ? Math.round(((totalNum - remainingNum) / totalNum) * 100) : 0;
+                  const isInstructionOpen = openInstructionBucketId === bucket.id;
+
+                  return (
+                    <article
+                      key={bucket.id}
+                      className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-6"
+                    >
+                      <div className="mb-5 flex flex-wrap items-center gap-3">
+                        <h3 className="text-xl font-black text-black">{bucket.product?.name ?? "Gói tùy chỉnh"}</h3>
+                        <span className="inline-flex border-2 border-black bg-[#FFFDF5] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+                          {getFamilyLabel(bucket.apiFamily)}
+                        </span>
+                        <StatusBadge
+                          status={
+                            status === "ACTIVE"
+                              ? "ĐANG HOẠT ĐỘNG"
+                              : status === "EXPIRED"
+                                ? "ĐÃ HẾT HẠN"
+                                : status === "DEPLETED"
+                                  ? "ĐÃ HẾT HẠN"
+                                  : "ĐÃ HẾT HẠN"
+                          }
+                          variant={status === "ACTIVE" ? "success" : "danger"}
+                        />
+                        {status === "ACTIVE" && bucket.expiresAt && new Date(bucket.expiresAt).getTime() - nowTs < 7 * 24 * 60 * 60 * 1000 && (
+                          <StatusBadge status="SẮP HẾT HẠN" variant="warning" />
+                        )}
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <div className="w-fit min-w-[130px] border-4 border-black bg-[#C7F0D8] px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
+                          <p className="text-[11px] font-bold uppercase text-black/70">Credits còn lại</p>
+                          <p className="text-xl font-black text-black">{formatCredits(bucket.creditsRemaining)}</p>
                         </div>
-                        <div className="min-w-0 pt-1">
-                          <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                            <h3 className="text-2xl font-black text-slate-950 tracking-tight">{bucket.product?.name ?? "Gói Tùy Chỉnh"}</h3>
-                            <StatusBadge 
-                              status={status === "ACTIVE" ? "Đang hoạt động" : status === "EXPIRED" ? "Hết hạn" : status === "DEPLETED" ? "Hết credits" : "Đã thu hồi"} 
-                              variant={status === "ACTIVE" ? "success" : "danger"} 
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                             <p className={cn(ui.label, "bg-slate-100 px-2.5 py-1 rounded-lg text-slate-600 font-black")}>{getFamilyLabel(bucket.apiFamily)}</p>
-                             <span className="h-1 w-1 rounded-full bg-slate-200" />
-                             <p className="text-xs font-bold text-slate-400">ID: {bucket.id.slice(0, 8)}...</p>
-                          </div>
+                        <div className="w-fit min-w-[130px] border-4 border-black bg-[#E9E1D0] px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
+                          <p className="text-[11px] font-bold uppercase text-black/70">Credits đã dùng</p>
+                          <p className="text-xl font-black text-black">{formatCredits(bucket.usedCredits)}</p>
+                        </div>
+                        <div className="w-fit min-w-[130px] border-4 border-black bg-[#FFFDF5] px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
+                          <p className="text-[11px] font-bold uppercase text-black/70">Hiệu lực</p>
+                          <p className="text-base font-black text-black">{bucket.expiresAt ? new Date(bucket.expiresAt).toLocaleDateString("vi-VN") : "Vô hạn"}</p>
+                        </div>
+                        <div className="w-fit min-w-[130px] border-4 border-black bg-[#FFFDF5] px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
+                          <p className="text-[11px] font-bold uppercase text-black/70">API key đang dùng</p>
+                          <p className="text-xl font-black text-black">{bucket.activeApiKeys}/{bucket.apiKeyLimit}</p>
                         </div>
                       </div>
 
-                      <div className="space-y-4 bg-slate-50/50 p-6 rounded-[32px] border border-slate-100">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2.5">
-                             <div className="h-8 w-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                                <Zap className="h-4 w-4" />
-                             </div>
-                             <p className={cn(ui.label, "text-slate-950 font-black")}>Credits khả dụng</p>
-                          </div>
-                          <p className="text-sm font-black text-slate-950">{progress}%</p>
-                        </div>
-                        <div className="h-3.5 w-full rounded-full bg-white p-0.5 ring-1 ring-slate-100 overflow-hidden shadow-inner">
-                          <div
-                            className={`h-full rounded-full transition-all duration-700 ease-out shadow-sm ${progress > 20 ? "bg-[#00d4a4]" : "bg-red-500"}`}
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between gap-4 pt-1">
-                          <div className="flex flex-col">
-                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Còn lại</span>
-                             <span className="text-lg font-black text-emerald-600">{formatCredits(bucket.creditsRemaining)}</span>
-                          </div>
-                          <div className="flex flex-col items-end">
-                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Tổng định mức</span>
-                             <span className="text-lg font-black text-slate-400">/ {formatCredits(bucket.creditsTotal)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right side: Meta + Actions */}
-                    <div className="flex flex-col gap-5 border-t border-slate-100 pt-8 xl:border-none xl:pt-0">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="rounded-[24px] bg-slate-50 p-4 border border-slate-100">
-                          <div className="flex items-center gap-2 mb-2">
-                            <KeyRound className="h-4 w-4 text-slate-400" />
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">API Keys</p>
-                          </div>
-                          <p className="text-lg font-black text-slate-950">{bucket.activeApiKeys} / {bucket.apiKeyLimit}</p>
-                        </div>
-                        <div className="rounded-[24px] bg-slate-50 p-4 border border-slate-100">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Clock3 className="h-4 w-4 text-slate-400" />
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hiệu lực</p>
-                          </div>
-                          <p className="text-lg font-black text-slate-950">
-                            {bucket.expiresAt 
-                              ? new Date(bucket.expiresAt).toLocaleDateString("vi-VN") 
-                              : "Vô hạn"
-                            }
-                          </p>
+                      <div className="mt-5">
+                        <p className="mb-2 text-xs font-black uppercase text-black">Tiến độ sử dụng {usedPercent}%</p>
+                        <div className="h-5 overflow-hidden border-4 border-black bg-[#E9E1D0] shadow-[2px_2px_0px_0px_#000]" aria-label={`Đã dùng ${usedPercent}%`}>
+                          <div className="h-full bg-[#FFD93D]" style={{ width: `${usedPercent}%` }} />
                         </div>
                       </div>
 
-                      <div className="rounded-[24px] bg-slate-50 p-5 border border-slate-100 flex-1">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2">
-                            <Cpu className="h-4 w-4 text-slate-400" />
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Models được phép</p>
-                          </div>
-                        </div>
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        <AppButton variant="primary" onClick={() => window.location.href = "/api-keys"} className="h-11">
+                          Tạo API key
+                        </AppButton>
+                        <AppButton variant="secondary" onClick={() => window.location.href = "/api-keys"} className="h-11">
+                          Xem API Keys
+                        </AppButton>
+                        <AppButton
+                          variant={isInstructionOpen ? "primary" : "secondary"}
+                          className="h-11"
+                          onClick={() => toggleInstruction(bucket.id)}
+                        >
+                          <Settings className={cn("mr-2 h-4 w-4 transition-transform", isInstructionOpen && "rotate-90")} />
+                          {isInstructionOpen ? "Thu gọn" : "Xem chi tiết"}
+                        </AppButton>
+                      </div>
 
+                      <div className="mt-5 rounded-[8px] border-4 border-black bg-[#FFFDF5] p-4">
+                        <p className="mb-3 text-[11px] font-black uppercase text-black/70">Models được phép</p>
                         {bucket.allowedModels && bucket.allowedModels.length > 0 ? (
-                          <div className="space-y-4">
-                            <div className="flex flex-wrap gap-2">
-                              {(expandedModelBucketIds.has(bucket.id)
-                                ? bucket.allowedModels
-                                : bucket.allowedModels.slice(0, 6)
-                              ).map((m) => (
-                                <span
-                                  key={m.publicName}
-                                  className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black text-slate-700 shadow-sm transition-all hover:border-slate-950 hover:text-slate-950"
-                                >
-                                  {formatModelName(m.publicName)}
-                                </span>
-                              ))}
-                            </div>
-
+                          <div className="flex flex-wrap gap-2">
+                            {(expandedModelBucketIds.has(bucket.id) ? bucket.allowedModels : bucket.allowedModels.slice(0, 6)).map((m) => (
+                              <span
+                                key={m.publicName}
+                                className="inline-flex items-center border-2 border-black bg-white px-3 py-1.5 text-[11px] font-black text-black shadow-[2px_2px_0px_0px_#000]"
+                              >
+                                {formatModelName(m.publicName)}
+                              </span>
+                            ))}
                             {bucket.allowedModels.length > 6 && (
                               <button
                                 onClick={() => toggleExpandModel(bucket.id)}
-                                className="text-[11px] font-black text-slate-400 hover:text-slate-950 uppercase tracking-widest transition-colors"
+                                className="inline-flex items-center border-2 border-black bg-[#C7F0D8] px-3 py-1.5 text-[11px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]"
                               >
-                                {expandedModelBucketIds.has(bucket.id) ? "Thu gọn" : `+ ${bucket.allowedModels.length - 6} model khác`}
+                                {expandedModelBucketIds.has(bucket.id) ? "Thu gọn" : `+${bucket.allowedModels.length - 6}`}
                               </button>
                             )}
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-100 text-red-600">
-                            <Cpu className="h-3.5 w-3.5" />
-                            <p className="text-[10px] font-black uppercase tracking-widest">Chưa có model khả dụng</p>
-                          </div>
+                          <p className="text-xs font-bold text-black/70">Chưa có model khả dụng.</p>
                         )}
                       </div>
 
-                      <AppButton 
-                        variant={isInstructionOpen ? "primary" : "secondary"}
-                        className={cn(
-                          "h-14 rounded-2xl font-black text-sm transition-all duration-300",
-                          isInstructionOpen ? "bg-slate-950 text-white shadow-lg shadow-slate-400/20" : "bg-white border-slate-200 hover:border-slate-950 text-slate-950"
-                        )}
-                        onClick={() => toggleInstruction(bucket.id)}
-                      >
-                        <Settings className={cn("h-4 w-4 mr-2 transition-transform duration-500", isInstructionOpen && "rotate-90")} />
-                        {isInstructionOpen ? "Thu gọn hướng dẫn" : "Hướng dẫn tích hợp"}
-                      </AppButton>
-                    </div>
-                  </div>
-
-                  {/* Integration Instructions Panel (Full Width) */}
-                  <PlanSetupInstructions 
-                    bucketId={bucket.id}
-                    productName={bucket.product?.name ?? "Gói Tùy Chỉnh"}
-
-                    allowedModels={bucket.allowedModels}
-                    apiKeys={bucket.apiKeys}
-                    isOpen={isInstructionOpen}
-                    onClose={() => toggleInstruction(bucket.id)}
-                  />
-                </AppCard>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Toast */}
-      {toast && (
-        <ToastMessage
-          message={toast.message}
-          type={toast.type}
-          onClose={clearToast}
-        />
+                      <PlanSetupInstructions
+                        bucketId={bucket.id}
+                        productName={bucket.product?.name ?? "Gói tùy chỉnh"}
+                        allowedModels={bucket.allowedModels}
+                        apiKeys={bucket.apiKeys}
+                        isOpen={isInstructionOpen}
+                        onClose={() => toggleInstruction(bucket.id)}
+                      />
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
       )}
+
+      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
     </div>
   );
 }

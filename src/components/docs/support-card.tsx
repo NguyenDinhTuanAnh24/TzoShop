@@ -1,37 +1,44 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { LifeBuoy } from "lucide-react";
+import { AppButton } from "@/components/ui/app-button";
 
 export function DocsSupportCard() {
   return (
-    <div className="bg-slate-900 p-8 sm:p-10 rounded-[40px] shadow-2xl relative overflow-hidden group">
-      {/* Background Decor */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-emerald-500/20 transition-all duration-500" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 group-hover:bg-emerald-500/10 transition-all duration-500" />
-      
-      <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-        <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-          <div className="h-16 w-16 rounded-[24px] bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 border border-emerald-500/30">
-            <LifeBuoy className="h-8 w-8" />
+    <section className="border-4 border-black bg-[#111827] p-6 text-[#FFFDF5] shadow-[8px_8px_0px_0px_#000] md:p-7">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center border-4 border-black bg-[#FFD93D] text-black shadow-[4px_4px_0px_0px_#FFFDF5]">
+            <LifeBuoy className="h-7 w-7" />
           </div>
-          <div className="max-w-md">
-            <h3 className="text-2xl font-black text-white tracking-tight mb-2">Bạn cần hỗ trợ kết nối?</h3>
-            <p className="text-slate-400 font-bold text-sm leading-relaxed">
-              Nếu gặp lỗi khi cấu hình API key hoặc model, hãy gửi yêu cầu hỗ trợ kèm ảnh lỗi hoặc nội dung response.
+          <div>
+            <h3 className="text-2xl font-black uppercase tracking-tight">Cần hỗ trợ kết nối?</h3>
+            <p className="mt-2 text-sm font-bold text-[#FFFDF5]/85 md:text-base">
+              Nếu bạn gặp lỗi khi cấu hình API key hoặc model, hãy gửi yêu cầu hỗ trợ để TzoShop kiểm tra.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-3 w-full md:w-auto shrink-0">
-          <Link href="/support" className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-8 py-4 text-sm font-black text-white hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
-            Gửi hỗ trợ
+        <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+          <Link href="/support" className="w-full sm:w-auto">
+            <AppButton
+              variant="accent"
+              className="h-12 w-full px-6 shadow-[5px_5px_0px_0px_#FFFDF5] sm:w-auto"
+            >
+              Gửi hỗ trợ
+            </AppButton>
           </Link>
-          <Link href="/usage" className="flex items-center gap-2 rounded-2xl bg-slate-800 border border-slate-700 px-8 py-4 text-sm font-black text-white hover:bg-slate-700 transition-all active:scale-95">
-            Xem Usage
+          <Link href="/usage" className="w-full sm:w-auto">
+            <AppButton
+              variant="secondary"
+              className="h-12 w-full bg-[#FFFDF5] px-6 text-black shadow-[5px_5px_0px_0px_#FFFDF5] hover:bg-[#FFD93D] sm:w-auto"
+            >
+              Xem usage
+            </AppButton>
           </Link>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

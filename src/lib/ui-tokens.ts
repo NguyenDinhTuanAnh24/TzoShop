@@ -9,17 +9,17 @@ export const ui = {
   sectionDark: "bg-[#020c0a]",
   
   // Cards
-  card: "bg-white border border-[#dfe5e1] rounded-3xl shadow-sm",
-  cardInteractive: "bg-white border border-[#dfe5e1] rounded-3xl shadow-sm hover:border-[#00d4a4] transition-all cursor-pointer",
-  cardMuted: "bg-[#f7f8f6] border border-[#dfe5e1] rounded-3xl",
+  card: "border-4 border-black bg-white shadow-[6px_6px_0px_0px_#000]",
+  cardInteractive: "border-4 border-black bg-white shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] cursor-pointer",
+  cardMuted: "border-4 border-black bg-[#FFFDF5] shadow-[6px_6px_0px_0px_#000]",
   
   // Typography
   h1: "text-4xl md:text-5xl lg:text-6xl font-black tracking-[-1.5px] text-[#0b0f0d]",
   h2: "text-2xl md:text-3xl font-black tracking-tight text-[#0b0f0d]",
-  h3: "text-lg md:text-xl font-bold tracking-tight text-[#0b0f0d]",
-  p: "text-base leading-relaxed text-[#47524d]",
-  pMuted: "text-sm text-[#66736d]",
-  label: "text-[10px] font-black uppercase tracking-[0.15em] text-[#8a9690]",
+  h3: "text-lg md:text-xl font-black tracking-tight text-black",
+  p: "text-base leading-relaxed font-bold text-black/75",
+  pMuted: "text-sm font-bold text-black/65",
+  label: "text-[10px] font-black uppercase tracking-[0.15em] text-black/70",
   
   // Buttons (Mapping to CSS classes in globals.css)
   buttonPrimary: "btn-primary", // Dark
@@ -39,8 +39,8 @@ export const ui = {
   badgeNeutral: "bg-slate-50 text-slate-600 border border-slate-200",
   
   // Stats
-  statValue: "text-3xl font-black tracking-tight text-[#0b0f0d]",
-  statLabel: "text-[11px] font-black uppercase tracking-widest text-[#66736d]",
+  statValue: "text-3xl font-black tracking-tight text-black",
+  statLabel: "text-[11px] font-black uppercase tracking-widest text-black/70",
   
   // Tables
   tableHeader: "px-8 py-6 text-[10px] font-black uppercase tracking-[0.15em] text-[#8a9690] text-left",

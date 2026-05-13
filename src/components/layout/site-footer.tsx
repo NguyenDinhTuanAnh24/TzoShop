@@ -1,5 +1,6 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import Image from "next/image";
+import { CONTACT_INFO, CONTACT_LINKS } from "@/lib/contact";
 
 const footerColumns = [
   {
@@ -32,23 +33,23 @@ const footerColumns = [
 
 const contactLinks = [
   {
-    label: "SĐT: 0866555468",
-    href: "tel:0866555468",
+    label: `SĐT: ${CONTACT_INFO.zalo}`,
+    href: CONTACT_LINKS.zaloTel,
     type: "normal",
   },
   {
-    label: "Email: anh249205@gmail.com",
-    href: "mailto:anh249205@gmail.com",
+    label: `Email: ${CONTACT_INFO.email}`,
+    href: CONTACT_LINKS.email,
     type: "normal",
   },
   {
-    label: "Zalo: 0866555468",
-    href: "https://zalo.me/0866555468",
+    label: `Zalo: ${CONTACT_INFO.zalo}`,
+    href: CONTACT_LINKS.zalo,
     type: "zalo",
   },
   {
-    label: "Telegram: @tzora24",
-    href: "https://t.me/tzora24",
+    label: `Telegram: ${CONTACT_INFO.telegram}`,
+    href: CONTACT_LINKS.telegram,
     type: "telegram",
   },
 ];
@@ -60,34 +61,21 @@ export function SiteFooter() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-1">
             <Link href="/" className="inline-flex items-center">
-              <Image
-                src="/logo.png"
-                alt="TzoShop"
-                width={160}
-                height={42}
-                className="h-10 w-auto"
-              />
+              <Image src="/logo.png" alt="TzoShop" width={160} height={42} className="h-10 w-auto" />
             </Link>
 
             <p className="mt-4 text-sm leading-6 text-[#47524d]">
-              Nền tảng cung cấp API Credits cho nhiều dòng AI phổ biến, hỗ trợ
-              người dùng sử dụng linh hoạt cùng các extension và công cụ làm việc.
+              Nền tảng cung cấp API Credits cho nhiều dòng AI phổ biến, hỗ trợ người dùng sử dụng linh hoạt cùng các extension và công cụ làm việc.
             </p>
           </div>
 
           {footerColumns.map((column) => (
             <div key={column.title}>
-              <h3 className="text-sm font-semibold text-[#0b0f0d]">
-                {column.title}
-              </h3>
+              <h3 className="text-sm font-semibold text-[#0b0f0d]">{column.title}</h3>
 
               <div className="mt-4 space-y-3">
                 {column.links.map((link) => (
-                  <Link
-                    key={link.label}
-                    href={link.href}
-                    className="block text-sm text-[#66736d] transition hover:text-[#0b0f0d]"
-                  >
+                  <Link key={link.label} href={link.href} className="block text-sm text-[#66736d] transition hover:text-[#0b0f0d]">
                     {link.label}
                   </Link>
                 ))}
@@ -96,9 +84,7 @@ export function SiteFooter() {
           ))}
 
           <div>
-            <h3 className="text-sm font-semibold text-[#0b0f0d]">
-              Thông tin liên hệ
-            </h3>
+            <h3 className="text-sm font-semibold text-[#0b0f0d]">Thông tin liên hệ</h3>
 
             <div className="mt-4 space-y-3">
               {contactLinks.map((link) => (
@@ -122,9 +108,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-12 border-t border-[#edf1ee] pt-6 text-sm text-[#66736d]">
-          © 2026 TzoShop. All rights reserved.
-        </div>
+        <div className="mt-12 border-t border-[#edf1ee] pt-6 text-sm text-[#66736d]">© 2026 TzoShop. All rights reserved.</div>
       </div>
     </footer>
   );

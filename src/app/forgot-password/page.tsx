@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Mail, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Mail, ArrowLeft, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
 
@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
         setSent(true);
         showToast(
           data.message ?? "Nếu email tồn tại, hướng dẫn đã được gửi.",
-          "success"
+          "success",
         );
       }
     } catch {
@@ -49,185 +49,162 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f7f8f6] text-[#0b0f0d]">
-      <section className="flex min-h-screen items-center justify-center p-4 md:p-6">
-        <div className="grid min-h-[720px] w-full max-w-7xl overflow-hidden rounded-[36px] border border-[#dfe5e1] bg-white shadow-[0_24px_80px_rgba(11,15,13,0.12)] lg:grid-cols-[1fr_1fr]">
-          {/* Bên trái */}
-          <div className="relative overflow-hidden bg-[linear-gradient(145deg,#064c3f_0%,#0b7a63_45%,#00b894_100%)] px-8 py-10 text-white md:px-14 md:py-14">
-            <div className="relative z-10 flex h-full flex-col">
-              <Link href="/" className="inline-flex w-fit items-center">
-                <Image
-                  src="/logo.png"
-                  alt="TzoShop"
-                  width={180}
-                  height={48}
-                  priority
-                  className="h-12 w-auto rounded-xl bg-white/90 px-3 py-2"
-                />
-              </Link>
+    <main className="auth-grid-pattern relative min-h-screen w-full overflow-x-hidden bg-[#FFFDF5] text-black">
+      <section className="relative min-h-screen px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-12">
+        <div className="pointer-events-none absolute -left-10 top-20 hidden h-20 w-20 rotate-12 border-4 border-black bg-[#FFD93D] md:block" />
+        <div className="pointer-events-none absolute right-10 top-24 hidden h-16 w-16 -rotate-12 border-4 border-black bg-[#C4B5FD] md:block" />
+        <div className="pointer-events-none absolute bottom-10 left-8 hidden h-14 w-14 rotate-6 border-4 border-black bg-[#FF6B6B] shadow-[4px_4px_0px_0px_#000] animate-brutal-wiggle sm:block" />
+        <div className="pointer-events-none absolute bottom-16 right-12 hidden h-10 w-10 -rotate-12 border-4 border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000] animate-pulse sm:block" />
+        <span className="pointer-events-none absolute left-6 top-8 hidden h-12 w-12 rotate-6 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000] animate-spin-slow sm:inline-flex">
+          <Star className="h-6 w-6 fill-black text-black" />
+        </span>
+        <span className="pointer-events-none absolute right-6 top-8 hidden h-10 w-10 -rotate-6 items-center justify-center border-4 border-black bg-[#C4B5FD] shadow-[4px_4px_0px_0px_#000] animate-brutal-wiggle sm:inline-flex">
+          <Star className="h-5 w-5 fill-black text-black" />
+        </span>
+        <Star className="pointer-events-none absolute bottom-24 left-1/3 hidden h-8 w-8 text-black animate-spin-slow sm:block" />
+        <Sparkles className="pointer-events-none absolute bottom-14 right-1/4 hidden h-8 w-8 text-black animate-brutal-wiggle sm:block" />
 
-              <div className="mt-20 max-w-md">
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-white/70">
-                  Khôi phục tài khoản
-                </p>
-
-                <h1 className="mt-4 text-4xl font-semibold tracking-[-1.2px] md:text-[56px] md:leading-[1.08]">
-                  Lấy lại quyền truy cập tài khoản của bạn
-                </h1>
-
-                <p className="mt-5 text-base leading-7 text-white/82">
-                  Nhập email đã đăng ký, hệ thống sẽ gửi hướng dẫn đặt lại mật
-                  khẩu để bạn tiếp tục quản lý credits và API key.
-                </p>
-              </div>
-
-              <div className="mt-10 space-y-4">
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                  <p className="text-sm font-semibold text-white">Kiểm tra đúng email</p>
-                  <p className="mt-1 text-sm leading-6 text-white/78">
-                    Hãy dùng email bạn đã đăng ký tài khoản TzoShop trước đó.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                  <p className="text-sm font-semibold text-white">Bảo mật tài khoản</p>
-                  <p className="mt-1 text-sm leading-6 text-white/78">
-                    Sau khi đổi mật khẩu, bạn nên kiểm tra lại API key và lịch
-                    sử sử dụng nếu cần.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-auto pt-10 text-sm text-white/75">
-                Nhớ mật khẩu rồi?{" "}
+        <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center">
+          <div className="grid w-full max-w-6xl overflow-hidden border-4 border-black bg-white shadow-[12px_12px_0px_0px_#000] animate-auth-pop-in lg:grid-cols-[0.95fr_1.05fr]">
+            <aside className="border-b-4 border-black bg-[#FFD93D] p-6 lg:border-b-0 lg:border-r-4 lg:p-10">
+              <div className="mb-8 flex flex-wrap items-center gap-3">
                 <Link
-                  href="/login"
-                  className="font-bold text-white underline underline-offset-4 transition hover:text-white/90"
+                  href="/"
+                  className="inline-flex -rotate-2 shrink-0 items-center gap-2 border-4 border-black bg-[#FFD93D] px-3 py-2 font-black uppercase text-black shadow-[6px_6px_0px_0px_#000] transition-all duration-200 ease-out hover:-translate-y-1 hover:rotate-0"
                 >
-                  Quay lại đăng nhập
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden sm:h-7 sm:w-7">
+                    <Image
+                      src="/logo.png"
+                      alt="TzoShop logo"
+                      width={28}
+                      height={28}
+                      className="h-6 w-6 object-contain sm:h-7 sm:w-7"
+                      priority
+                    />
+                  </span>
+                  <span className="text-sm sm:text-base">TZOSHOP</span>
                 </Link>
+
+                <span className="inline-flex whitespace-nowrap border-4 border-black bg-black px-3 py-2 text-xs font-black uppercase tracking-widest text-white shadow-[4px_4px_0px_0px_#000] animate-brutal-wiggle">
+                  RESET PASSWORD
+                </span>
               </div>
-            </div>
 
-            <div className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-white/15 blur-2xl" />
-            <div className="pointer-events-none absolute -bottom-28 -right-28 h-96 w-96 rounded-full bg-[#00382f]/35 blur-2xl" />
-            <div className="pointer-events-none absolute bottom-20 right-10 h-32 w-32 rounded-full border border-white/15" />
-          </div>
+              <h1 className="mt-4 text-4xl font-black uppercase leading-[1.08] tracking-tight text-black [text-shadow:3px_3px_0px_#fff] sm:text-5xl lg:text-6xl">
+                QUÊN MẬT KHẨU?
+                <br />
+                LẤY LẠI TRUY CẬP
+              </h1>
 
-          {/* Bên phải */}
-          <div className="flex items-center bg-white px-6 py-10 md:px-14 md:py-14">
-            <div className="mx-auto w-full max-w-lg">
-              {sent ? (
-                /* Trạng thái đã gửi */
-                <div className="text-center">
-                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] bg-emerald-50 ring-1 ring-emerald-100">
-                    <ShieldCheck className="h-10 w-10 text-emerald-600" />
-                  </div>
-                  <h2 className="text-3xl font-bold tracking-tight text-[#0b0f0d]">
-                    Kiểm tra email của bạn
-                  </h2>
-                  <p className="mt-4 text-sm leading-6 text-[#66736d]">
-                    Nếu email <strong>{email}</strong> tồn tại trong hệ thống,
-                    hướng dẫn đặt lại mật khẩu đã được gửi.
-                  </p>
-                  <p className="mt-2 text-sm text-[#9aa6a0]">
-                    Không thấy email? Kiểm tra hộp thư rác hoặc thử lại sau vài phút.
-                  </p>
-                  <div className="mt-8 flex flex-col gap-3">
-                    <button
-                      type="button"
-                      onClick={() => { setSent(false); setEmail(""); }}
-                      className="inline-flex w-full items-center justify-center rounded-full border border-[#dfe5e1] bg-white px-6 py-4 text-sm font-semibold text-[#0b0f0d] transition hover:bg-[#f7f8f6]"
-                    >
-                      Gửi lại
-                    </button>
-                    <Link
-                      href="/login"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full !bg-[#0b7a63] px-6 py-4 text-sm font-bold !text-white transition hover:opacity-90"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Quay lại đăng nhập
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                /* Form nhập email */
-                <>
-                  <div className="mb-9 text-center">
-                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#00a982]">
-                      Reset password
+              <p className="mt-5 max-w-md font-bold leading-7 text-black">
+                Nhập email đã đăng ký, TzoShop sẽ gửi hướng dẫn đặt lại mật khẩu để bạn tiếp tục quản lý credits và API key.
+              </p>
+
+              <div className="mt-8 space-y-4">
+                <article className="-rotate-1 border-4 border-black bg-[#FFFDF5] p-4 shadow-[8px_8px_0px_0px_#000] transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_#000]">
+                  <p className="text-sm font-black uppercase">KIỂM TRA ĐÚNG EMAIL</p>
+                  <p className="mt-1 text-sm font-medium leading-6">Hãy dùng email bạn đã đăng ký tài khoản TzoShop trước đó.</p>
+                </article>
+                <article className="rotate-1 border-4 border-black bg-[#C4B5FD] p-4 shadow-[8px_8px_0px_0px_#000] transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_#000]">
+                  <p className="text-sm font-black uppercase">BẢO MẬT TÀI KHOẢN</p>
+                  <p className="mt-1 text-sm font-medium leading-6">Sau khi đặt lại mật khẩu, bạn nên kiểm tra API key và lịch sử sử dụng nếu cần.</p>
+                </article>
+              </div>
+            </aside>
+
+            <div className="flex items-center bg-[#FFFDF5] p-6 sm:p-8 lg:p-10">
+              <div className="mx-auto w-full max-w-lg">
+                {sent ? (
+                  <div className="mx-auto w-full max-w-[460px] text-center animate-auth-pop-in">
+                    <p className="inline-flex border-4 border-black bg-[#FFFDF5] px-4 py-2 text-xs font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5">
+                      RESET
                     </p>
-                    <h2 className="mt-3 text-5xl font-semibold tracking-[-1px] text-[#0b0f0d]">
-                      Quên mật khẩu
+                    <div className="mx-auto mt-4 flex h-[76px] w-[76px] items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[6px_6px_0px_0px_#000] animate-brutal-wiggle transition-all duration-150 ease-out hover:-translate-y-1 hover:rotate-2">
+                      <ShieldCheck className="h-10 w-10 text-black" />
+                    </div>
+                    <h2 className="mt-5 text-3xl font-black uppercase leading-[1.08] tracking-tight sm:text-4xl">
+                      KIỂM TRA EMAIL CỦA BẠN
                     </h2>
-                    <p className="mt-3 text-sm leading-6 text-[#66736d]">
-                      Nhập email tài khoản, chúng tôi sẽ gửi hướng dẫn đặt lại mật khẩu.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleSubmit} className="space-y-5">
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="mb-2 block text-sm font-semibold text-[#0b0f0d]"
+                    <div className="mt-5 border-4 border-black bg-white px-5 py-4 text-left shadow-[5px_5px_0px_0px_#000]">
+                      <div className="mb-3 h-2 w-20 border-2 border-black bg-[#FF6B6B]" />
+                      <p className="text-sm font-bold leading-relaxed text-black">
+                        Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi tới hộp thư của bạn. Hãy kiểm tra cả mục spam hoặc thư rác.
+                      </p>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      <Link
+                        href="/login"
+                        className="inline-flex h-12 w-full items-center justify-center gap-2 border-4 border-black bg-[#FF6B6B] px-6 text-sm font-black uppercase text-black shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                       >
-                        Email
-                      </label>
-                      <div className="relative">
-                        <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a39c]" />
-                        <input
-                          id="email"
-                          name="email"
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Nhập email đã đăng ký"
-                          className="w-full rounded-full border border-[#dfe5e1] bg-[#f3f7f5] py-4 pl-11 pr-5 text-sm font-medium text-[#0b0f0d] outline-none transition placeholder:text-[#94a39c] focus:border-[#00d4a4] focus:bg-white focus:ring-4 focus:ring-[#00d4a4]/10"
-                        />
+                        <ArrowLeft className="h-4 w-4" />
+                        QUAY LẠI ĐĂNG NHẬP
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="inline-flex border-4 border-black bg-white px-3 py-1 text-xs font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_#000]">
+                      RESET
+                    </p>
+                    <h2 className="mt-4 text-4xl font-black uppercase tracking-tight sm:text-5xl">QUÊN MẬT KHẨU</h2>
+                    <p className="mt-2 font-medium">
+                      Nhập email tài khoản của bạn, chúng tôi sẽ gửi liên kết đặt lại mật khẩu.
+                    </p>
+
+                    <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+                      <div>
+                        <label htmlFor="email" className="mb-2 block text-sm font-black uppercase">
+                          Email
+                        </label>
+                        <div className="relative">
+                          <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-black" />
+                          <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Nhập email đã đăng ký"
+                            className="h-12 w-full border-4 border-black bg-white pl-12 pr-4 font-bold placeholder:text-black/50 focus-visible:bg-[#FFD93D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                          />
+                        </div>
                       </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="inline-flex h-12 w-full items-center justify-center border-4 border-black bg-[#FF6B6B] px-6 text-sm font-black uppercase text-black shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {isLoading ? "ĐANG GỬI..." : "GỬI HƯỚNG DẪN"}
+                      </button>
+                    </form>
+
+                    <div className="mt-6 border-4 border-black bg-white px-4 py-3 shadow-[4px_4px_0px_0px_#000]">
+                      <p className="text-sm font-black uppercase">LƯU Ý</p>
+                      <p className="mt-1 text-sm font-medium leading-6">
+                        Không thấy email? Hãy kiểm tra thư rác hoặc thử lại sau vài phút.
+                      </p>
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="inline-flex w-full items-center justify-center rounded-full !bg-[#0b7a63] px-6 py-4 text-base font-bold !text-white transition hover:opacity-90 disabled:opacity-50"
-                    >
-                      {isLoading ? (
-                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      ) : (
-                        "Gửi hướng dẫn"
-                      )}
-                    </button>
-                  </form>
-
-                  <div className="mt-8 rounded-2xl border border-[#dfe5e1] bg-[#f7f8f6] p-5">
-                    <p className="text-sm font-semibold text-[#0b0f0d]">Lưu ý</p>
-                    <p className="mt-2 text-sm leading-6 text-[#66736d]">
-                      Nếu không thấy email, hãy kiểm tra hộp thư rác hoặc thử lại
-                      sau vài phút.
+                    <p className="mt-6 text-center text-sm font-bold">
+                      ĐÃ NHỚ MẬT KHẨU?{" "}
+                      <Link
+                        href="/login"
+                        className="font-black uppercase underline underline-offset-4 transition-all duration-100 ease-linear hover:bg-[#FFD93D]"
+                      >
+                        ĐĂNG NHẬP
+                      </Link>
                     </p>
-                  </div>
-
-                  <p className="mt-7 text-center text-sm text-[#66736d]">
-                    Đã nhớ mật khẩu?{" "}
-                    <Link
-                      href="/login"
-                      className="font-bold text-[#057a60] transition hover:text-[#00a982]"
-                    >
-                      Đăng nhập
-                    </Link>
-                  </p>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {toast && (
-        <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />
-      )}
+      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
     </main>
   );
 }

@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
 import { ButtonHTMLAttributes, forwardRef } from "react";
-import { ui } from "@/lib/ui-tokens";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "accent" | "secondary" | "danger" | "ghost" | "dark";
@@ -13,12 +12,17 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const AppButton = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", isLoading, leftIcon, rightIcon, children, disabled, ...props }, ref) => {
     const variants = {
-      primary: ui.buttonPrimary,
-      accent: ui.buttonAccent,
-      secondary: ui.buttonSecondary,
-      danger: "inline-flex items-center justify-center rounded-full bg-rose-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:bg-rose-700 hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:ring-offset-2",
-      ghost: "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-bold text-[#47524d] transition-all duration-150 ease-out hover:bg-slate-100 hover:text-slate-900 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-2",
-      dark: "inline-flex items-center justify-center rounded-full bg-slate-950 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:bg-slate-800 hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/40 focus-visible:ring-offset-2",
+      primary:
+        "inline-flex items-center justify-center border-4 border-black bg-[#FF6B6B] px-6 py-2.5 text-sm font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2",
+      accent:
+        "inline-flex items-center justify-center border-4 border-black bg-[#FFD93D] px-6 py-2.5 text-sm font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2",
+      secondary:
+        "inline-flex items-center justify-center border-4 border-black bg-white px-6 py-2.5 text-sm font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:bg-[#FFD93D] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2",
+      danger:
+        "inline-flex items-center justify-center border-4 border-black bg-[#FF6B6B] px-6 py-2.5 text-sm font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2",
+      ghost: "inline-flex items-center justify-center border-4 border-black bg-white px-4 py-2 text-xs font-black uppercase text-black shadow-[3px_3px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:bg-[#FFD93D] hover:shadow-[5px_5px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
+      dark:
+        "inline-flex items-center justify-center border-4 border-black bg-black px-6 py-2.5 text-sm font-black uppercase text-white shadow-[5px_5px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2",
     };
 
     const sizes = {

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
@@ -6,48 +6,36 @@ import { useToast } from "@/hooks/use-toast";
 
 export function DocsCodeBlock({ code, title }: { code: string; language?: string; title?: string }) {
   const [isCopied, setIsCopied] = useState(false);
-  const { showToast } = useToast();
+  const { showToast } = useToast(3000);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code);
       setIsCopied(true);
-      showToast("Đã copy", "success");
-      setTimeout(() => setIsCopied(false), 3000);
+      showToast("Đã sao chép", "success");
+      window.setTimeout(() => setIsCopied(false), 3000);
     } catch {
-      showToast("Không thể copy. Vui lòng thử lại.", "error");
+      showToast("Không thể sao chép. Vui lòng thử lại.", "error");
     }
   };
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 shadow-sm mt-4">
-      {title && (
-        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-900/50">
-          <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{title}</span>
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
-            title="Copy code"
-          >
-            {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-            {isCopied ? "Đã copy" : "Copy"}
-          </button>
-        </div>
-      )}
-      <div className="relative group">
-        {!title && (
-          <button
-            onClick={handleCopy}
-            className="absolute top-3 right-3 p-2 rounded-xl bg-white/10 text-slate-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-white/20 hover:text-white"
-            title="Copy code"
-          >
-            {isCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-          </button>
-        )}
-        <pre className="p-4 overflow-x-auto text-sm font-mono text-slate-300 leading-relaxed">
-          <code>{code}</code>
-        </pre>
+    <div className="mt-4 overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]">
+      <div className="flex items-center justify-between gap-3 border-b-2 border-black bg-[#111827] px-4 py-2">
+        <span className="text-xs font-black uppercase tracking-wide text-[#FFFDF5]">{title ?? "Code"}</span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label="Sao chép code"
+          className="inline-flex items-center gap-1 border-2 border-black bg-[#FFD93D] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+        >
+          {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {isCopied ? "Đã sao chép" : "Copy"}
+        </button>
       </div>
+      <pre className="max-w-full overflow-x-auto p-4 text-sm leading-relaxed text-[#FFFDF5]">
+        <code className="font-mono">{code}</code>
+      </pre>
     </div>
   );
 }

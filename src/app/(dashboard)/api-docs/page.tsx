@@ -1,23 +1,21 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import Link from "next/link";
-import { 
-  Zap, 
-  Key, 
-  History, 
-  Code2, 
-  ListTree, 
-  AlertTriangle, 
-  Settings, 
-  BookOpen
+import {
+  AlertTriangle,
+  BookOpenText,
+  Code2,
+  History,
+  Key,
+  ListTree,
+  Settings,
+  Zap,
 } from "lucide-react";
+
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
-import { AppCard } from "@/components/ui/app-card";
-import DashboardSubNav from "@/components/dashboard/dashboard-sub-nav";
-
-// Sub-components
+import { AppButton } from "@/components/ui/app-button";
 import { DocsQuickConfig } from "@/components/docs/quick-config";
 import { DocsQuickStart } from "@/components/docs/quick-start";
 import { DocsCodeExamples } from "@/components/docs/code-examples";
@@ -26,15 +24,17 @@ import { DocsErrorAccordion } from "@/components/docs/error-accordion";
 import { DocsIdeConfig } from "@/components/docs/ide-config";
 import { DocsSupportCard } from "@/components/docs/support-card";
 
+type DocsTab = "start" | "code" | "models" | "errors" | "ide";
+
 export default function ApiDocsPage() {
-  const [activeTab, setActiveTab] = useState("start");
+  const [activeTab, setActiveTab] = useState<DocsTab>("start");
   const { toast, clearToast } = useToast();
 
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === "development" ? "http://localhost:3004" : "https://tzoshop.io.vn");
-  const BASE_URL = `${APP_URL}/api/v1`;
-  const CHAT_URL = `${BASE_URL}/chat/completions`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://tzoshop.io.vn";
+  const apiBaseUrl = `${appUrl}/api/v1`;
+  const chatUrl = `${apiBaseUrl}/chat/completions`;
 
-  const tabs = [
+  const tabs: Array<{ id: DocsTab; label: string; icon: ComponentType<{ className?: string }> }> = [
     { id: "start", label: "Bắt đầu nhanh", icon: Zap },
     { id: "code", label: "Ví dụ code", icon: Code2 },
     { id: "models", label: "Models", icon: ListTree },
@@ -43,94 +43,78 @@ export default function ApiDocsPage() {
   ];
 
   return (
-    <div className="space-y-10 pb-20">
-      <DashboardSubNav 
-        items={[
-          { label: "API Keys", href: "/api-keys" },
-          { label: "Tài liệu API", href: "/api-docs" },
-          { label: "Lịch sử sử dụng", href: "/usage" },
-        ]} 
-      />
-      
-      {/* Section Header Card */}
-      <AppCard className="p-8 sm:p-10 relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-950 text-white shadow-sm shrink-0">
-              <BookOpen className="h-7 w-7 text-white" />
+    <main className="space-y-8 lg:space-y-10" aria-busy="false">
+      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center border-4 border-black bg-[#FFD93D] text-black shadow-[5px_5px_0px_0px_#000]">
+              <BookOpenText className="h-7 w-7" strokeWidth={2.5} />
             </div>
             <div>
-              <h2 className="text-3xl font-black text-slate-950 tracking-tight">Tài liệu API</h2>
-              <p className="mt-1 text-sm font-medium text-slate-600">
+              <h2 className="text-3xl font-black uppercase tracking-tight text-black md:text-4xl">TÀI LIỆU API</h2>
+              <p className="mt-2 text-sm font-bold text-black/70 md:text-base">
                 Kết nối API key TzoShop với extension, IDE hoặc API client tương thích OpenAI.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Link href="/api-keys" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-emerald-600 px-6 text-sm font-bold text-white transition-all hover:bg-emerald-700 shadow-lg shadow-emerald-900/10">
-              <Key className="h-4 w-4" />
-              Tạo API key
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto">
+            <Link href="/api-keys" className="w-full sm:w-auto">
+              <AppButton variant="primary" className="h-12 w-full px-6 sm:w-auto">
+                <Key className="mr-2 h-4 w-4" />
+                Tạo API key
+              </AppButton>
             </Link>
-            <Link href="/usage" className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50">
-              <History className="h-4 w-4 text-emerald-600" />
-              Lịch sử sử dụng
+            <Link href="/usage" className="w-full sm:w-auto">
+              <AppButton variant="secondary" className="h-12 w-full px-6 sm:w-auto">
+                <History className="mr-2 h-4 w-4" />
+                Xem usage
+              </AppButton>
             </Link>
           </div>
         </div>
-      </AppCard>
+      </section>
 
-      {/* Quick Config Card */}
-      <DocsQuickConfig baseUrl={BASE_URL} />
+      <DocsQuickConfig onOpenCodeExamples={() => setActiveTab("code")} />
 
-      {/* Tabs nội dung docs */}
-      <div className="space-y-6">
-        <div className="bg-white p-2 rounded-[32px] border border-slate-200 shadow-sm sticky top-4 z-40 overflow-x-auto hide-scrollbar">
-          <div className="flex items-center min-w-max gap-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-sm font-black transition-all ${
-                    isActive
-                      ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
-                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-emerald-400" : "text-slate-400"}`} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+      <section className="space-y-6">
+        <div className="flex flex-wrap gap-3">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(tab.id)}
+                className={[
+                  "inline-flex h-11 items-center border-4 border-black px-4 text-xs font-black uppercase tracking-wide text-black transition-all duration-100 ease-linear focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2",
+                  active
+                    ? "bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000]"
+                    : "bg-[#FFFDF5] shadow-[3px_3px_0px_0px_#000] hover:-translate-y-0.5 hover:bg-[#FFD93D]",
+                ].join(" ")}
+              >
+                <Icon className="mr-2 h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Tab Content Section */}
-        <div className="min-h-[400px]">
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {activeTab === "start" && <DocsQuickStart baseUrl={BASE_URL} />}
-            {activeTab === "code" && <DocsCodeExamples apiUrl={CHAT_URL} />}
-            {activeTab === "models" && <DocsModelAccordion />}
-            {activeTab === "errors" && <DocsErrorAccordion />}
-            {activeTab === "ide" && <DocsIdeConfig baseUrl={BASE_URL} />}
-          </div>
+        <div role="tabpanel" className="space-y-6">
+          {activeTab === "start" && <DocsQuickStart baseUrl={apiBaseUrl} onGoCode={() => setActiveTab("code")} />}
+          {activeTab === "code" && <DocsCodeExamples apiBaseUrl={apiBaseUrl} apiUrl={chatUrl} />}
+          {activeTab === "models" && <DocsModelAccordion />}
+          {activeTab === "errors" && <DocsErrorAccordion />}
+          {activeTab === "ide" && <DocsIdeConfig baseUrl={apiBaseUrl} />}
         </div>
-      </div>
+      </section>
 
-      {/* Global Support Card */}
       <DocsSupportCard />
 
-      {/* Toast Notifications */}
-      {toast && (
-        <ToastMessage
-          message={toast.message}
-          type={toast.type}
-          onClose={clearToast}
-        />
-      )}
-    </div>
+      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
+    </main>
   );
 }

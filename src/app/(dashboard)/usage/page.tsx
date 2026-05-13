@@ -1,25 +1,24 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import Link from "next/link";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useToast } from "@/hooks/use-toast";
 import {
-  BarChart3,
-  Zap,
+  Activity,
+  ChartNoAxesColumnIncreasing,
   CheckCircle2,
-  XCircle,
+  Filter,
   History,
   KeyRound,
-  Filter
+  LifeBuoy,
+  XCircle,
+  Zap,
+  AlertTriangle,
 } from "lucide-react";
-import DashboardSubNav from "@/components/dashboard/dashboard-sub-nav";
 import { AppButton } from "@/components/ui/app-button";
-import { AppCard } from "@/components/ui/app-card";
-import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ui } from "@/lib/ui-tokens";
-import { cn } from "@/lib/utils";
-import { StatCardsSkeleton, CardListSkeleton } from "@/components/ui/page-skeleton";
+import { UsagePageSkeleton } from "@/components/dashboard/usage/usage-page-skeleton";
 
 type ApiFamily = "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
 
@@ -55,8 +54,8 @@ export default function UsagePage() {
   const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
   const [usageLogs, setUsageLogs] = useState<UsageLogItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Filters
   const [filterApiKeyId, setFilterApiKeyId] = useState("all");
   const [filterModel, setFilterModel] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -66,6 +65,7 @@ export default function UsagePage() {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       const [keysRes, usageRes] = await Promise.all([
         fetch("/api/api-keys", { cache: "no-store" }),
         fetch("/api/usage", { cache: "no-store" }),
@@ -80,6 +80,8 @@ export default function UsagePage() {
       setApiKeys(keysData.data ?? []);
       setUsageLogs(usageData.data ?? []);
     } catch {
+      const message = "Vui lòng thử lại sau hoặc liên hệ hỗ trợ nếu lỗi tiếp tục xảy ra.";
+      setLoadError(message);
       showToast("Không thể tải dữ liệu sử dụng.", "error");
     } finally {
       setIsLoading(false);
@@ -93,15 +95,14 @@ export default function UsagePage() {
     return () => window.clearTimeout(timer);
   }, [loadData]);
 
-  // Derived data
   const models = useMemo(() => {
     const uniqueModels = new Set<string>();
-    usageLogs.forEach(log => uniqueModels.add(log.model));
+    usageLogs.forEach((log) => uniqueModels.add(log.model));
     return Array.from(uniqueModels).sort();
   }, [usageLogs]);
 
   const filteredLogs = useMemo(() => {
-    return usageLogs.filter(log => {
+    return usageLogs.filter((log) => {
       const matchKey = filterApiKeyId === "all" || log.apiKey?.id === filterApiKeyId;
       const matchModel = filterModel === "all" || log.model === filterModel;
       const matchStatus = filterStatus === "all" || log.status === filterStatus;
@@ -110,241 +111,330 @@ export default function UsagePage() {
   }, [usageLogs, filterApiKeyId, filterModel, filterStatus]);
 
   const stats = useMemo(() => {
-    const totalCalls = filteredLogs.length;
+    const totalRequests = filteredLogs.length;
     const creditsUsed = filteredLogs.reduce((sum, log) => sum + Number(log.creditsCharged), 0);
-    const successCalls = filteredLogs.filter((log) => log.status === "SUCCESS").length;
-    const failedCalls = filteredLogs.filter((log) => log.status === "FAILED").length;
+    const successRequests = filteredLogs.filter((log) => log.status === "SUCCESS").length;
+    const failedRequests = filteredLogs.filter((log) => log.status === "FAILED").length;
 
-    return { totalCalls, creditsUsed, successCalls, failedCalls };
+    return { totalRequests, creditsUsed, successRequests, failedRequests };
   }, [filteredLogs]);
 
-
-
   return (
-    <div className="space-y-10 pb-20">
-      <DashboardSubNav 
-        items={[
-          { label: "API Keys", href: "/api-keys" },
-          { label: "Tài liệu API", href: "/api-docs" },
-          { label: "Lịch sử sử dụng", href: "/usage" },
-        ]} 
-      />
-      <PageHeader 
-        title="Lịch sử sử dụng" 
-        description="Theo dõi lượt gọi API, credits đã dùng và trạng thái request."
-        icon={<BarChart3 className="h-8 w-8" />}
-      />
-
-      {/* Stats Cards */}
-      {isLoading ? (
-        <StatCardsSkeleton />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AppCard className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className={ui.statLabel}>Tổng lượt gọi</p>
-              <div className="p-1.5 rounded-lg bg-[#fbfbf8] border border-[#edf1ee]">
-                <BarChart3 className="h-4 w-4 text-[#8a9690]" />
-              </div>
+    <main className="space-y-8 pb-20 lg:space-y-10" aria-busy={isLoading}>
+      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center border-4 border-black bg-[#FFD93D] text-black shadow-[5px_5px_0px_0px_#000]">
+              <ChartNoAxesColumnIncreasing className="h-7 w-7" strokeWidth={2.5} />
             </div>
-            <p className={ui.statValue}>{stats.totalCalls.toLocaleString("vi-VN")}</p>
-          </AppCard>
-          <AppCard className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className={ui.statLabel}>Credits đã dùng</p>
-              <div className="p-1.5 rounded-lg bg-[#e7fff7] border border-[#00d4a4]/20">
-                <Zap className="h-4 w-4 text-[#00d4a4]" />
-              </div>
+            <div>
+              <h2 className="text-3xl font-black uppercase tracking-tight text-black md:text-4xl">LỊCH SỬ SỬ DỤNG</h2>
+              <p className="mt-2 text-sm font-bold text-black/70 md:text-base">
+                Theo dõi lượt gọi API, credits đã dùng và trạng thái request.
+              </p>
             </div>
-            <p className={cn(ui.statValue, "text-[#00d4a4]")}>{new Intl.NumberFormat("vi-VN").format(stats.creditsUsed)}</p>
-          </AppCard>
-          <AppCard className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className={ui.statLabel}>Thành công</p>
-              <div className="p-1.5 rounded-lg bg-[#e7fff7] border border-[#00d4a4]/20">
-                <CheckCircle2 className="h-4 w-4 text-[#00d4a4]" />
-              </div>
-            </div>
-            <p className={cn(ui.statValue, "text-[#00d4a4]")}>{stats.successCalls.toLocaleString("vi-VN")}</p>
-          </AppCard>
-          <AppCard className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className={ui.statLabel}>Thất bại</p>
-              <div className="p-1.5 rounded-lg bg-red-50 border border-red-100">
-                <XCircle className="h-4 w-4 text-red-500" />
-              </div>
-            </div>
-            <p className={cn(ui.statValue, "text-red-600")}>{stats.failedCalls.toLocaleString("vi-VN")}</p>
-          </AppCard>
-        </div>
-      )}
-
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
-        <div className="space-y-8">
-
-          {/* Filter Bar */}
-          <AppCard className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Filter className="h-5 w-5 text-[#00d4a4]" />
-              <h2 className={ui.h3}>Bộ lọc lịch sử</h2>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <label className={ui.label}>API Key</label>
-                <select
-                  value={filterApiKeyId}
-                  onChange={(e) => setFilterApiKeyId(e.target.value)}
-                  className={ui.select}
-                >
-                  <option value="all">Tất cả key</option>
-                  {apiKeys.map(k => (
-                    <option key={k.id} value={k.id}>{k.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className={ui.label}>Model</label>
-                <select
-                  value={filterModel}
-                  onChange={(e) => setFilterModel(e.target.value)}
-                  className={ui.select}
-                >
-                  <option value="all">Tất cả model</option>
-                  {models.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className={ui.label}>Trạng thái</label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className={ui.select}
-                >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="SUCCESS">Thành công</option>
-                  <option value="FAILED">Thất bại</option>
-                </select>
-              </div>
-            </div>
-          </AppCard>
-
-          {/* Logs Section */}
-          <section className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <History className="h-5 w-5 text-[#00d4a4]" />
-                <h2 className={ui.h3}>Nhật ký chi tiết</h2>
-              </div>
-              {!isLoading && (
-                <span className={ui.label}>
-                  Hiển thị {filteredLogs.length} kết quả
-                </span>
-              )}
-            </div>
-
-            {isLoading ? (
-              <CardListSkeleton count={4} />
-            ) : filteredLogs.length === 0 ? (
-              <div className="rounded-[40px] border border-dashed border-[#dfe5e1] bg-[#fbfbf8] p-10 sm:p-20 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-white border border-[#dfe5e1] text-[#8a9690] mb-6 shadow-sm">
-                  <History className="h-8 w-8" />
-                </div>
-                <h3 className={ui.h3}>Không tìm thấy nhật ký.</h3>
-                <p className={ui.p}>Hãy thay đổi bộ lọc hoặc bắt đầu sử dụng API để ghi nhận lịch sử.</p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {filteredLogs.map((log) => (
-                  <AppCard
-                    key={log.id}
-                    variant="interactive"
-                    className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="space-y-2 flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span 
-                          className="font-mono text-[13px] font-black text-[#0b0f0d] truncate max-w-[200px]"
-                          title={log.model}
-                        >
-                          {log.model}
-                        </span>
-                        <StatusBadge 
-                          status={log.status === "SUCCESS" ? "Thành công" : "Thất bại"} 
-                          variant={log.status === "SUCCESS" ? "success" : "danger"} 
-                        />
-                        {log.httpStatus && <span className="text-[10px] font-bold text-[#8a9690]">({log.httpStatus})</span>}
-                      </div>
-                      <p className={cn(ui.pMuted, "font-bold uppercase tracking-tight")}>
-                        {new Date(log.createdAt).toLocaleString("vi-VN")} · {log.apiKey?.name ?? "API Key"} ({log.apiKey?.keyPrefix ?? "..."})
-                      </p>
-                      {(log.errorCode || log.errorMessage) && (
-                        <div className="flex flex-col gap-0.5">
-                          {log.errorCode && <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">{log.errorCode}</p>}
-                          {log.errorMessage && <p className="text-xs font-bold text-red-600 line-clamp-2">{log.errorMessage}</p>}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-6 justify-between border-t border-[#edf1ee] pt-4 sm:pt-0 sm:border-none sm:text-right sm:justify-end">
-                      <div className="space-y-1">
-                        <p className={ui.label}>Tokens</p>
-                        <p className="text-sm font-black text-[#0b0f0d]">{log.inputTokens.toLocaleString()}/{log.outputTokens.toLocaleString()}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className={ui.label}>Credits</p>
-                        <p className={`text-lg font-black ${log.creditsUsed > 0 ? "text-[#00d4a4]" : "text-[#8a9690]"}`}>
-                          {new Intl.NumberFormat("vi-VN").format(log.creditsUsed)}
-                        </p>
-                      </div>
-                    </div>
-                  </AppCard>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* Sidebar Info */}
-        <aside className="space-y-6">
-          <AppCard className="p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <KeyRound className="h-5 w-5 text-[#00d4a4]" />
-              <h3 className={ui.h3}>Kiểm tra API key</h3>
-            </div>
-            <p className={ui.pMuted + " leading-6 mb-6 font-bold"}>
-              Sử dụng API key trong extension, IDE hoặc API client tương thích OpenAI để kiểm tra kết nối.
-            </p>
-            <div className="space-y-3">
-              <AppButton variant="secondary" onClick={() => window.location.href = "/api-docs"} className="w-full" size="sm">
-                Xem tài liệu API
-              </AppButton>
-              <AppButton variant="secondary" onClick={() => window.location.href = "/api-keys"} className="w-full" size="sm">
-                Quản lý API Keys
-              </AppButton>
-            </div>
-          </AppCard>
-
-          <div className="rounded-3xl bg-[#020c0a] p-8 text-white">
-            <h3 className="text-lg font-black mb-4">Bạn gặp vấn đề?</h3>
-            <p className="text-xs font-medium text-white/50 leading-6 mb-6">
-              Nếu bạn thấy có sự sai lệch về credits hoặc lượt gọi, hãy liên hệ đội ngũ kỹ thuật để được hỗ trợ kiểm soát.
-            </p>
-            <AppButton variant="accent" className="w-full">
-              Gửi hỗ trợ
-            </AppButton>
           </div>
-        </aside>
-      </div>
+          <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+            <Link href="/api-docs" className="w-full sm:w-auto">
+              <AppButton variant="accent" className="h-12 w-full px-6 sm:w-auto">
+                XEM TÀI LIỆU API
+              </AppButton>
+            </Link>
+            <Link href="/api-keys" className="w-full sm:w-auto">
+              <AppButton variant="secondary" className="h-12 w-full px-6 sm:w-auto">
+                QUẢN LÝ API KEYS
+              </AppButton>
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      {/* Toast */}
-      {toast && (
-        <ToastMessage
-          message={toast.message}
-          type={toast.type}
-          onClose={clearToast}
-        />
+      {isLoading ? (
+        <UsagePageSkeleton />
+      ) : (
+        <>
+          <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <article className="min-h-[120px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-6">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.08em] text-black">Tổng lượt gọi</p>
+                <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-[#FFD93D] text-black shadow-[2px_2px_0px_0px_#000]">
+                  <ChartNoAxesColumnIncreasing className="h-5 w-5" strokeWidth={2.5} />
+                </div>
+              </div>
+              <p className="mt-5 text-3xl font-black leading-none text-black">{stats.totalRequests.toLocaleString("vi-VN")}</p>
+              <p className="mt-2 text-xs font-bold uppercase text-black/70">Tất cả request</p>
+            </article>
+
+            <article className="min-h-[120px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-6">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.08em] text-black">Credits đã dùng</p>
+                <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-[#A78BFA] text-black shadow-[2px_2px_0px_0px_#000]">
+                  <Zap className="h-5 w-5" />
+                </div>
+              </div>
+              <p className="mt-5 text-3xl font-black leading-none text-black">{new Intl.NumberFormat("vi-VN").format(stats.creditsUsed)}</p>
+              <p className="mt-2 text-xs font-bold uppercase text-black/70">Đã tiêu thụ</p>
+            </article>
+
+            <article className="min-h-[120px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-6">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.08em] text-black">Thành công</p>
+                <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-[#C7F0D8] text-black shadow-[2px_2px_0px_0px_#000]">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+              </div>
+              <p className="mt-5 text-3xl font-black leading-none text-black">{stats.successRequests.toLocaleString("vi-VN")}</p>
+              <p className="mt-2 text-xs font-bold uppercase text-black/70">Request hợp lệ</p>
+            </article>
+
+            <article className="min-h-[120px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-6">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.08em] text-black">Thất bại</p>
+                <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-[#FF6B6B] text-black shadow-[2px_2px_0px_0px_#000]">
+                  <XCircle className="h-5 w-5" />
+                </div>
+              </div>
+              <p className="mt-5 text-3xl font-black leading-none text-black">{stats.failedRequests.toLocaleString("vi-VN")}</p>
+              <p className="mt-2 text-xs font-bold uppercase text-black/70">Cần kiểm tra</p>
+            </article>
+          </section>
+
+          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_300px]">
+            <div className="space-y-8">
+              <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center border-4 border-black bg-[#C7F0D8] text-black shadow-[3px_3px_0px_0px_#000]">
+                    <Filter className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-xl font-black uppercase text-black md:text-2xl">Bộ lọc lịch sử</h3>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-wide text-black">API key</label>
+                    <select
+                      value={filterApiKeyId}
+                      onChange={(e) => setFilterApiKeyId(e.target.value)}
+                      className="h-12 w-full border-4 border-black bg-[#FFFDF5] px-4 text-sm font-bold text-black shadow-[3px_3px_0px_0px_#000] outline-none transition-all focus:bg-[#FFD93D]/25 focus:shadow-[4px_4px_0px_0px_#000]"
+                    >
+                      <option value="all">Tất cả key</option>
+                      {apiKeys.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-wide text-black">Model</label>
+                    <select
+                      value={filterModel}
+                      onChange={(e) => setFilterModel(e.target.value)}
+                      className="h-12 w-full border-4 border-black bg-[#FFFDF5] px-4 text-sm font-bold text-black shadow-[3px_3px_0px_0px_#000] outline-none transition-all focus:bg-[#FFD93D]/25 focus:shadow-[4px_4px_0px_0px_#000]"
+                    >
+                      <option value="all">Tất cả model</option>
+                      {models.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-wide text-black">Trạng thái</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="h-12 w-full border-4 border-black bg-[#FFFDF5] px-4 text-sm font-bold text-black shadow-[3px_3px_0px_0px_#000] outline-none transition-all focus:bg-[#FFD93D]/25 focus:shadow-[4px_4px_0px_0px_#000]"
+                    >
+                      <option value="all">Tất cả trạng thái</option>
+                      <option value="SUCCESS">Thành công</option>
+                      <option value="FAILED">Thất bại</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <AppButton
+                    variant="secondary"
+                    className="h-11 px-5"
+                    onClick={() => {
+                      setFilterApiKeyId("all");
+                      setFilterModel("all");
+                      setFilterStatus("all");
+                    }}
+                  >
+                    XÓA BỘ LỌC
+                  </AppButton>
+                </div>
+              </section>
+
+              <section className="space-y-5">
+                <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#C7F0D8] text-black shadow-[2px_2px_0px_0px_#000]">
+                      <History className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-xl font-black uppercase text-black md:text-2xl">Nhật ký chi tiết</h3>
+                  </div>
+                  <span className="w-fit border-2 border-black bg-[#FFFDF5] px-3 py-1.5 text-xs font-black uppercase tracking-wide text-black/70 shadow-[2px_2px_0px_0px_#000]">
+                    HIỂN THỊ {filteredLogs.length} KẾT QUẢ
+                  </span>
+                </header>
+
+                {loadError ? (
+                  <div className="border-4 border-black bg-[#FF6B6B] p-6 text-black shadow-[8px_8px_0px_0px_#000]">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0" />
+                      <div>
+                        <h4 className="text-xl font-black uppercase">Không thể tải lịch sử sử dụng</h4>
+                        <p className="mt-2 text-sm font-bold text-black/80">{loadError}</p>
+                        <AppButton variant="secondary" className="mt-5 h-11" onClick={() => void loadData()}>
+                          THỬ LẠI
+                        </AppButton>
+                      </div>
+                    </div>
+                  </div>
+                ) : filteredLogs.length === 0 ? (
+                  <div className="flex min-h-[320px] flex-col items-center justify-center border-4 border-black bg-[#FFFDF5] p-8 text-center shadow-[8px_8px_0px_0px_#000] md:p-10">
+                    <div className="mb-6 flex h-16 w-16 items-center justify-center border-4 border-black bg-[#FFD93D] text-black shadow-[5px_5px_0px_0px_#000]">
+                      <Activity className="h-8 w-8" />
+                    </div>
+                    <h4 className="text-xl font-black uppercase tracking-tight text-black md:text-2xl">Không tìm thấy nhật ký.</h4>
+                    <p className="mt-3 max-w-[520px] text-sm font-bold text-black/70 md:text-base">
+                      Hãy thay đổi bộ lọc hoặc bắt đầu sử dụng API để ghi nhận lịch sử.
+                    </p>
+                    <div className="mt-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                      <Link href="/api-docs" className="w-full sm:w-auto">
+                        <AppButton variant="accent" className="h-12 w-full px-6 sm:w-auto">
+                          XEM TÀI LIỆU API
+                        </AppButton>
+                      </Link>
+                      <Link href="/api-keys" className="w-full sm:w-auto">
+                        <AppButton variant="secondary" className="h-12 w-full px-6 sm:w-auto">
+                          QUẢN LÝ API KEYS
+                        </AppButton>
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="hidden overflow-hidden border-4 border-black bg-[#FFFDF5] shadow-[8px_8px_0px_0px_#000] lg:block">
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[980px]">
+                          <thead>
+                            <tr className="border-b-4 border-black bg-[#FFD93D] text-left text-xs font-black uppercase tracking-wide text-black">
+                              <th className="px-4 py-3">Thời gian</th>
+                              <th className="px-4 py-3">API key</th>
+                              <th className="px-4 py-3">Model</th>
+                              <th className="px-4 py-3">Endpoint</th>
+                              <th className="px-4 py-3">Credits</th>
+                              <th className="px-4 py-3">Tokens</th>
+                              <th className="px-4 py-3">Trạng thái</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredLogs.map((log) => (
+                              <tr key={log.id} className="border-b-2 border-black font-bold text-black transition-colors hover:bg-[#FFF7CC]">
+                                <td className="whitespace-nowrap px-4 py-4 text-sm">{new Date(log.createdAt).toLocaleString("vi-VN")}</td>
+                                <td className="px-4 py-4 text-sm">
+                                  <p>{log.apiKey?.name ?? "API Key"}</p>
+                                  <code className="mt-1 inline-block border-2 border-black bg-[#E9E1D0] px-2 py-1 font-mono text-xs font-bold text-black">
+                                    {log.apiKey?.keyPrefix ?? "N/A"}
+                                  </code>
+                                </td>
+                                <td className="px-4 py-4 text-sm">
+                                  <code className="inline-block max-w-[220px] overflow-x-auto border-2 border-black bg-[#E9E1D0] px-2 py-1 font-mono text-xs font-bold text-black">
+                                    {log.model}
+                                  </code>
+                                </td>
+                                <td className="px-4 py-4 text-sm">
+                                  <code className="inline-block max-w-[220px] overflow-x-auto border-2 border-black bg-[#E9E1D0] px-2 py-1 font-mono text-xs font-bold text-black">
+                                    {log.endpoint}
+                                  </code>
+                                </td>
+                                <td className="px-4 py-4 text-sm">{new Intl.NumberFormat("vi-VN").format(log.creditsUsed)}</td>
+                                <td className="px-4 py-4 text-sm">{log.inputTokens.toLocaleString()}/{log.outputTokens.toLocaleString()}</td>
+                                <td className="px-4 py-4">
+                                  <StatusBadge status={log.status === "SUCCESS" ? "Thành công" : "Thất bại"} variant={log.status === "SUCCESS" ? "success" : "danger"} />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 lg:hidden">
+                      {filteredLogs.map((log) => (
+                        <article key={log.id} className="space-y-3 border-4 border-black bg-[#FFFDF5] p-5 shadow-[5px_5px_0px_0px_#000]">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-black text-black">{new Date(log.createdAt).toLocaleString("vi-VN")}</p>
+                            <StatusBadge status={log.status === "SUCCESS" ? "Thành công" : "Thất bại"} variant={log.status === "SUCCESS" ? "success" : "danger"} />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2 text-sm">
+                            <p><span className="text-xs font-black uppercase text-black/70">API key:</span> <span className="font-bold text-black">{log.apiKey?.name ?? "API Key"}</span></p>
+                            <p><span className="text-xs font-black uppercase text-black/70">Model:</span></p>
+                            <code className="block break-all border-2 border-black bg-[#E9E1D0] px-2 py-1 font-mono text-xs font-bold text-black">{log.model}</code>
+                            <p><span className="text-xs font-black uppercase text-black/70">Endpoint:</span></p>
+                            <code className="block break-all border-2 border-black bg-[#E9E1D0] px-2 py-1 font-mono text-xs font-bold text-black">{log.endpoint}</code>
+                            <p><span className="text-xs font-black uppercase text-black/70">Credits:</span> <span className="font-bold text-black">{new Intl.NumberFormat("vi-VN").format(log.creditsUsed)}</span></p>
+                            <p><span className="text-xs font-black uppercase text-black/70">Tokens:</span> <span className="font-bold text-black">{log.inputTokens.toLocaleString()}/{log.outputTokens.toLocaleString()}</span></p>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </section>
+            </div>
+
+            <aside className="space-y-6">
+              <section className="border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000]">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#C7F0D8] text-black shadow-[2px_2px_0px_0px_#000]">
+                    <KeyRound className="h-4 w-4" />
+                  </div>
+                  <h4 className="text-base font-black uppercase text-black">Kiểm tra API key</h4>
+                </div>
+                <p className="text-sm font-bold leading-relaxed text-black/70">
+                  Sử dụng API key trong extension, IDE hoặc API client tương thích OpenAI để kiểm tra kết nối.
+                </p>
+                <div className="mt-5 space-y-3">
+                  <Link href="/api-docs">
+                    <AppButton variant="secondary" className="h-11 w-full">XEM TÀI LIỆU API</AppButton>
+                  </Link>
+                  <Link href="/api-keys">
+                    <AppButton variant="secondary" className="h-11 w-full">QUẢN LÝ API KEYS</AppButton>
+                  </Link>
+                </div>
+              </section>
+
+              <section className="border-4 border-black bg-[#111827] p-5 text-[#FFFDF5] shadow-[6px_6px_0px_0px_#000]">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FFD93D] text-black shadow-[2px_2px_0px_0px_#FFFDF5]">
+                    <LifeBuoy className="h-4 w-4" />
+                  </div>
+                  <h4 className="text-base font-black uppercase">Bạn gặp vấn đề?</h4>
+                </div>
+                <p className="text-sm font-bold leading-relaxed text-[#FFFDF5]/75">
+                  Nếu bạn thấy có sai lệch về credits hoặc lượt gọi, hãy liên hệ đội ngũ kỹ thuật để được hỗ trợ kiểm soát.
+                </p>
+                <div className="mt-5">
+                  <Link href="/support">
+                    <AppButton variant="accent" className="h-12 w-full shadow-[4px_4px_0px_0px_#FFFDF5]">GỬI HỖ TRỢ</AppButton>
+                  </Link>
+                </div>
+              </section>
+            </aside>
+          </div>
+        </>
       )}
-    </div>
+
+      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
+    </main>
   );
 }
