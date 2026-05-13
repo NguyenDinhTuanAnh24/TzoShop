@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import {
   BookOpenText,
   ChartNoAxesColumnIncreasing,
@@ -81,7 +81,6 @@ export default function DashboardSidebar({
   onCloseMobile: () => void;
 }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
   const { confirmState, isConfirming, askConfirm, closeConfirm, handleConfirm } = useConfirm();
 
   const handleRequestLogout = () => {
@@ -163,24 +162,6 @@ export default function DashboardSidebar({
       </nav>
 
       <div className="shrink-0 border-t-4 border-black bg-[#FFFDF5] p-3">
-        {session?.user && (
-          <div
-            className={`mb-3 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000] ${
-              collapsed && !mobile ? "mx-auto flex h-14 w-14 items-center justify-center" : "flex items-center gap-3 p-3"
-            }`}
-          >
-            <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#C7F0D8] text-sm font-black uppercase text-black">
-              {session.user.name?.[0] ?? "U"}
-            </div>
-            {(!collapsed || mobile) && (
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black text-black">{session.user.name}</p>
-                <p className="truncate text-xs font-bold text-black/70">{session.user.email}</p>
-              </div>
-            )}
-          </div>
-        )}
-
         <button
           type="button"
           aria-label={collapsed && !mobile ? "Mở rộng sidebar" : "Thu gọn sidebar"}
@@ -188,11 +169,11 @@ export default function DashboardSidebar({
           title={collapsed && !mobile ? "Mở rộng sidebar" : undefined}
           onClick={onToggleCollapsed}
           className={`mb-3 border-4 border-black bg-white font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all hover:bg-[#FFD93D] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-            collapsed && !mobile ? "mx-auto flex h-12 w-12 items-center justify-center" : "flex h-12 w-full items-center justify-center gap-2"
+            collapsed && !mobile ? "mx-auto inline-flex h-11 w-11 items-center justify-center" : "inline-flex h-11 w-full items-center justify-center gap-2 text-center"
           }`}
         >
           {collapsed && !mobile ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-          {(!collapsed || mobile) && "THU GỌN"}
+          {(!collapsed || mobile) && <span className="leading-none">THU GỌN</span>}
         </button>
 
         <button
@@ -200,7 +181,7 @@ export default function DashboardSidebar({
           title={collapsed && !mobile ? "Đăng xuất" : undefined}
           onClick={handleRequestLogout}
           className={`border-4 border-black bg-[#FF6B6B] font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-            collapsed && !mobile ? "mx-auto flex h-12 w-12 items-center justify-center" : "flex h-12 w-full items-center justify-center gap-2"
+            collapsed && !mobile ? "mx-auto flex h-11 w-11 items-center justify-center" : "flex h-11 w-full items-center justify-center gap-2"
           }`}
         >
           <LogOut className="h-5 w-5" />

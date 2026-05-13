@@ -1,7 +1,8 @@
 ﻿"use client";
 
 import { usePathname } from "next/navigation";
-import Link from "next/link";
+import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { Menu } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 
@@ -60,6 +61,11 @@ function getMeta(pathname: string) {
 export default function DashboardTopbar({ onOpenMobile }: { onOpenMobile: () => void }) {
   const pathname = usePathname();
   const meta = getMeta(pathname);
+  const { data: session } = useSession();
+  const userName = session?.user?.name?.trim() || "Người dùng";
+  const userEmail = session?.user?.email?.trim() || "user@tzoshop.vn";
+  const userInitial = userName.charAt(0).toUpperCase();
+  const userImage = session?.user?.image;
 
   return (
     <header className="sticky top-0 z-40 h-20 border-b-4 border-black bg-[#FFFDF5]">
@@ -80,12 +86,31 @@ export default function DashboardTopbar({ onOpenMobile }: { onOpenMobile: () => 
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/plans"
-            className="hidden h-11 items-center justify-center border-4 border-black bg-[#FFD93D] px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none sm:flex"
+          <div
+            className="flex h-11 w-11 items-center justify-center border-4 border-black bg-[#C7F0D8] text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] md:hidden"
+            title={userName}
+            aria-label="Tài khoản"
           >
-            MUA CREDITS
-          </Link>
+            {userImage ? (
+              <Image src={userImage} alt={`${userName} avatar`} width={32} height={32} className="h-8 w-8 object-cover" />
+            ) : (
+              userInitial
+            )}
+          </div>
+
+          <div className="hidden h-12 max-w-[260px] items-center gap-3 border-4 border-black bg-[#FFFDF5] px-3 text-black shadow-[4px_4px_0px_0px_#000] md:flex">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center border-2 border-black bg-[#C7F0D8] font-black text-black">
+              {userImage ? (
+                <Image src={userImage} alt={`${userName} avatar`} width={32} height={32} className="h-8 w-8 object-cover" />
+              ) : (
+                userInitial
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black leading-none text-black">{userName}</p>
+              <p className="mt-1 truncate text-xs font-bold leading-none text-black/60">{userEmail}</p>
+            </div>
+          </div>
           <NotificationBell />
         </div>
       </div>

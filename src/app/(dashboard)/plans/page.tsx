@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ToastMessage } from "@/components/ui/toast-message";
@@ -10,11 +11,9 @@ import {
   ChevronDown,
   ChevronUp,
   Clock3,
-  KeyRound,
   RefreshCw,
   Search,
   ShoppingCart,
-  Sparkles,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -22,11 +21,13 @@ import { AppIcon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+type ApiFamily = "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
+
 type ApiPlan = {
   id: string;
   name: string;
   slug: string;
-  apiFamily: "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
+  apiFamily: ApiFamily;
   tier: "Trial" | "Mini" | "Plus" | "Pro" | "Max" | "Ultra" | "Enterprise";
   credits: string;
   durationDays: number | null;
@@ -47,8 +48,8 @@ type UserCoupon = {
   minOrderAmount: number;
 };
 
-function getFamilyLabel(apiFamily: ApiPlan["apiFamily"]) {
-  const familyMap: Record<ApiPlan["apiFamily"], string> = {
+function getFamilyLabel(apiFamily: ApiFamily) {
+  const familyMap: Record<ApiFamily, string> = {
     CODEXAI: "CodexAI",
     CLAUDE: "Claude",
     GEMINI: "Gemini",
@@ -69,6 +70,28 @@ function formatCurrency(value: number) {
   return `${value.toLocaleString("vi-VN")}đ`;
 }
 
+function parseCreditsValue(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return value;
+
+  const raw = value.toString().trim().toUpperCase().replace(/\s/g, "");
+  const match = raw.match(/([\d.]+)(K|M|B)?/);
+  if (!match) return 0;
+
+  const num = Number.parseFloat(match[1]);
+  if (Number.isNaN(num)) return 0;
+
+  const unit = match[2];
+  if (unit === "K") return num * 1_000;
+  if (unit === "M") return num * 1_000_000;
+  if (unit === "B") return num * 1_000_000_000;
+  return num;
+}
+
+function getPlanCredits(plan: ApiPlan): number {
+  return parseCreditsValue(plan.credits);
+}
+
 function isContactPlan(plan: ApiPlan) {
   const name = plan.name.toLowerCase();
   const tier = plan.tier.toLowerCase();
@@ -82,10 +105,6 @@ function isContactPlan(plan: ApiPlan) {
     tier.includes("enterprise") ||
     tier.includes("custom")
   );
-}
-
-function hasRealPrice(plan: ApiPlan) {
-  return !isContactPlan(plan) && typeof plan.priceVnd === "number" && plan.priceVnd > 0;
 }
 
 function getPlanAudienceText(plan: ApiPlan) {
@@ -103,7 +122,6 @@ function getDurationLabel(plan: ApiPlan) {
   return "Dùng đến khi hết credits";
 }
 
-const familyTabs = ["CodexAI", "Claude", "Gemini", "DeepSeek"];
 const tierTabs = [
   { label: "Tất cả", value: "Tất cả" },
   { label: "Trial", value: "Trial" },
@@ -114,13 +132,14 @@ const tierTabs = [
   { label: "Ultra", value: "Ultra" },
   { label: "Enterprise", value: "Enterprise" },
 ];
+
 const durationTabs = [
   { label: "Tất cả", value: "Tất cả" },
   { label: "Gói chính", value: "Gói chính" },
   { label: "Gói dài hạn", value: "Gói dài hạn" },
 ];
+
 const sortOptions = [
-  { label: "Đề xuất", value: "recommended" },
   { label: "Giá thấp", value: "price-asc" },
   { label: "Giá cao", value: "price-desc" },
   { label: "Credits", value: "credits-desc" },
@@ -128,11 +147,47 @@ const sortOptions = [
   { label: "Gói liên hệ", value: "contact" },
 ];
 
-const DEFAULT_VISIBLE_MODELS = 4;
-const DEFAULT_VISIBLE_PLANS = 6;
+const ITEMS_PER_PAGE = 6;
 
 const brutalBtn =
   "inline-flex items-center justify-center border-4 border-black text-black font-black uppercase shadow-[5px_5px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2";
+
+const aiFamilies: Array<{
+  id: ApiFamily;
+  name: string;
+  description: string;
+  color: string;
+  logoSrc: string;
+}> = [
+  {
+    id: "CODEXAI",
+    name: "CodexAI",
+    description: "Phù hợp lập trình, IDE và extension.",
+    logoSrc: "/logos/codexai.svg",
+    color: "bg-[#C7F0D8]",
+  },
+  {
+    id: "CLAUDE",
+    name: "Claude",
+    description: "Phù hợp viết nội dung, phân tích và xử lý văn bản.",
+    logoSrc: "/logos/claude.svg",
+    color: "bg-[#FFD93D]",
+  },
+  {
+    id: "GEMINI",
+    name: "Gemini",
+    description: "Phù hợp đa nhiệm, tốc độ tốt và chi phí cân bằng.",
+    logoSrc: "/logos/gemini.svg",
+    color: "bg-[#A78BFA]",
+  },
+  {
+    id: "DEEPSEEK",
+    name: "DeepSeek",
+    description: "Phù hợp tối ưu chi phí khi dùng thường xuyên.",
+    logoSrc: "/logos/deepseek.svg",
+    color: "bg-[#FF6B6B]",
+  },
+];
 
 function FilterChip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
@@ -141,10 +196,10 @@ function FilterChip({ active, children, onClick }: { active: boolean; children: 
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "border-2 border-black px-3 py-2 text-xs transition-all duration-100",
+        "inline-flex h-10 items-center justify-center whitespace-nowrap border-2 border-black px-4 text-center text-sm font-black text-black shadow-[2px_2px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:bg-[#FFF3B0] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none",
         active
-          ? "bg-[#FFD93D] font-black shadow-[2px_2px_0px_0px_#000]"
-          : "bg-white font-bold hover:-translate-y-0.5 hover:bg-[#FFD93D]"
+          ? "bg-[#FFD93D] shadow-[3px_3px_0px_0px_#000]"
+          : "bg-white"
       )}
     >
       {children}
@@ -152,77 +207,63 @@ function FilterChip({ active, children, onClick }: { active: boolean; children: 
   );
 }
 
+function FilterRow({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:gap-5">
+      <div className="flex min-w-[120px] items-center gap-2 text-sm font-black uppercase text-black">
+        <span className="flex h-8 w-8 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]">
+          <Icon className="h-4 w-4" />
+        </span>
+        {title}
+      </div>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
 function PlansPageSkeleton() {
   return (
     <div className="space-y-8" aria-hidden="true">
       <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-14 w-14" />
-              <Skeleton className="h-5 w-36" />
-            </div>
-            <Skeleton className="h-9 w-64" />
-            <Skeleton className="h-4 w-full max-w-[460px]" />
-          </div>
-          <Skeleton className="h-11 w-40" />
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-72" />
+          <Skeleton className="h-4 w-full max-w-[460px]" />
         </div>
         <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="border-4 border-black bg-white p-5 shadow-[5px_5px_0px_0px_#000]">
-              <Skeleton className="h-2 w-14" />
-              <Skeleton className="mt-5 h-6 w-24" />
-              <Skeleton className="mt-2 h-4 w-20" />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] md:p-6">
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-3">
-              <Skeleton className="h-7 w-28" />
-              {[...Array(5)].map((__, j) => (
-                <Skeleton key={j} className="h-9 w-20" />
-              ))}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="flex min-h-[360px] flex-col border-4 border-black bg-[#FFFDF5] p-5 shadow-[7px_7px_0px_0px_#000] md:p-6">
-              <Skeleton className="h-6 w-40" />
-              <div className="mt-3 flex gap-2">
-                <Skeleton className="h-6 w-20" />
-                <Skeleton className="h-6 w-16" />
-              </div>
-              <Skeleton className="mt-3 h-4 w-full" />
-              <Skeleton className="mt-5 h-20 w-full border-4 border-black" />
-              <div className="mt-4 space-y-2">
-                <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-5 w-full" />
-              </div>
-              <Skeleton className="mt-4 h-14 w-full border-2 border-black" />
-              <Skeleton className="mt-auto h-8 w-28" />
-              <Skeleton className="mt-4 h-12 w-full" />
-            </div>
-          ))}
-        </div>
-        <aside className="space-y-5">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000]">
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="mt-4 h-4 w-full" />
+            <div key={i} className="min-h-[180px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000]">
+              <Skeleton className="h-14 w-14" />
+              <Skeleton className="mt-5 h-7 w-24" />
               <Skeleton className="mt-2 h-4 w-full" />
-              <Skeleton className="mt-2 h-4 w-2/3" />
             </div>
           ))}
-        </aside>
-      </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PlansGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3" aria-hidden="true">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="flex min-h-[360px] flex-col border-4 border-black bg-[#FFFDF5] p-5 shadow-[7px_7px_0px_0px_#000] md:p-6">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="mt-3 h-4 w-full" />
+          <Skeleton className="mt-5 h-20 w-full border-4 border-black" />
+          <Skeleton className="mt-4 h-14 w-full border-2 border-black" />
+          <Skeleton className="mt-auto h-8 w-28" />
+          <Skeleton className="mt-4 h-12 w-full" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -235,15 +276,15 @@ function PlansPageContent() {
   const [plansError, setPlansError] = useState("");
   const { toast, showToast, clearToast } = useToast(3000);
 
-  const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+  const [selectedFamily, setSelectedFamily] = useState<ApiFamily | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedTier, setSelectedTier] = useState("Tất cả");
   const [selectedPlanType, setSelectedPlanType] = useState("Tất cả");
   const [selectedPlanToBuy, setSelectedPlanToBuy] = useState<ApiPlan | null>(null);
   const [isConfirmBuyOpen, setIsConfirmBuyOpen] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [expandedModelPlans, setExpandedModelPlans] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("recommended");
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [sortBy, setSortBy] = useState("price-asc");
   const [hasHandledProductQuery, setHasHandledProductQuery] = useState(false);
 
   const [couponCode, setCouponCode] = useState("");
@@ -288,7 +329,8 @@ function PlansPageContent() {
     const targetPlan = plans.find((p) => p.id === productIdFromPricing);
     if (!targetPlan) return;
     const timer = window.setTimeout(() => {
-      setSelectedFamily(getFamilyLabel(targetPlan.apiFamily));
+      setSelectedFamily(targetPlan.apiFamily);
+      setCurrentPage(1);
       setSelectedPlanToBuy(targetPlan);
       setIsConfirmBuyOpen(true);
       setHasHandledProductQuery(true);
@@ -297,10 +339,10 @@ function PlansPageContent() {
   }, [hasHandledProductQuery, isLoadingPlans, plans, searchParams]);
 
   const filteredPlans = useMemo(() => {
+    if (!selectedFamily) return [];
     return plans.filter((plan) => {
-      const familyLabel = getFamilyLabel(plan.apiFamily);
       const isLongTerm = plan.slug.match(/-(3m|6m|year|enterprise)$/);
-      const matchesFamily = selectedFamily === null || familyLabel === selectedFamily;
+      const matchesFamily = plan.apiFamily === selectedFamily;
       const matchesTier = selectedTier === "Tất cả" || plan.tier === selectedTier;
       const matchesPlanType =
         selectedPlanType === "Tất cả" ||
@@ -312,32 +354,48 @@ function PlansPageContent() {
 
   const sortedPlans = useMemo(() => {
     let plansCopy = [...filteredPlans];
-    if (sortBy === "price-asc" || sortBy === "price-desc") plansCopy = plansCopy.filter(hasRealPrice);
     if (sortBy === "contact") plansCopy = plansCopy.filter(isContactPlan);
+
+    if (sortBy === "price-asc") {
+      return plansCopy.sort((a, b) => {
+        const priceA = Number(a.priceVnd ?? 0);
+        const priceB = Number(b.priceVnd ?? 0);
+        if (priceA === 0 && priceB !== 0) return 1;
+        if (priceA !== 0 && priceB === 0) return -1;
+        return priceA - priceB;
+      });
+    }
+
     switch (sortBy) {
-      case "price-asc":
-        return plansCopy.sort((a, b) => a.priceVnd - b.priceVnd);
       case "price-desc":
-        return plansCopy.sort((a, b) => b.priceVnd - a.priceVnd);
+        return plansCopy.sort((a, b) => Number(b.priceVnd ?? 0) - Number(a.priceVnd ?? 0));
       case "credits-desc":
-        return plansCopy.sort((a, b) => Number(b.credits) - Number(a.credits));
+        return plansCopy.sort((a, b) => getPlanCredits(b) - getPlanCredits(a));
       case "duration-desc":
         return plansCopy.sort((a, b) => (b.durationDays ?? 0) - (a.durationDays ?? 0));
       default:
-        return plansCopy.sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0));
+        return plansCopy;
     }
   }, [filteredPlans, sortBy]);
 
-  const displayedPlans = useMemo(
-    () => (isExpanded ? sortedPlans : sortedPlans.slice(0, DEFAULT_VISIBLE_PLANS)),
-    [sortedPlans, isExpanded]
-  );
+  const totalPages = Math.max(1, Math.ceil(sortedPlans.length / ITEMS_PER_PAGE));
+
+  const safeCurrentPage = currentPage > totalPages ? 1 : currentPage;
+
+  const paginatedPlans = useMemo(() => {
+    return sortedPlans.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
+  }, [safeCurrentPage, sortedPlans]);
+
   const featuredPlanId = useMemo(() => {
     const popular = sortedPlans.find((p) => p.isPopular);
     if (popular) return popular.id;
     const fallback = sortedPlans.find((p) => !isContactPlan(p));
     return fallback?.id ?? null;
   }, [sortedPlans]);
+
+  const activeFamilyMeta = useMemo(() => aiFamilies.find((f) => f.id === selectedFamily) ?? null, [selectedFamily]);
+  const fromItem = sortedPlans.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const toItem = Math.min(safeCurrentPage * ITEMS_PER_PAGE, sortedPlans.length);
 
   function handleChoosePlan(plan: ApiPlan) {
     if (isContactPlan(plan)) {
@@ -448,286 +506,280 @@ function PlansPageContent() {
               </div>
               <span className="border-2 border-black bg-[#C7F0D8] px-3 py-1 text-xs font-black uppercase tracking-wide text-black">CỬA HÀNG CREDITS</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-black md:text-4xl">Tất cả gói credits</h1>
-            <p className="text-sm font-bold text-black/70 md:text-base">Chọn dòng AI và gói credits phù hợp với nhu cầu sử dụng của bạn.</p>
+            <h1 className="text-3xl font-black tracking-tight text-black md:text-4xl">MUA CREDITS</h1>
+            <p className="text-sm font-bold text-black/70 md:text-base">Chọn dòng AI trước, sau đó chọn gói credits phù hợp với nhu cầu của bạn.</p>
           </div>
           <Link href="/my-plans" className={`${brutalBtn} h-11 bg-white px-5 hover:bg-[#FFD93D]`}>XEM GÓI CỦA TÔI</Link>
         </div>
-
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {familyTabs.map((family) => {
-            const isActive = selectedFamily === family;
-            return (
-              <button
-                key={family}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => {
-                  setSelectedFamily(isActive ? null : family);
-                  setIsExpanded(false);
-                }}
-                className={cn(
-                  "relative min-h-[120px] overflow-visible border-4 border-black bg-white p-5 text-left shadow-[5px_5px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_#000]",
-                  isActive && "bg-[#FFD93D]"
-                )}
-              >
-                <span className="mb-2 inline-flex border-2 border-black bg-[#FFD93D] px-2 py-1 text-[10px] font-black uppercase text-black">AI FAMILY</span>
-                <div
-                  className={cn(
-                    "h-2 w-14 border-2 border-black",
-                    family === "CodexAI" && "bg-[#C7F0D8]",
-                    family === "Claude" && "bg-[#F59E0B]",
-                    family === "Gemini" && "bg-[#A78BFA]",
-                    family === "DeepSeek" && "bg-[#2563EB]"
-                  )}
-                />
-                <p className="mt-5 text-xl font-black text-black">{family}</p>
-                <p className="mt-1 text-sm font-bold text-black/70">Khám phá</p>
-              </button>
-            );
-          })}
-        </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
-        <div className="space-y-6">
-          <section className="rounded-[10px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] md:p-6">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-black">
-                  <span className="flex h-7 w-7 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]"><Clock3 className="h-3.5 w-3.5" /></span>
-                  Hiệu lực
-                </span>
-                {durationTabs.map((tab) => (
-                  <FilterChip key={tab.value} active={selectedPlanType === tab.value} onClick={() => setSelectedPlanType(tab.value)}>
-                    {tab.label}
-                  </FilterChip>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-black">
-                  <span className="flex h-7 w-7 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]"><Zap className="h-3.5 w-3.5" /></span>
-                  Cấp độ
-                </span>
-                {tierTabs.map((tab) => (
-                  <FilterChip key={tab.value} active={selectedTier === tab.value} onClick={() => setSelectedTier(tab.value)}>
-                    {tab.label}
-                  </FilterChip>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-black">
-                  <span className="flex h-7 w-7 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]"><ArrowUpDown className="h-3.5 w-3.5" /></span>
-                  Sắp xếp
-                </span>
-                {sortOptions.map((opt) => (
-                  <FilterChip key={opt.value} active={sortBy === opt.value} onClick={() => setSortBy(opt.value)}>
-                    {opt.label}
-                  </FilterChip>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <div className="space-y-4">
-            {isLoadingPlans ? (
-              <PlansPageSkeleton />
-            ) : plansError ? (
-              <div className="border-4 border-black bg-[#FF6B6B] p-10 text-center shadow-[8px_8px_0px_0px_#000]">
-                <h3 className="text-xl font-black text-black">KHÔNG THỂ TẢI DỮ LIỆU</h3>
-                <p className="mt-2 text-sm font-bold text-black/80">{plansError}</p>
-                <button onClick={loadPlans} className={`${brutalBtn} mt-6 h-11 bg-white px-6 hover:bg-[#FFD93D]`}>
-                  <RefreshCw className="mr-2 h-4 w-4" />THỬ LẠI
-                </button>
-              </div>
-            ) : displayedPlans.length === 0 ? (
-              <div className="min-h-[240px] border-4 border-black bg-[#FFFDF5] p-10 text-center shadow-[8px_8px_0px_0px_#000]">
-                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-                  <Search className="h-8 w-8 text-black" />
-                </div>
-                <h3 className="text-xl font-black text-black">KHÔNG TÌM THẤY GÓI PHÙ HỢP</h3>
-                <p className="mt-2 font-bold text-black/70">Hãy thử đổi bộ lọc hoặc chọn nhóm gói khác.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFamily(null);
-                    setSelectedTier("Tất cả");
-                    setSelectedPlanType("Tất cả");
-                    setSortBy("recommended");
-                  }}
-                  className={`${brutalBtn} mt-6 h-11 bg-white px-6 hover:bg-[#FFD93D]`}
-                >
-                  XÓA BỘ LỌC
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {displayedPlans.map((plan) => {
-                  const isFeatured = featuredPlanId === plan.id;
-                  const isExpandedModel = expandedModelPlans.includes(plan.id);
-                  const modelCount = plan.allowedModels.length;
-                  return (
-                    <article
-                      key={plan.id}
-                      className={cn(
-                        "relative flex min-h-[360px] flex-col overflow-visible border-4 border-black bg-[#FFFDF5] p-5 shadow-[7px_7px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[9px_9px_0px_0px_#000] md:p-6",
-                        isFeatured && "shadow-[9px_9px_0px_0px_#000]"
-                      )}
-                    >
-                      {isFeatured && (
-                        <>
-                          <span className="absolute -right-3 -top-3 border-2 border-black bg-[#FFD93D] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                            NÊN CHỌN
-                          </span>
-                          <span className="pointer-events-none absolute -bottom-3 -left-3 h-7 w-7 border-4 border-black bg-[#A78BFA]" />
-                        </>
-                      )}
-
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div
-                            className={cn(
-                              "mb-2 h-2 w-14 border-2 border-black",
-                              plan.apiFamily === "CODEXAI" && "bg-[#00A878]",
-                              plan.apiFamily === "CLAUDE" && "bg-[#F59E0B]",
-                              plan.apiFamily === "GEMINI" && "bg-[#38BDF8]",
-                              plan.apiFamily === "DEEPSEEK" && "bg-[#2563EB]"
-                            )}
-                          />
-                          <h3 className="text-xl font-black leading-tight text-black md:text-2xl">{plan.name}</h3>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <span className="inline-flex border-2 border-black bg-white px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                            {getFamilyLabel(plan.apiFamily)}
-                          </span>
-                          {plan.isPopular && (
-                            <span className="inline-flex border-2 border-black bg-[#FF6B6B] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                              HOT
-                            </span>
-                          )}
-                          {isFeatured && (
-                            <span className="inline-flex border-2 border-black bg-[#FFD93D] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                              ĐỀ XUẤT
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <p className="mt-3 text-sm font-bold leading-relaxed text-black/70">{getPlanAudienceText(plan)}</p>
-
-                      <div className="mt-5 border-4 border-black bg-[#C7F0D8] p-4 shadow-[4px_4px_0px_0px_#000]">
-                        <p className="text-3xl font-black leading-none text-black">{formatCreditAmount(plan.credits)}</p>
-                        <p className="mt-1 text-xs font-black uppercase text-black/70">
-                          {plan.tier === "Enterprise" ? "Gói dung lượng lớn" : "Dùng đến khi hết credits"}
-                        </p>
-                      </div>
-
-                      <div className="mt-4 space-y-2 font-bold text-black">
-                        <div className="flex items-center justify-between border-b-2 border-black/20 pb-2">
-                          <span className="text-xs font-black uppercase text-black/70">API keys</span>
-                          <span className="font-black text-black">{plan.apiKeyLimit} keys</span>
-                        </div>
-                        <div className="flex items-center justify-between border-b-2 border-black/20 pb-2">
-                          <span className="text-xs font-black uppercase text-black/70">Hiệu lực</span>
-                          <span className="font-black text-black">{getDurationLabel(plan)}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 border-2 border-black bg-white p-3 shadow-[3px_3px_0px_0px_#000]">
-                        <p className="text-xs font-black uppercase text-black/70">Models hỗ trợ</p>
-                        <p className="mt-1 text-sm font-black text-black">
-                          {modelCount === 0
-                            ? "Đang cập nhật models"
-                            : modelCount > DEFAULT_VISIBLE_MODELS
-                              ? `${DEFAULT_VISIBLE_MODELS} model +${modelCount - DEFAULT_VISIBLE_MODELS}`
-                              : `Hỗ trợ ${modelCount} models`}
-                        </p>
-                        {modelCount > 0 && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedModelPlans((prev) =>
-                                prev.includes(plan.id) ? prev.filter((id) => id !== plan.id) : [...prev, plan.id]
-                              )
-                            }
-                            className="mt-2 inline-flex items-center border-2 border-black bg-[#FFD93D] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]"
-                          >
-                            <AppIcon icon={isExpandedModel ? ChevronUp : ChevronDown} className="mr-1 h-3 w-3" />
-                            {isExpandedModel ? "THU GỌN" : "XEM MODELS"}
-                          </button>
-                        )}
-                        {isExpandedModel && modelCount > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {plan.allowedModels.map((m) => (
-                              <span key={m} className="inline-flex break-all border-2 border-black bg-white px-2 py-1 text-xs font-bold text-black">
-                                {m}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <p className="mt-auto pt-5 text-3xl font-black text-black">{isContactPlan(plan) ? "Liên hệ" : formatCurrency(plan.priceVnd)}</p>
-                      <button
-                        onClick={() => handleChoosePlan(plan)}
-                        disabled={plan.allowedModels.length === 0 && !isContactPlan(plan)}
-                        className={cn(
-                          `${brutalBtn} mt-4 h-12 w-full justify-center px-5`,
-                          isContactPlan(plan) ? "bg-[#A78BFA]" : "bg-[#FF6B6B]",
-                          plan.allowedModels.length === 0 && !isContactPlan(plan) && "cursor-not-allowed opacity-50 grayscale"
-                        )}
-                      >
-                        {isContactPlan(plan) ? "LIÊN HỆ TƯ VẤN" : "CHỌN GÓI"}
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-
-            {!isLoadingPlans && sortedPlans.length > DEFAULT_VISIBLE_PLANS && (
-              <div className="flex justify-center pt-6">
-                <button onClick={() => setIsExpanded(!isExpanded)} className={`${brutalBtn} h-11 bg-white px-6 hover:bg-[#FFD93D]`}>
-                  <AppIcon icon={isExpanded ? ChevronUp : ChevronDown} className="mr-2 h-4 w-4" />
-                  {isExpanded ? "THU GỌN DANH SÁCH" : `XEM THÊM ${sortedPlans.length - DEFAULT_VISIBLE_PLANS} GÓI`}
-                </button>
-              </div>
-            )}
-          </div>
+      {isLoadingPlans ? (
+        <PlansPageSkeleton />
+      ) : plansError ? (
+        <div className="border-4 border-black bg-[#FF6B6B] p-10 text-center shadow-[8px_8px_0px_0px_#000]">
+          <h3 className="text-xl font-black text-black">KHÔNG THỂ TẢI DỮ LIỆU</h3>
+          <p className="mt-2 text-sm font-bold text-black/80">{plansError}</p>
+          <button onClick={loadPlans} className={`${brutalBtn} mt-6 h-11 bg-white px-6 hover:bg-[#FFD93D]`}>
+            <RefreshCw className="mr-2 h-4 w-4" />THỬ LẠI
+          </button>
         </div>
+      ) : (
+        <div className="space-y-6">
+          {selectedFamily === null ? (
+            <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-8">
+              <h2 className="text-2xl font-black uppercase text-black md:text-3xl">VUI LÒNG CHỌN DÒNG AI</h2>
+              <p className="mt-2 text-sm font-bold leading-relaxed text-black/70 md:text-base">Chọn dòng AI bạn muốn sử dụng, TzoShop sẽ hiển thị các gói credits phù hợp.</p>
+              <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {aiFamilies.map((family) => (
+                  <button
+                    key={family.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFamily(family.id);
+                      setCurrentPage(1);
+                    }}
+                    className="min-h-[180px] cursor-pointer border-4 border-black bg-white p-5 text-left shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                  >
+                    <div className={cn("flex h-14 w-14 items-center justify-center border-4 border-black text-black shadow-[4px_4px_0px_0px_#000]", family.color)}>
+                      <Image
+                        src={family.logoSrc}
+                        alt={`${family.name} logo`}
+                        width={36}
+                        height={36}
+                        className="h-9 w-9 object-contain"
+                      />
+                    </div>
+                    <p className="mt-5 text-2xl font-black text-black">{family.name}</p>
+                    <p className="mt-2 text-sm font-bold leading-relaxed text-black/70">{family.description}</p>
+                    <span className="mt-4 inline-flex font-black uppercase text-black">XEM GÓI</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <>
+              <section className="border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000]">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-black/70">ĐANG XEM DÒNG AI</p>
+                    <p className="mt-1 text-2xl font-black text-black">{activeFamilyMeta?.name}</p>
+                    <p className="mt-1 text-sm font-bold text-black/70">{activeFamilyMeta?.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFamily(null);
+                      setCurrentPage(1);
+                    }}
+                    className={`${brutalBtn} h-11 bg-[#FFD93D] px-5`}
+                  >
+                    ĐỔI DÒNG AI
+                  </button>
+                </div>
+              </section>
 
-        <aside className="space-y-5 xl:sticky xl:top-24 xl:h-fit">
-          <div className="rounded-[10px] border-4 border-black bg-[#C7F0D8] p-5 shadow-[6px_6px_0px_0px_#000]">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#C7F0D8] shadow-[2px_2px_0px_0px_#000]">
-                <Sparkles className="h-5 w-5 text-black" />
-              </span>
-              <h3 className="text-lg font-black uppercase text-black">GỢI Ý CHỌN NHANH</h3>
-            </div>
-            <div className="space-y-2 text-xs font-bold leading-relaxed text-black/80">
-              <p>• Mới dùng: chọn Trial hoặc Mini.</p>
-              <p>• Dùng cá nhân: chọn Plus.</p>
-              <p>• Dùng nhiều: chọn Pro hoặc Max.</p>
-              <p>• Đội nhóm/doanh nghiệp: chọn Enterprise.</p>
-            </div>
-          </div>
+              <section className="rounded-[10px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] md:p-6">
+                <div className="space-y-4">
+                  <FilterRow title="Hiệu lực" icon={Clock3}>
+                    {durationTabs.map((tab) => (
+                      <FilterChip key={tab.value} active={selectedPlanType === tab.value} onClick={() => { setSelectedPlanType(tab.value); setCurrentPage(1); }}>
+                        {tab.label}
+                      </FilterChip>
+                    ))}
+                  </FilterRow>
+                  <FilterRow title="Cấp độ" icon={Zap}>
+                    {tierTabs.map((tab) => (
+                      <FilterChip key={tab.value} active={selectedTier === tab.value} onClick={() => { setSelectedTier(tab.value); setCurrentPage(1); }}>
+                        <span className={cn(
+                          "inline-flex h-9 min-w-[56px] items-center justify-center whitespace-nowrap px-3 text-center text-[12px] font-black uppercase leading-none",
+                          selectedTier === tab.value && "text-black"
+                        )}>
+                          {tab.label}
+                        </span>
+                      </FilterChip>
+                    ))}
+                  </FilterRow>
+                  <FilterRow title="Sắp xếp" icon={ArrowUpDown}>
+                    {sortOptions.map((opt) => (
+                      <FilterChip key={opt.value} active={sortBy === opt.value} onClick={() => { setSortBy(opt.value); setCurrentPage(1); }}>
+                        {opt.label}
+                      </FilterChip>
+                    ))}
+                  </FilterRow>
+                </div>
+              </section>
 
-          <div className="rounded-[10px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000]">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]">
-                <KeyRound className="h-5 w-5 text-black" />
-              </span>
-              <h3 className="text-lg font-black text-black">Gói theo cấp</h3>
-            </div>
-            <div className="space-y-2 text-xs font-bold leading-relaxed text-black/70">
-              <p>• <b>Trial:</b> Trải nghiệm tính năng</p>
-              <p>• <b>Mini/Plus:</b> Dùng cá nhân</p>
-              <p>• <b>Pro/Max:</b> Tần suất cao</p>
-              <p>• <b>Enterprise:</b> Quy mô lớn</p>
-            </div>
-          </div>
-        </aside>
-      </div>
+              {isLoadingPlans ? (
+                <PlansGridSkeleton />
+              ) : paginatedPlans.length === 0 ? (
+                <div className="min-h-[240px] border-4 border-black bg-[#FFFDF5] p-10 text-center shadow-[8px_8px_0px_0px_#000]">
+                  {filteredPlans.length === 0 ? (
+                    <>
+                      <h3 className="text-xl font-black text-black">CHƯA CÓ GÓI CHO DÒNG AI NÀY</h3>
+                      <p className="mt-2 font-bold text-black/70">Vui lòng chọn dòng AI khác hoặc quay lại sau.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFamily(null);
+                          setCurrentPage(1);
+                        }}
+                        className={`${brutalBtn} mt-6 h-11 bg-[#FFD93D] px-6`}
+                      >
+                        ĐỔI DÒNG AI
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
+                        <Search className="h-8 w-8 text-black" />
+                      </div>
+                      <h3 className="text-xl font-black text-black">KHÔNG TÌM THẤY GÓI PHÙ HỢP</h3>
+                      <p className="mt-2 font-bold text-black/70">Hãy thử đổi bộ lọc hoặc chọn dòng AI khác.</p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {paginatedPlans.map((plan) => {
+                      const isFeatured = featuredPlanId === plan.id;
+                      const isExpandedModel = expandedModelPlans.includes(plan.id);
+                      const modelCount = plan.allowedModels.length;
+                      return (
+                        <article
+                          key={plan.id}
+                          className={cn(
+                            "relative flex min-h-[360px] flex-col overflow-visible border-4 border-black bg-[#FFFDF5] p-5 shadow-[7px_7px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[9px_9px_0px_0px_#000] md:p-6",
+                            isFeatured && "shadow-[9px_9px_0px_0px_#000]"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="text-xl font-black leading-tight text-black md:text-2xl">{plan.name}</h3>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <span className="inline-flex border-2 border-black bg-white px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+                                {getFamilyLabel(plan.apiFamily)}
+                              </span>
+                              <span className="inline-flex border-2 border-black bg-[#FFD93D] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+                                {plan.tier}
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="mt-3 text-sm font-bold leading-relaxed text-black/70">{getPlanAudienceText(plan)}</p>
+
+                          <div className="mt-5 border-4 border-black bg-[#C7F0D8] p-4 shadow-[4px_4px_0px_0px_#000]">
+                            <p className="text-3xl font-black leading-none text-black">{formatCreditAmount(plan.credits)}</p>
+                            <p className="mt-1 text-xs font-black uppercase text-black/70">
+                              {plan.tier === "Enterprise" ? "Gói dung lượng lớn" : "Dùng đến khi hết credits"}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 space-y-2 font-bold text-black">
+                            <div className="flex items-center justify-between border-b-2 border-black/20 pb-2">
+                              <span className="text-xs font-black uppercase text-black/70">API keys</span>
+                              <span className="font-black text-black">{plan.apiKeyLimit} keys</span>
+                            </div>
+                            <div className="flex items-center justify-between border-b-2 border-black/20 pb-2">
+                              <span className="text-xs font-black uppercase text-black/70">Hiệu lực</span>
+                              <span className="font-black text-black">{getDurationLabel(plan)}</span>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 border-2 border-black bg-white p-3 shadow-[3px_3px_0px_0px_#000]">
+                            <p className="text-xs font-black uppercase text-black/70">Models hỗ trợ</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-3">
+                              <div className="inline-flex h-10 items-center justify-center whitespace-nowrap border-2 border-black bg-[#BFECCF] px-4 text-center text-sm font-black text-black shadow-[2px_2px_0px_0px_#000]">
+                                {modelCount === 0 ? "Chưa có model" : `Hỗ trợ ${modelCount} model`}
+                              </div>
+                            {modelCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedModelPlans((prev) =>
+                                    prev.includes(plan.id) ? prev.filter((id) => id !== plan.id) : [...prev, plan.id]
+                                  )
+                                }
+                                className="inline-flex h-10 items-center justify-center border-2 border-black bg-[#FFD93D] px-4 text-sm font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] transition-all duration-100 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                              >
+                                <AppIcon icon={isExpandedModel ? ChevronUp : ChevronDown} className="mr-1 h-3.5 w-3.5" />
+                                {isExpandedModel ? "Thu gọn" : "Xem chi tiết"}
+                              </button>
+                            )}
+                            </div>
+                            {isExpandedModel && modelCount > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {plan.allowedModels.map((m) => (
+                                  <span key={m} className="inline-flex break-all border-2 border-black bg-white px-2 py-1 text-xs font-bold text-black">
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <p className="mt-auto pt-5 text-3xl font-black text-black">{isContactPlan(plan) ? "Liên hệ" : formatCurrency(plan.priceVnd)}</p>
+                          <button
+                            onClick={() => handleChoosePlan(plan)}
+                            disabled={plan.allowedModels.length === 0 && !isContactPlan(plan)}
+                            className={cn(
+                              `${brutalBtn} mt-4 h-12 w-full justify-center px-5`,
+                              isContactPlan(plan) ? "bg-[#FFD93D]" : "bg-[#FF6B6B]",
+                              plan.allowedModels.length === 0 && !isContactPlan(plan) && "cursor-not-allowed opacity-50 grayscale"
+                            )}
+                          >
+                            {isContactPlan(plan) ? "LIÊN HỆ TƯ VẤN" : "CHỌN GÓI"}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        disabled={safeCurrentPage === 1}
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        className="h-11 border-4 border-black bg-[#FFFDF5] px-5 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all hover:-translate-y-0.5 hover:bg-[#FFD93D] disabled:cursor-not-allowed disabled:bg-[#E9E1D0] disabled:text-black/50 disabled:shadow-none"
+                      >
+                        TRƯỚC
+                      </button>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setCurrentPage(page)}
+                          className={cn(
+                            "h-11 border-4 border-black px-4 font-black text-black shadow-[4px_4px_0px_0px_#000]",
+                            safeCurrentPage === page ? "bg-[#FFD93D]" : "bg-white"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      ))}
+
+                      <button
+                        type="button"
+                        disabled={safeCurrentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        className="h-11 border-4 border-black bg-[#FFFDF5] px-5 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all hover:-translate-y-0.5 hover:bg-[#FFD93D] disabled:cursor-not-allowed disabled:bg-[#E9E1D0] disabled:text-black/50 disabled:shadow-none"
+                      >
+                        SAU
+                      </button>
+
+                      <p className="w-full text-center text-sm font-black text-black">Trang {safeCurrentPage} / {totalPages}</p>
+                      <p className="w-full text-center text-xs font-bold text-black/70">Hiển thị {fromItem}-{toItem} trong {sortedPlans.length} gói</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {isConfirmBuyOpen && selectedPlanToBuy && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
