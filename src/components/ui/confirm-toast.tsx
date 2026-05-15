@@ -66,12 +66,21 @@ export function ConfirmDialog({
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [open]);
+
   if (!open || !mounted) return null;
 
   const Icon = Icons[type];
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.45)]">
         <div className="flex items-start justify-between gap-4">
           <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl", iconBoxClass[type])}>

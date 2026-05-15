@@ -518,7 +518,7 @@ function ApiKeysPageContent() {
                 <input
                   value={keyName}
                   onChange={(e) => setKeyName(e.target.value)}
-                  placeholder="Ví dụ: Cursor IDE"
+                  placeholder="Ví dụ: CodexAPI"
                   className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>

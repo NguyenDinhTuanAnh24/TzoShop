@@ -93,17 +93,19 @@ export function AdminMobileNav() {
   }, [open]);
 
   const requestLogout = () => {
-    askConfirm({
-      title: "Đăng xuất khỏi Admin?",
-      description: "Bạn sẽ cần đăng nhập lại để tiếp tục quản lý hệ thống TzoShop.",
-      confirmLabel: "Đăng xuất",
-      cancelLabel: "Ở lại",
-      type: "danger",
-      onConfirm: async () => {
-        setOpen(false);
-        await signOut({ callbackUrl: "/login" });
-      },
-    });
+    setOpen(false);
+    window.setTimeout(() => {
+      askConfirm({
+        title: "Đăng xuất khỏi Admin?",
+        description: "Bạn sẽ cần đăng nhập lại để tiếp tục quản lý hệ thống TzoShop.",
+        confirmLabel: "Đăng xuất",
+        cancelLabel: "Ở lại",
+        type: "danger",
+        onConfirm: async () => {
+          await signOut({ callbackUrl: "/login" });
+        },
+      });
+    }, 120);
   };
 
   return (
@@ -120,14 +122,15 @@ export function AdminMobileNav() {
       {open && typeof window !== "undefined"
         ? createPortal(
             <>
-          <button
-            type="button"
-            aria-label="Đóng menu"
-            className="fixed inset-0 z-[10000] bg-slate-950/45 backdrop-blur-sm lg:hidden"
-            onClick={() => setOpen(false)}
-          />
+          <div className="fixed inset-0 z-[80] lg:hidden">
+            <button
+              type="button"
+              aria-label="Đóng menu"
+              className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+              onClick={() => setOpen(false)}
+            />
 
-          <aside className="fixed inset-y-0 left-0 z-[10001] flex h-dvh w-[min(320px,calc(100vw-1.5rem))] flex-col overflow-hidden border-r border-slate-200 bg-white shadow-2xl lg:hidden">
+            <aside className="relative z-[81] flex h-dvh w-[min(320px,calc(100vw-1.5rem))] flex-col overflow-hidden border-r border-slate-200 bg-white shadow-2xl">
             <div className="flex h-20 shrink-0 items-center justify-between border-b border-slate-200 px-4">
               <Link
                 href="/admin"
@@ -213,7 +216,8 @@ export function AdminMobileNav() {
                 Đăng xuất
               </button>
             </div>
-          </aside>
+            </aside>
+          </div>
             </>,
             document.body
           )

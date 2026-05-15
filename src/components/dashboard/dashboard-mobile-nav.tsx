@@ -75,22 +75,24 @@ export default function DashboardMobileNav() {
   }, [open]);
 
   const handleRequestLogout = () => {
-    setOpen(false); // Đóng menu trước khi mở confirm
-    askConfirm({
-      title: "Đăng xuất tài khoản?",
-      description: "Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng dashboard.",
-      confirmLabel: "Đăng xuất",
-      cancelLabel: "Hủy",
-      type: "danger",
-      onConfirm: async () => {
-        await signOut({ callbackUrl: "/login" });
-      },
-    });
+    setOpen(false);
+    window.setTimeout(() => {
+      askConfirm({
+        title: "Đăng xuất tài khoản?",
+        description: "Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng dashboard.",
+        confirmLabel: "Đăng xuất",
+        cancelLabel: "Hủy",
+        type: "danger",
+        onConfirm: async () => {
+          await signOut({ callbackUrl: "/login" });
+        },
+      });
+    }, 120);
   };
 
   return (
     <>
-      {/* Nút menu trên topbar mobile */}
+      {/* NĂºt menu trĂªn topbar mobile */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -112,7 +114,7 @@ export default function DashboardMobileNav() {
 
       {open && typeof window !== "undefined"
         ? createPortal(
-            <div className="fixed inset-0 z-[10000] lg:hidden">
+            <div className="fixed inset-0 z-[80] lg:hidden">
           {/* Overlay */}
           <button
             type="button"
@@ -122,7 +124,7 @@ export default function DashboardMobileNav() {
           />
 
           {/* Drawer */}
-          <aside className="relative z-[10001] flex h-dvh w-[82vw] max-w-[340px] flex-col overflow-hidden bg-white shadow-2xl animate-in slide-in-from-left duration-300">
+          <aside className="relative z-[81] flex h-dvh w-[82vw] max-w-[340px] flex-col overflow-hidden bg-white shadow-2xl animate-in slide-in-from-left duration-300">
             <div className="flex items-center justify-between border-b border-black/5 px-6 py-5">
               <DashboardBrand />
 
@@ -231,3 +233,4 @@ export default function DashboardMobileNav() {
     </>
   );
 }
+

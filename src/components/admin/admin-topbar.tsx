@@ -53,7 +53,7 @@ export default function AdminTopbar() {
   const initial = (session?.user?.name?.[0] || session?.user?.email?.[0] || "A").toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
       <div className="flex min-h-20 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <AdminMobileNav />

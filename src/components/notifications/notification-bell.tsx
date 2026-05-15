@@ -41,7 +41,7 @@ async function readJsonSafe(res: Response) {
 
   const text = await res.text();
   console.error("API returned non-JSON:", text.slice(0, 500));
-  throw new Error("API không trả về JSON");
+  throw new Error("API thông báo không trả về JSON");
 }
 
 export function NotificationBell() {
@@ -248,7 +248,7 @@ export function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-[1000] mt-3 w-[calc(100vw-2rem)] max-w-[420px] origin-top-right animate-in fade-in slide-in-from-top-2 zoom-in-95 duration-200 sm:w-[420px]">
+        <div className="absolute right-0 top-full z-[120] mt-3 w-[calc(100vw-2rem)] max-w-[420px] origin-top-right animate-in fade-in slide-in-from-top-2 zoom-in-95 duration-200 sm:w-[420px]">
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.35)]">
             <div className="border-b border-slate-200 pb-4">
               <div className="flex items-center gap-3">
@@ -364,3 +364,4 @@ export function NotificationBell() {
     </div>
   );
 }
+

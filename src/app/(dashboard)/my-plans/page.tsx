@@ -487,7 +487,7 @@ export default function MyPlansPage() {
                 type="text"
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
-                placeholder="Ví dụ: Cursor IDE"
+                placeholder="Ví dụ: CodexAPI"
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-indigo-200 focus:bg-indigo-50/30"
               />
             </div>

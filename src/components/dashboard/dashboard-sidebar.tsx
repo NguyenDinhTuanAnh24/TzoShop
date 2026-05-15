@@ -144,7 +144,24 @@ export default function DashboardSidebar({
   const handleRequestLogout = (event?: MouseEvent<HTMLButtonElement>, mobile = false) => {
     event?.preventDefault();
     event?.stopPropagation();
-    if (mobile) onCloseMobile();
+
+    if (mobile) {
+      onCloseMobile();
+      window.setTimeout(() => {
+        askConfirm({
+          title: "Đăng xuất tài khoản?",
+          description: "Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng dashboard.",
+          confirmLabel: "Đăng xuất",
+          cancelLabel: "Hủy",
+          type: "danger",
+          onConfirm: async () => {
+            await signOut({ callbackUrl: "/login" });
+          },
+        });
+      }, 120);
+      return;
+    }
+
     askConfirm({
       title: "Đăng xuất tài khoản?",
       description: "Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng dashboard.",
@@ -260,9 +277,9 @@ export default function DashboardSidebar({
       </aside>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-[80] lg:hidden">
           <button type="button" aria-label="Đóng menu" className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]" onClick={onCloseMobile} />
-          <aside className="relative z-10 flex h-full w-[280px] max-w-[86vw] flex-col border-r border-slate-200 bg-white">{sidebarBody(true)}</aside>
+          <aside className="relative z-[81] flex h-full w-[280px] max-w-[86vw] flex-col border-r border-slate-200 bg-white">{sidebarBody(true)}</aside>
         </div>
       )}
 
@@ -282,3 +299,4 @@ export default function DashboardSidebar({
     </>
   );
 }
+
