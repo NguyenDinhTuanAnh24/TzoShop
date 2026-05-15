@@ -59,7 +59,6 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Kiểm tra xem có session hiện tại không (đang đăng nhập bằng email/password và muốn link Google)
-      // Lưu ý: getServerSession trong signIn callback của v4 có thể trả về session cũ
       const session = await getServerSession(authOptions);
 
       if (session?.user?.id) {
@@ -97,14 +96,14 @@ export const authOptions: NextAuthOptions = {
       });
 
       if (existingOAuth) {
-        // Đã liên kết → cho phép đăng nhập
+        // Đã liên kết -> cho phép đăng nhập
         user.id = existingOAuth.userId;
         user.email = existingOAuth.user.email;
         user.name = existingOAuth.user.name ?? undefined;
         return true;
       }
 
-      // 2. Chưa có OAuthAccount → tìm user theo email
+      // 2. Chưa có OAuthAccount -> tìm user theo email
       const existingUser = await prisma.user.findUnique({ where: { email: googleEmail } });
 
       if (!existingUser) {
@@ -161,7 +160,6 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Luôn lấy data mới nhất từ DB để đảm bảo session đồng bộ
-      // Nếu là Google login mà bị blocked thì không được load data user lên token
       if (token.id && !token.googleLoginBlocked && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: (token.email as string).toLowerCase() },
@@ -187,7 +185,6 @@ export const authOptions: NextAuthOptions = {
           ...session,
           user: undefined,
           expires: session.expires,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
       }
 

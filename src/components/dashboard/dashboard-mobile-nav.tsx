@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import DashboardBrand from "./dashboard-brand";
 
@@ -109,18 +110,19 @@ export default function DashboardMobileNav() {
         </span>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[9999] lg:hidden">
+      {open && typeof window !== "undefined"
+        ? createPortal(
+            <div className="fixed inset-0 z-[10000] lg:hidden">
           {/* Overlay */}
           <button
             type="button"
-            className="absolute inset-0 bg-black/55"
+            className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
             onClick={() => setOpen(false)}
             aria-label="Đóng menu"
           />
 
           {/* Drawer */}
-          <aside className="relative z-10 flex h-dvh w-[82vw] max-w-[340px] flex-col overflow-hidden bg-white shadow-2xl animate-in slide-in-from-left duration-300">
+          <aside className="relative z-[10001] flex h-dvh w-[82vw] max-w-[340px] flex-col overflow-hidden bg-white shadow-2xl animate-in slide-in-from-left duration-300">
             <div className="flex items-center justify-between border-b border-black/5 px-6 py-5">
               <DashboardBrand />
 
@@ -208,8 +210,10 @@ export default function DashboardMobileNav() {
               </button>
             </div>
           </aside>
-        </div>
-      )}
+            </div>,
+            document.body
+          )
+        : null}
 
       {confirmState && (
         <ConfirmDialog

@@ -6,33 +6,44 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   Activity,
-  BarChart3,
   Boxes,
+  ChevronLeft,
   ChevronRight,
+  ClipboardList,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
-  PanelLeftClose,
-  ScrollText,
-  ServerCog,
+  Server,
   ShoppingCart,
   TicketPercent,
+  TrendingUp,
   Users,
 } from "lucide-react";
-import { AppIcon } from "@/components/ui/icon";
-import { ConfirmDialog } from "@/components/ui/confirm-toast";
+import type { LucideIcon } from "lucide-react";
 import { useConfirm } from "@/hooks/use-confirm";
+import { ConfirmDialog } from "@/components/ui/confirm-toast";
 
-const menuGroups = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const adminNavGroups: NavGroup[] = [
   {
-    title: "TỔNG QUAN",
+    label: "Tổng quan",
     items: [
       { href: "/admin", label: "Tổng quan", icon: LayoutDashboard },
-      { href: "/admin/revenue", label: "Doanh thu", icon: BarChart3 },
+      { href: "/admin/revenue", label: "Doanh thu", icon: TrendingUp },
     ],
   },
   {
-    title: "KINH DOANH",
+    label: "Kinh doanh",
     items: [
       { href: "/admin/users", label: "Người dùng", icon: Users },
       { href: "/admin/orders", label: "Đơn hàng", icon: ShoppingCart },
@@ -41,25 +52,30 @@ const menuGroups = [
     ],
   },
   {
-    title: "HỆ THỐNG API",
+    label: "Hệ thống API",
     items: [
       { href: "/admin/models", label: "Models", icon: Boxes },
-      { href: "/admin/providers", label: "Providers", icon: ServerCog },
+      { href: "/admin/providers", label: "Providers", icon: Server },
       { href: "/admin/usage", label: "Lịch sử dùng", icon: Activity },
     ],
   },
   {
-    title: "HỖ TRỢ",
+    label: "Hỗ trợ",
     items: [{ href: "/admin/support", label: "Ticket hỗ trợ", icon: LifeBuoy }],
   },
   {
-    title: "HỆ THỐNG",
+    label: "Hệ thống",
     items: [
       { href: "/admin/system", label: "Trạng thái hệ thống", icon: Activity },
-      { href: "/admin/audit-logs", label: "Audit logs", icon: ScrollText },
+      { href: "/admin/audit-logs", label: "Audit logs", icon: ClipboardList },
     ],
   },
 ];
+
+function isActive(href: string, pathname: string) {
+  if (href === "/admin") return pathname === "/admin";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export default function AdminSidebar({
   collapsed,
@@ -73,107 +89,117 @@ export default function AdminSidebar({
 
   const handleLogout = () => {
     askConfirm({
-      title: "Đăng xuất quản trị?",
-      description: "Bạn sẽ được đưa về trang đăng nhập.",
+      title: "Đăng xuất khỏi Admin?",
+      description: "Bạn sẽ cần đăng nhập lại để tiếp tục quản lý hệ thống TzoShop.",
       confirmLabel: "Đăng xuất",
-      cancelLabel: "Hủy",
+      cancelLabel: "Ở lại",
       type: "danger",
-      onConfirm: async () => signOut({ callbackUrl: "/login" }),
+      onConfirm: async () => {
+        await signOut({ callbackUrl: "/login" });
+      },
     });
   };
 
   return (
-    <div className="flex h-screen w-full flex-col bg-[#FFFDF5]">
-      <div className="flex h-20 items-center border-b-4 border-black px-3">
-        <Link
-          href="/admin"
-          className={[
-            "inline-flex",
-            collapsed ? "mx-auto h-12 w-12 items-center justify-center" : "w-full items-center gap-3 px-3 py-2",
-          ].join(" ")}
-          title="TzoShop Admin Panel"
-        >
-          {collapsed ? (
-            <Image src="/logo.png" alt="TzoShop" width={32} height={32} className="h-8 w-8 object-contain" priority />
-          ) : (
-            <Image src="/logo.png" alt="TzoShop" width={36} height={36} className="h-9 w-9 object-contain" priority />
-          )}
-          {!collapsed && (
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-black uppercase leading-none text-black">TZOSHOP</span>
-              <span className="mt-1 block truncate text-[11px] font-black uppercase tracking-[0.14em] text-black/75">Admin Panel</span>
-            </span>
-          )}
-        </Link>
-      </div>
-
-      <nav className="min-h-0 flex-1 overflow-y-auto px-2.5 py-4">
-        {menuGroups.map((group) => (
-          <div key={group.title} className="mb-4">
-            {!collapsed ? (
-              <p className="mb-2 mt-6 px-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/50">{group.title}</p>
-            ) : (
-              <div className="mx-auto my-3 h-[2px] w-8 bg-black/15" />
+    <>
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 hidden border-r border-slate-200 bg-white/90 backdrop-blur-xl transition-all duration-300 ease-out lg:flex lg:flex-col",
+          collapsed ? "w-[88px]" : "w-[280px]",
+        )}
+      >
+        <div className="flex h-20 items-center px-3">
+          <Link
+            href="/admin"
+            title="TzoShop Admin Panel"
+            className={cn(
+              "flex h-16 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/30",
+              collapsed ? "mx-auto w-14 justify-center px-0" : "w-full",
             )}
-            <div className="space-y-2">
-              {group.items.map((item) => {
-                const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    title={item.label}
-                    className={[
-                      "flex h-11 items-center border-4 text-sm font-black text-black transition-all duration-100 ease-linear",
-                      collapsed ? "mx-auto w-11 justify-center px-0" : "gap-3 px-3",
-                      active
-                        ? "border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000]"
-                        : "border-transparent hover:-translate-y-0.5 hover:border-black hover:bg-[#FFF3B0] hover:shadow-[3px_3px_0px_0px_#000]",
-                    ].join(" ")}
-                  >
-                    <AppIcon icon={item.icon} className="h-5 w-5 shrink-0 text-black" />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
-
-      <div className="mt-auto border-t-4 border-black p-3">
-        <div className="flex flex-col items-center gap-3">
-        <button
-          onClick={onToggleCollapsed}
-          title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-          aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-          className={[
-            "inline-flex h-11 items-center border-4 border-black bg-white text-sm font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:bg-[#FFD93D] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-            collapsed ? "mx-auto w-11 justify-center px-0" : "w-full justify-center gap-2",
-          ].join(" ")}
-        >
-          {collapsed ? <ChevronRight className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          {!collapsed && "Thu gọn"}
-        </button>
-
-        <button
-          onClick={handleLogout}
-          title="Đăng xuất"
-          aria-label="Đăng xuất"
-          className={[
-            "flex h-11 items-center justify-center gap-2 border-4 border-black bg-[#FF6B6B] text-sm font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-            collapsed ? "mx-auto w-11 px-0" : "w-full",
-          ].join(" ")}
-        >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && "Đăng xuất"}
-        </button>
+          >
+            <Image src="/logo.png" alt="TzoShop" width={40} height={40} className="h-10 w-10 shrink-0 object-contain" priority />
+            {!collapsed ? (
+              <div className="min-w-0">
+                <p className="truncate text-lg font-extrabold leading-[1.15] text-slate-950">TzoShop</p>
+                <p className="mt-0.5 truncate text-[11px] font-bold uppercase tracking-[0.16em] text-indigo-600">Admin Panel</p>
+              </div>
+            ) : null}
+          </Link>
         </div>
-      </div>
 
-      {confirmState && (
+        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+          {adminNavGroups.map((group) => (
+            <section key={group.label}>
+              {!collapsed ? <p className="px-3 text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-400">{group.label}</p> : <div className="mx-auto h-px w-7 bg-slate-200" />}
+              <div className={cn("mt-2 space-y-1.5", collapsed && "mt-3")}>
+                {group.items.map((item) => {
+                  const active = isActive(item.href, pathname);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      title={collapsed ? item.label : undefined}
+                      className={cn(
+                        "group relative flex h-11 items-center gap-3 overflow-hidden rounded-2xl px-3 text-sm font-semibold transition-all duration-300 ease-out",
+                        collapsed ? "mx-auto h-12 w-12 justify-center px-0" : "",
+                        active
+                          ? "bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white shadow-[0_16px_36px_-18px_rgba(79,70,229,0.85)] hover:translate-x-0 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60"
+                          : "text-slate-600 hover:translate-x-0.5 hover:bg-indigo-50 hover:text-indigo-700",
+                      )}
+                    >
+                      {active ? (
+                        <>
+                          <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/18 via-white/8 to-transparent" />
+                          <span className="pointer-events-none absolute -right-8 top-1/2 h-16 w-16 -translate-y-1/2 rounded-full bg-white/15 blur-2xl" />
+                          <span className="pointer-events-none absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-white/80" />
+                        </>
+                      ) : null}
+
+                      <item.icon
+                        className={cn(
+                          "relative z-10 h-5 w-5 shrink-0 transition-all duration-300",
+                          active ? "text-white drop-shadow-sm" : "text-slate-400 group-hover:scale-110 group-hover:text-indigo-600",
+                        )}
+                      />
+                      {!collapsed ? <span className={cn("relative z-10 truncate", active ? "text-white" : "")}>{item.label}</span> : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </nav>
+
+        <div className="border-t border-slate-200 p-3">
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            className={cn(
+              "mb-3 flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.98]",
+              collapsed ? "mx-auto w-11" : "w-full gap-2",
+            )}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {!collapsed ? <span>Thu gọn</span> : null}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={cn(
+              "flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-sm font-bold text-rose-700 transition hover:bg-rose-100 active:scale-[0.98]",
+              collapsed ? "mx-auto w-11" : "w-full gap-2",
+            )}
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed ? <span>Đăng xuất</span> : null}
+          </button>
+        </div>
+      </aside>
+
+      {confirmState ? (
         <ConfirmDialog
-          open={!!confirmState}
+          open={Boolean(confirmState)}
           title={confirmState.title}
           description={confirmState.description}
           confirmLabel={confirmState.confirmLabel}
@@ -183,7 +209,11 @@ export default function AdminSidebar({
           onConfirm={handleConfirm}
           onCancel={closeConfirm}
         />
-      )}
-    </div>
+      ) : null}
+    </>
   );
+}
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
 }

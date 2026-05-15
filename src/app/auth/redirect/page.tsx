@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { PageLoader } from "@/components/ui/app-loader";
 
 export default function AuthRedirectPage() {
   const router = useRouter();
@@ -26,14 +27,6 @@ export default function AuthRedirectPage() {
     }
   }, [session, status, router]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
-        <p className="text-sm font-bold text-slate-600 animate-pulse">
-          Đang chuyển hướng...
-        </p>
-      </div>
-    </div>
-  );
+  return <PageLoader label="Đang chuyển hướng..." />;
 }
+

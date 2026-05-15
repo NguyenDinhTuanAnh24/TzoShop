@@ -2,6 +2,7 @@ import { Prisma, TicketStatus, TicketPriority } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
+import { buildPagination, getPagination } from "@/lib/pagination";
 
 export const runtime = "nodejs";
 
@@ -11,31 +12,47 @@ export async function GET(request: NextRequest) {
     await requireAdminUser();
 
     const searchParams = request.nextUrl.searchParams;
+    const { page, pageSize, skip, take } = getPagination(searchParams);
     const status = searchParams.get("status") as TicketStatus | null;
     const priority = searchParams.get("priority") as TicketPriority | null;
+    const search = searchParams.get("search")?.trim();
 
     const where: Prisma.SupportTicketWhereInput = {};
     if (status && (status as string) !== "ALL") where.status = status;
     if (priority && (priority as string) !== "ALL") where.priority = priority;
+    if (search) {
+      where.OR = [
+        { subject: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { id: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-    const tickets = await prisma.supportTicket.findMany({
-      where,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
+    const [total, tickets] = await Promise.all([
+      prisma.supportTicket.count({ where }),
+      prisma.supportTicket.findMany({
+        where,
+        skip,
+        take,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            }
           }
         }
-      }
-    });
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
-      data: tickets
+      data: tickets,
+      items: tickets,
+      pagination: buildPagination({ page, pageSize, total }),
     });
 
   } catch (error) {
@@ -167,4 +184,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+
+
 

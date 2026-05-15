@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
+import { buildPagination, getPagination } from "@/lib/pagination";
 
 export const runtime = "nodejs";
 
@@ -9,28 +10,44 @@ export async function GET(request: NextRequest) {
     await requireAdminUser();
 
     const searchParams = request.nextUrl.searchParams;
-    const limit = parseInt(searchParams.get("limit") || "100");
-
-    const logs = await prisma.auditLog.findMany({
-      take: limit,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        adminUser: {
-          select: {
-            name: true,
-            email: true,
-          }
+    const { page, pageSize, skip, take } = getPagination(searchParams);
+    const search = searchParams.get("search")?.trim() || "";
+    const where = search
+      ? {
+          OR: [
+            { action: { contains: search, mode: "insensitive" as const } },
+            { entityType: { contains: search, mode: "insensitive" as const } },
+            { entityId: { contains: search, mode: "insensitive" as const } },
+          ],
         }
-      }
-    });
+      : {};
+
+    const [total, logs] = await Promise.all([
+      prisma.auditLog.count({ where }),
+      prisma.auditLog.findMany({
+        where,
+        skip,
+        take,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          adminUser: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
-      data: logs
+      data: logs,
+      items: logs,
+      pagination: buildPagination({ page, pageSize, total }),
     });
-
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "UNAUTHORIZED") {
@@ -47,3 +64,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

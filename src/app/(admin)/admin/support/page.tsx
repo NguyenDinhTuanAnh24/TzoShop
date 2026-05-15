@@ -1,24 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import {
-  LifeBuoy,
-  Search,
-  AlertCircle,
-  MessageSquare,
-  Hash,
-  ShoppingBag,
-  Flag,
-  Save,
-  RotateCcw,
-  Headphones,
-} from "lucide-react";
-import { AppButton } from "@/components/ui/app-button";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { ToastMessage } from "@/components/ui/toast-message";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { AlertCircle, LifeBuoy, RefreshCw, Search, Ticket } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Modal } from "@/components/ui/modal";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CosmicButton } from "@/components/ui/cosmic-button";
+import { TextFadeInUp } from "@/components/animations/text-fade-in-up";
+import { useToast } from "@/hooks/use-toast";
+import { ToastMessage } from "@/components/ui/toast-message";
 
 type SupportTicket = {
   id: string;
@@ -39,52 +32,69 @@ type SupportTicket = {
   };
 };
 
+type StatusFilter = "ALL" | "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+type PriorityFilter = "ALL" | "NORMAL" | "HIGH" | "URGENT";
+type TimeFilter = "ALL" | "TODAY" | "7D" | "30D";
+type SortFilter = "NEWEST" | "OLDEST" | "PRIORITY" | "WAITING";
+
 function statusLabel(status: SupportTicket["status"] | string) {
-  if (status === "OPEN") return "Đang mở";
+  if (status === "OPEN") return "Mới";
   if (status === "IN_PROGRESS") return "Đang xử lý";
-  if (status === "RESOLVED") return "Đã xong";
+  if (status === "RESOLVED") return "Chờ phản hồi";
   if (status === "CLOSED") return "Đã đóng";
   return status;
 }
 
 function statusClass(status: SupportTicket["status"] | string) {
-  if (status === "OPEN") return "bg-[#FFD93D]";
-  if (status === "IN_PROGRESS") return "bg-[#DBEAFE]";
-  if (status === "RESOLVED") return "bg-[#C7F0D8]";
-  return "bg-[#E9E1D0]";
+  if (status === "OPEN") return "border-indigo-100 bg-indigo-50 text-indigo-700";
+  if (status === "IN_PROGRESS") return "border-violet-100 bg-violet-50 text-violet-700";
+  if (status === "RESOLVED") return "border-amber-100 bg-amber-50 text-amber-700";
+  return "border-emerald-100 bg-emerald-50 text-emerald-700";
 }
 
 function priorityLabel(priority: SupportTicket["priority"] | string) {
-  if (priority === "NORMAL") return "Bình thường";
+  if (priority === "NORMAL") return "Trung bình";
   if (priority === "HIGH") return "Cao";
   if (priority === "URGENT") return "Khẩn cấp";
   return priority;
 }
 
 function priorityClass(priority: SupportTicket["priority"] | string) {
-  if (priority === "HIGH") return "bg-[#FFD93D]";
-  if (priority === "URGENT") return "bg-[#FF6B6B]";
-  return "bg-white";
+  if (priority === "NORMAL") return "border-sky-100 bg-sky-50 text-sky-700";
+  if (priority === "HIGH") return "border-amber-100 bg-amber-50 text-amber-700";
+  if (priority === "URGENT") return "border-rose-100 bg-rose-50 text-rose-700";
+  return "border-slate-200 bg-slate-100 text-slate-600";
 }
 
 function SupportSkeleton() {
   return (
     <div className="space-y-6" aria-hidden="true">
-      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="h-8 w-64 animate-pulse bg-[#E9E1D0]" />
-        <div className="mt-3 h-4 w-full max-w-[520px] animate-pulse bg-[#E9E1D0]" />
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <Skeleton className="h-5 w-40 rounded-full" />
+        <Skeleton className="mt-4 h-10 w-56 rounded-xl" />
+        <Skeleton className="mt-3 h-5 w-[620px] max-w-full rounded-full" />
       </section>
-      <section className="grid min-h-[620px] min-w-0 grid-cols-1 gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <div className="border-4 border-black bg-[#FFFDF5] p-4 shadow-[7px_7px_0px_0px_#000]">
-          <div className="h-14 animate-pulse bg-[#E9E1D0]" />
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-20 border-2 border-black bg-[#E9E1D0] animate-pulse" />
-            ))}
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Skeleton className="h-10 w-10 rounded-2xl" />
+            <Skeleton className="mt-5 h-4 w-24 rounded-full" />
+            <Skeleton className="mt-3 h-8 w-20 rounded-xl" />
           </div>
+        ))}
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-11 rounded-xl" />
+          ))}
         </div>
-        <div className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[7px_7px_0px_0px_#000]">
-          <div className="h-full w-full animate-pulse bg-[#E9E1D0]" />
+      </section>
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="space-y-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 rounded-xl" />
+          ))}
         </div>
       </section>
     </div>
@@ -95,56 +105,56 @@ export default function AdminSupportPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isError, setIsError] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("ALL");
-  const [filterPriority, setFilterPriority] = useState("ALL");
-  const [filterCategory] = useState("ALL");
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>("ALL");
+  const [filterPriority, setFilterPriority] = useState<PriorityFilter>("ALL");
+  const [filterCategory, setFilterCategory] = useState("ALL");
+  const [filterTime, setFilterTime] = useState<TimeFilter>("ALL");
+  const [sortBy, setSortBy] = useState<SortFilter>("NEWEST");
 
-  const [detailData, setDetailData] = useState({
-    status: "",
-    adminNotes: "",
-  });
-
-  const { toast, showToast, clearToast } = useToast();
+  const [detailData, setDetailData] = useState({ status: "", adminNotes: "" });
+  const { toast, showToast, clearToast } = useToast(3000);
 
   const fetchTickets = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/admin/support");
+      setIsError(false);
+      const res = await fetch("/api/admin/support", { cache: "no-store" });
       const result = await res.json();
-      if (result.success) {
-        setTickets(result.data);
+      if (!res.ok || !result.success) {
+        setIsError(true);
+        return;
       }
-    } catch (error) {
-      console.error(error);
+      setTickets(result.data || []);
+    } catch {
+      setIsError(true);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void fetchTickets();
-    }, 0);
+    const timer = window.setTimeout(() => void fetchTickets(), 0);
     return () => window.clearTimeout(timer);
   }, [fetchTickets]);
 
   const selectedTicket = tickets.find((t) => t.id === selectedTicketId);
 
-  useEffect(() => {
-    let timer: number;
-    if (selectedTicket) {
-      timer = window.setTimeout(() => {
-        setDetailData({
-          status: selectedTicket.status,
-          adminNotes: selectedTicket.adminNotes || "",
-        });
-      }, 0);
+  const handleOpenDetail = (ticketId: string) => {
+    const ticket = tickets.find((t) => t.id === ticketId);
+    if (ticket) {
+      setDetailData({
+        status: ticket.status,
+        adminNotes: ticket.adminNotes || "",
+      });
     }
-    return () => window.clearTimeout(timer);
-  }, [selectedTicketId, selectedTicket]);
+    setSelectedTicketId(ticketId);
+    setIsDetailOpen(true);
+  };
 
   const handleUpdateTicket = async () => {
     if (!selectedTicketId) return;
@@ -160,260 +170,310 @@ export default function AdminSupportPage() {
         }),
       });
       const result = await res.json();
-      if (result.success) {
-        showToast("Đã cập nhật ticket.", "success");
+      if (res.ok && result.success) {
+        showToast("Đã cập nhật trạng thái ticket", "success");
         void fetchTickets();
+      } else {
+        showToast("Không thể cập nhật ticket", "error");
       }
     } catch {
-      showToast("Không thể cập nhật.", "error");
+      showToast("Không thể cập nhật ticket", "error");
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case "HIGH":
-        return <Flag className="h-3.5 w-3.5 text-black" />;
-      case "URGENT":
-        return <AlertCircle className="h-3.5 w-3.5 text-black" />;
-      default:
-        return <Flag className="h-3.5 w-3.5 text-black" />;
-    }
-  };
+  const filteredTickets = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    return tickets
+      .filter((t) => {
+        const keyword = search.toLowerCase().trim();
+        const matchesSearch =
+          !keyword ||
+          t.email.toLowerCase().includes(keyword) ||
+          t.subject.toLowerCase().includes(keyword) ||
+          t.message.toLowerCase().includes(keyword) ||
+          t.id.toLowerCase().includes(keyword);
+        const matchesStatus = filterStatus === "ALL" || t.status === filterStatus;
+        const matchesPriority = filterPriority === "ALL" || t.priority === filterPriority;
+        const matchesCategory = filterCategory === "ALL" || t.category === filterCategory;
+        let matchesTime = true;
+        if (filterTime !== "ALL") {
+          const createdAt = new Date(t.createdAt);
+          if (filterTime === "TODAY") matchesTime = createdAt >= todayStart;
+          if (filterTime === "7D") matchesTime = createdAt >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (filterTime === "30D") matchesTime = createdAt >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        }
+        return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesTime;
+      })
+      .sort((a, b) => {
+        if (sortBy === "OLDEST") return +new Date(a.createdAt) - +new Date(b.createdAt);
+        if (sortBy === "PRIORITY") {
+          const rank = { URGENT: 3, HIGH: 2, NORMAL: 1 };
+          return rank[b.priority] - rank[a.priority];
+        }
+        if (sortBy === "WAITING") return +new Date(a.createdAt) - +new Date(b.createdAt);
+        return +new Date(b.createdAt) - +new Date(a.createdAt);
+      });
+  }, [tickets, search, filterStatus, filterPriority, filterCategory, filterTime, sortBy]);
 
-  const filteredTickets = tickets.filter((t) => {
-    const matchesSearch = t.email.toLowerCase().includes(search.toLowerCase()) || t.subject.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = filterStatus === "ALL" || t.status === filterStatus;
-    const matchesPriority = filterPriority === "ALL" || t.priority === filterPriority;
-    const matchesCategory = filterCategory === "ALL" || t.category === filterCategory;
-    return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
-  });
+  const categories = useMemo(() => Array.from(new Set(tickets.map((t) => t.category).filter(Boolean))), [tickets]);
 
   if (isLoading && tickets.length === 0) return <SupportSkeleton />;
 
-  return (
-    <div className="space-y-6 overflow-x-hidden pb-12">
-      <section className="relative overflow-visible border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="pointer-events-none absolute -right-3 -top-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-                <LifeBuoy className="h-7 w-7 text-black" />
-              </div>
-              <span className="inline-flex border-2 border-black bg-[#C7F0D8] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-black">SUPPORT</span>
-            </div>
-            <h1 className="pt-1 text-3xl font-black uppercase tracking-tight text-black md:text-4xl">HỖ TRỢ KHÁCH HÀNG</h1>
-            <p className="text-sm font-bold text-black/70 md:text-base">Theo dõi và xử lý yêu cầu hỗ trợ từ người dùng.</p>
-          </div>
+  if (isError && tickets.length === 0) {
+    return (
+      <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <h2 className="text-2xl font-extrabold text-slate-950">Không thể tải ticket hỗ trợ</h2>
+        <p className="mt-2 text-sm text-slate-600">Vui lòng thử lại sau ít phút.</p>
+        <button
+          type="button"
+          onClick={() => void fetchTickets()}
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+        >
+          Thử lại
+        </button>
+      </section>
+    );
+  }
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            {[
-              { label: "ĐANG MỞ", value: tickets.filter((t) => t.status === "OPEN").length, bg: "bg-[#FFD93D]" },
-              { label: "ĐANG XỬ LÝ", value: tickets.filter((t) => t.status === "IN_PROGRESS").length, bg: "bg-[#DBEAFE]" },
-              { label: "ĐÃ XONG", value: tickets.filter((t) => t.status === "RESOLVED").length, bg: "bg-[#C7F0D8]" },
-              { label: "KHẨN CẤP", value: tickets.filter((t) => t.priority === "URGENT").length, bg: "bg-[#FF6B6B]" },
-            ].map((s) => (
-              <div key={s.label} className={`border-4 border-black px-3 py-2 shadow-[3px_3px_0px_0px_#000] ${s.bg}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.08em] text-black/70">{s.label}</p>
-                <p className="text-xl font-black text-black">{s.value}</p>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={fetchTickets}
-              title="Làm mới"
-              className="inline-flex h-11 w-11 items-center justify-center border-4 border-black bg-white text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 hover:bg-[#FFD93D] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-            >
-              <RotateCcw className={cn("h-5 w-5", isLoading && "animate-spin")} />
-            </button>
+  return (
+    <div className="space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-1">
+      <TextFadeInUp as="section" className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">Chăm sóc khách hàng</span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Ticket hỗ trợ</h1>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">Theo dõi, phân loại và xử lý các yêu cầu hỗ trợ từ người dùng TzoShop.</p>
+          </div>
+          <div className="flex flex-wrap gap-3 lg:justify-end">
+            <CosmicButton href="/support" className="min-w-[180px]">Hỗ trợ người dùng</CosmicButton>
           </div>
         </div>
+      </TextFadeInUp>
+
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Tổng ticket", value: tickets.length, cls: "bg-indigo-50 text-indigo-700" },
+          { label: "Đang mở", value: tickets.filter((t) => t.status === "OPEN").length, cls: "bg-amber-50 text-amber-700" },
+          { label: "Đang xử lý", value: tickets.filter((t) => t.status === "IN_PROGRESS").length, cls: "bg-violet-50 text-violet-700" },
+          { label: "Đã đóng", value: tickets.filter((t) => t.status === "CLOSED").length, cls: "bg-emerald-50 text-emerald-700" },
+        ].map((s, i) => (
+          <TextFadeInUp key={s.label} delay={Math.min(i * 0.05, 0.25)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200">
+            <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", s.cls)}>
+              <Ticket className="h-5 w-5" />
+            </div>
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{s.label}</p>
+            <p className="mt-3 text-2xl font-extrabold text-slate-950">{s.value.toLocaleString("vi-VN")}</p>
+          </TextFadeInUp>
+        ))}
       </section>
 
-      <section className="grid min-h-[620px] grid-cols-1 gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <article className="min-w-0 overflow-hidden border-4 border-black bg-[#FFFDF5] shadow-[7px_7px_0px_0px_#000]">
-          <div className="space-y-3 border-b-4 border-black p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/50" />
-              <input
-                type="text"
-                placeholder="Tìm email, chủ đề..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-11 w-full border-4 border-black bg-white pl-10 pr-3 text-sm font-bold text-black placeholder:text-black/45 shadow-[3px_3px_0px_0px_#000] outline-none"
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-11 w-full border-4 border-black bg-white px-3 text-sm font-black text-black shadow-[3px_3px_0px_0px_#000]">
-                <option value="ALL">Tất cả trạng thái</option>
-                <option value="OPEN">Đang mở</option>
-                <option value="IN_PROGRESS">Đang xử lý</option>
-                <option value="RESOLVED">Đã xong</option>
-                <option value="CLOSED">Đã đóng</option>
-              </select>
-              <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="h-11 w-full border-4 border-black bg-white px-3 text-sm font-black text-black shadow-[3px_3px_0px_0px_#000]">
-                <option value="ALL">Tất cả độ ưu tiên</option>
-                <option value="NORMAL">Bình thường</option>
-                <option value="HIGH">Cao</option>
-                <option value="URGENT">Khẩn cấp</option>
-              </select>
-            </div>
+      <TextFadeInUp as="section" delay={0.05} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-6">
+          <div className="relative lg:col-span-2">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo mã ticket, email, chủ đề hoặc nội dung..." className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-950 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
           </div>
-
-          <div className="max-h-[620px] space-y-3 overflow-y-auto p-3">
-            {filteredTickets.length === 0 ? (
-              <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[3px_3px_0px_0px_#000]">
-                  <Search className="h-5 w-5 text-black" />
-                </div>
-                <p className="text-base font-black text-black">{tickets.length === 0 ? "Không có yêu cầu hỗ trợ nào" : "Không tìm thấy yêu cầu phù hợp"}</p>
-                <p className="mt-1 max-w-[260px] text-sm font-bold text-black/60">Thử đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
-              </div>
-            ) : (
-              filteredTickets.map((ticket) => (
-                <button
-                  key={ticket.id}
-                  onClick={() => setSelectedTicketId(ticket.id)}
-                  className={cn(
-                    "w-full cursor-pointer border-4 border-black bg-[#FFFDF5] p-4 text-left shadow-[4px_4px_0px_0px_#000] transition-all duration-100 hover:-translate-y-0.5 hover:bg-[#FFF8D6]",
-                    selectedTicketId === ticket.id && "bg-[#FFD93D] shadow-[6px_6px_0px_0px_#000]",
-                  )}
-                >
-                  <p className="line-clamp-2 text-sm font-black text-black">{ticket.subject}</p>
-                  <p className="mt-1 break-all text-xs font-bold text-black/65">{ticket.email}</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex items-center gap-1 border-2 border-black px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${statusClass(ticket.status)}`}>
-                      {statusLabel(ticket.status)}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 border-2 border-black px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${priorityClass(ticket.priority)}`}>
-                      {getPriorityIcon(ticket.priority)}
-                      {priorityLabel(ticket.priority)}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-[11px] font-bold text-black/60">{format(new Date(ticket.createdAt), "HH:mm dd/MM", { locale: vi })}</p>
-                </button>
-              ))
-            )}
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as StatusFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950">
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="OPEN">Mới</option>
+            <option value="IN_PROGRESS">Đang xử lý</option>
+            <option value="RESOLVED">Chờ phản hồi</option>
+            <option value="CLOSED">Đã đóng</option>
+          </select>
+          <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value as PriorityFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950">
+            <option value="ALL">Tất cả ưu tiên</option>
+            <option value="NORMAL">Trung bình</option>
+            <option value="HIGH">Cao</option>
+            <option value="URGENT">Khẩn cấp</option>
+          </select>
+          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950">
+            <option value="ALL">Tất cả loại vấn đề</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          <div className="grid grid-cols-2 gap-3">
+            <select value={filterTime} onChange={(e) => setFilterTime(e.target.value as TimeFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950">
+              <option value="ALL">Tất cả</option>
+              <option value="TODAY">Hôm nay</option>
+              <option value="7D">7 ngày</option>
+              <option value="30D">30 ngày</option>
+            </select>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950">
+              <option value="NEWEST">Mới nhất</option>
+              <option value="OLDEST">Cũ nhất</option>
+              <option value="PRIORITY">Ưu tiên cao</option>
+              <option value="WAITING">Chờ lâu nhất</option>
+            </select>
           </div>
-        </article>
+        </div>
+      </TextFadeInUp>
 
-        <article className="min-w-0 overflow-hidden border-4 border-black bg-[#FFFDF5] shadow-[7px_7px_0px_0px_#000]">
-          {!selectedTicket ? (
-            <div className="flex min-h-[620px] flex-col items-center justify-center p-8 text-center">
-              <div className="mb-5 flex h-16 w-16 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-                <MessageSquare className="h-8 w-8 text-black" />
-              </div>
-              <h3 className="text-2xl font-black text-black">CHỌN YÊU CẦU ĐỂ XỬ LÝ</h3>
-              <p className="mt-2 max-w-[480px] text-sm font-bold text-black/65">
-                Chọn một yêu cầu hỗ trợ từ danh sách bên trái để xem nội dung chi tiết và phản hồi khách hàng.
-              </p>
+      <TextFadeInUp as="section" delay={0.08} className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:block">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1180px] border-collapse text-left">
+            <thead>
+              <tr className="bg-slate-50">
+                {["Ticket", "Người gửi", "Loại vấn đề", "Ưu tiên", "Trạng thái", "Cập nhật cuối", "Người phụ trách", "Hành động"].map((header) => (
+                  <th key={header} className="px-4 py-4 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTickets.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-14 text-center">
+                    <div className="mx-auto flex w-fit flex-col items-center">
+                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                        <LifeBuoy className="h-7 w-7" />
+                      </div>
+                      <p className="text-xl font-extrabold text-slate-950">{tickets.length === 0 ? "Chưa có ticket hỗ trợ" : "Không tìm thấy ticket phù hợp"}</p>
+                      <p className="mt-1 text-sm text-slate-600">Các yêu cầu hỗ trợ từ người dùng sẽ hiển thị tại đây.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredTickets.map((ticket) => (
+                  <tr key={ticket.id} className="border-t border-slate-100 transition hover:bg-indigo-50/30">
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-slate-900">#{ticket.id.slice(0, 8).toUpperCase()}</p>
+                      <p className="max-w-[280px] truncate text-sm text-slate-600" title={ticket.subject}>
+                        {ticket.subject}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="max-w-[220px] truncate font-semibold text-slate-900">{ticket.name || "Người dùng"}</p>
+                      <p className="max-w-[220px] truncate text-sm text-slate-600">{ticket.email}</p>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-slate-700">{ticket.category}</td>
+                    <td className="px-4 py-4"><span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", priorityClass(ticket.priority))}>{priorityLabel(ticket.priority)}</span></td>
+                    <td className="px-4 py-4"><span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", statusClass(ticket.status))}>{statusLabel(ticket.status)}</span></td>
+                    <td className="px-4 py-4 text-sm text-slate-600">{format(new Date(ticket.createdAt), "HH:mm dd/MM/yyyy", { locale: vi })}</td>
+                    <td className="px-4 py-4 text-sm text-slate-600">Admin</td>
+                    <td className="px-4 py-4">
+                      <button onClick={() => handleOpenDetail(ticket.id)} className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.98]">
+                        Chi tiết
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </TextFadeInUp>
+
+      <section className="space-y-4 lg:hidden">
+        {filteredTickets.length === 0 ? (
+          <article className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <LifeBuoy className="h-7 w-7" />
             </div>
-          ) : (
-            <div className="flex h-full flex-col">
-              <header className="border-b-4 border-black p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-2">
-                    <h2 className="break-words text-2xl font-black text-black">{selectedTicket.subject}</h2>
-                    <p className="break-all text-sm font-bold text-black/65">
-                      {selectedTicket.name} · {selectedTicket.email}
-                    </p>
-                    <p className="text-xs font-bold text-black/60">{format(new Date(selectedTicket.createdAt), "HH:mm:ss - dd/MM/yyyy", { locale: vi })}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className={`inline-flex items-center gap-1 border-2 border-black px-3 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${statusClass(selectedTicket.status)}`}>
-                      {statusLabel(selectedTicket.status)}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 border-2 border-black px-3 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${priorityClass(selectedTicket.priority)}`}>
-                      {getPriorityIcon(selectedTicket.priority)}
-                      {priorityLabel(selectedTicket.priority)}
-                    </span>
-                    <span className="inline-flex items-center gap-1 border-2 border-black bg-white px-3 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                      <Headphones className="h-3.5 w-3.5" />
-                      {selectedTicket.category}
-                    </span>
-                  </div>
-                </div>
-              </header>
-
-              <div className="space-y-4 overflow-y-auto p-5">
-                <section className="space-y-2 border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000]">
-                  <p className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Thông tin khách hàng</p>
-                  <p className="text-sm font-bold text-black">{selectedTicket.name}</p>
-                  <p className="break-all text-sm font-bold text-black/65">{selectedTicket.email}</p>
-                </section>
-
-                <section className="space-y-2 border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000]">
-                  <p className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Thông tin liên quan</p>
-                  {selectedTicket.orderCode ? (
-                    <p className="flex items-center gap-2 text-sm font-bold text-black">
-                      <ShoppingBag className="h-4 w-4" /> Đơn hàng: #{selectedTicket.orderCode}
-                    </p>
-                  ) : (
-                    <p className="text-sm font-bold text-black/60">Không có mã đơn hàng</p>
-                  )}
-                  {selectedTicket.apiKeyPrefix ? (
-                    <p className="flex items-center gap-2 text-sm font-bold text-black">
-                      <Hash className="h-4 w-4" /> API key: {selectedTicket.apiKeyPrefix}...
-                    </p>
-                  ) : (
-                    <p className="text-sm font-bold text-black/60">Không có API key tham chiếu</p>
-                  )}
-                </section>
-
-                <section className="space-y-2 border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000]">
-                  <p className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Nội dung yêu cầu</p>
-                  <p className="whitespace-pre-wrap text-sm font-bold leading-relaxed text-black">{selectedTicket.message}</p>
-                </section>
-
-                <section className="space-y-3 border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000]">
-                  <p className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Phản hồi admin</p>
-                  <textarea
-                    value={detailData.adminNotes}
-                    onChange={(e) => setDetailData({ ...detailData, adminNotes: e.target.value })}
-                    placeholder="Nhập nội dung phản hồi cho khách hàng..."
-                    className="min-h-[160px] w-full border-4 border-black bg-white p-4 text-sm font-bold text-black placeholder:text-black/45 shadow-[4px_4px_0px_0px_#000] outline-none"
-                  />
-                  <p className="text-xs font-bold text-black/60">
-                    Phản hồi sẽ được gửi tới email của khách hàng nếu cấu hình email đang hoạt động.
-                  </p>
-                </section>
-
-                <section className="space-y-3 border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000]">
-                  <p className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Cập nhật trạng thái</p>
-                  <select
-                    value={detailData.status}
-                    onChange={(e) => setDetailData({ ...detailData, status: e.target.value })}
-                    className="h-12 w-full border-4 border-black bg-white px-3 text-sm font-black text-black shadow-[3px_3px_0px_0px_#000] outline-none"
-                  >
-                    <option value="OPEN">Đang mở</option>
-                    <option value="IN_PROGRESS">Đang xử lý</option>
-                    <option value="RESOLVED">Đã xong</option>
-                    <option value="CLOSED">Đã đóng</option>
-                  </select>
-                  <div className="flex flex-wrap gap-2">
-                    <AppButton
-                      onClick={handleUpdateTicket}
-                      disabled={isUpdating}
-                      className="h-12 border-4 border-black bg-[#FFD93D] px-5 font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] hover:bg-[#C7F0D8] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-                    >
-                      {isUpdating ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
-                      ) : (
-                        <Save className="mr-2 h-4 w-4" />
-                      )}
-                      GỬI PHẢN HỒI
-                    </AppButton>
-                  </div>
-                </section>
+            <p className="text-xl font-extrabold text-slate-950">Chưa có ticket hỗ trợ</p>
+            <p className="mt-2 text-sm text-slate-600">Các yêu cầu hỗ trợ từ người dùng sẽ hiển thị tại đây.</p>
+          </article>
+        ) : (
+          filteredTickets.map((ticket) => (
+            <article key={ticket.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-semibold text-slate-900">#{ticket.id.slice(0, 8).toUpperCase()}</p>
+                <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", statusClass(ticket.status))}>{statusLabel(ticket.status)}</span>
               </div>
-            </div>
-          )}
-        </article>
+              <p className="mt-2 line-clamp-2 text-sm text-slate-700">{ticket.subject}</p>
+              <p className="mt-1 truncate text-sm text-slate-600">{ticket.email}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", priorityClass(ticket.priority))}>{priorityLabel(ticket.priority)}</span>
+                <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{ticket.category}</span>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">{format(new Date(ticket.createdAt), "HH:mm dd/MM/yyyy", { locale: vi })}</p>
+              <button onClick={() => handleOpenDetail(ticket.id)} className="mt-4 inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                Chi tiết
+              </button>
+            </article>
+          ))
+        )}
       </section>
 
-      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
+      <Modal
+        open={isDetailOpen && Boolean(selectedTicket)}
+        onClose={() => setIsDetailOpen(false)}
+        title={selectedTicket ? `Ticket #${selectedTicket.id.slice(0, 8).toUpperCase()}` : "Ticket"}
+        description="Theo dõi và xử lý chi tiết yêu cầu hỗ trợ."
+        maxWidthClassName="max-w-5xl"
+        footer={
+          <>
+            <button type="button" onClick={() => setIsDetailOpen(false)} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+              Đóng
+            </button>
+            <button type="button" onClick={() => void handleUpdateTicket()} disabled={isUpdating || !selectedTicket} className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-60">
+              {isUpdating ? "Đang lưu..." : "Cập nhật ticket"}
+            </button>
+          </>
+        }
+      >
+        {!selectedTicket ? null : (
+          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <section className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nội dung yêu cầu</p>
+                <h3 className="mt-2 text-lg font-extrabold text-slate-950">{selectedTicket.subject}</h3>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedTicket.message}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Phản hồi người dùng</p>
+                <textarea value={detailData.adminNotes} onChange={(e) => setDetailData((prev) => ({ ...prev, adminNotes: e.target.value }))} placeholder="Nhập nội dung phản hồi..." className="mt-3 min-h-36 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20" />
+              </div>
+            </section>
+            <aside className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thông tin ticket</p>
+                <div className="mt-3 space-y-2 text-sm text-slate-700">
+                  <p><span className="font-semibold text-slate-900">Người gửi:</span> {selectedTicket.name || "Người dùng"}</p>
+                  <p className="break-words"><span className="font-semibold text-slate-900">Email:</span> {selectedTicket.email}</p>
+                  <p><span className="font-semibold text-slate-900">Loại vấn đề:</span> {selectedTicket.category}</p>
+                  <p><span className="font-semibold text-slate-900">Ưu tiên:</span> {priorityLabel(selectedTicket.priority)}</p>
+                  <p><span className="font-semibold text-slate-900">Trạng thái:</span> {statusLabel(selectedTicket.status)}</p>
+                  <p><span className="font-semibold text-slate-900">Ngày tạo:</span> {format(new Date(selectedTicket.createdAt), "HH:mm:ss dd/MM/yyyy", { locale: vi })}</p>
+                  <p><span className="font-semibold text-slate-900">Đơn hàng:</span> {selectedTicket.orderCode ? `#${selectedTicket.orderCode}` : "—"}</p>
+                  <p><span className="font-semibold text-slate-900">API key:</span> {selectedTicket.apiKeyPrefix ? `${selectedTicket.apiKeyPrefix}...` : "—"}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cập nhật trạng thái</p>
+                <select value={detailData.status} onChange={(e) => setDetailData((prev) => ({ ...prev, status: e.target.value }))} className="mt-3 h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950">
+                  <option value="OPEN">Mới</option>
+                  <option value="IN_PROGRESS">Đang xử lý</option>
+                  <option value="RESOLVED">Chờ phản hồi</option>
+                  <option value="CLOSED">Đã đóng</option>
+                </select>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setDetailData((prev) => ({ ...prev, status: "IN_PROGRESS" }))} className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.98]">Đánh dấu đang xử lý</button>
+                  <button type="button" onClick={() => setDetailData((prev) => ({ ...prev, status: "CLOSED" }))} className="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 active:scale-[0.98]">Đóng ticket</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        )}
+      </Modal>
+
+      {isError ? (
+        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <AlertCircle className="h-4 w-4" />
+          Không thể tải ticket hỗ trợ
+        </div>
+      ) : null}
+
+      {toast ? <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} /> : null}
     </div>
   );
 }

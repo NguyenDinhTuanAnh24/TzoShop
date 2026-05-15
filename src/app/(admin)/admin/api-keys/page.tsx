@@ -17,6 +17,7 @@ import { ui } from "@/lib/ui-tokens";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { AppLoader } from "@/components/ui/app-loader";
 
 type ApiKeyItem = {
   id: string;
@@ -123,7 +124,7 @@ export default function AdminApiKeysPage() {
                 <tr>
                   <td colSpan={5} className="py-24 text-center">
                     <div className="flex flex-col items-center gap-4">
-                      <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-[#00d4a4] border-t-transparent" />
+                      <AppLoader size="lg" />
                       <p className={cn(ui.label, "animate-pulse")}>Đang tải danh sách key...</p>
                     </div>
                   </td>

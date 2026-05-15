@@ -1,25 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import {
-  TicketPercent,
-  Plus,
-  Search,
-  Edit,
-  Power,
-  PowerOff,
-  Filter,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
-import { AppButton } from "@/components/ui/app-button";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { Plus, Search, TicketPercent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmDialog } from "@/components/ui/confirm-toast";
 import { Modal } from "@/components/ui/modal";
-import { format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CosmicButton } from "@/components/ui/cosmic-button";
+import { TextFadeInUp } from "@/components/animations/text-fade-in-up";
 
 type Coupon = {
   id: string;
@@ -47,94 +39,50 @@ type SimpleUser = {
   name: string | null;
 };
 
-function getCouponStatus(coupon: Coupon) {
-  if (!coupon.isActive) return { label: "ĐÃ TẮT", bg: "bg-[#FF6B6B]" };
-  const now = new Date();
-  if (coupon.startsAt && new Date(coupon.startsAt) > now) return { label: "CHƯA BẮT ĐẦU", bg: "bg-[#DBEAFE]" };
-  if (coupon.endsAt && new Date(coupon.endsAt) < now) return { label: "HẾT HẠN", bg: "bg-[#E9E1D0]" };
-  if (coupon.usageLimitTotal !== null && coupon._count.redemptions >= coupon.usageLimitTotal) return { label: "HẾT LƯỢT", bg: "bg-[#FFD93D]" };
-  return { label: "ĐANG HIỆU LỰC", bg: "bg-[#C7F0D8]" };
+type StatusFilter = "ALL" | "ACTIVE" | "PAUSED" | "EXPIRING" | "EXPIRED";
+type TypeFilter = "ALL" | "PERCENT";
+type ScopeFilter = "ALL" | "GLOBAL" | "ASSIGNED";
+type SortFilter = "NEWEST" | "EXPIRING_SOON" | "MOST_USED" | "HIGH_VALUE";
+type AudienceType = "ALL_USERS" | "SPECIFIC_USERS" | "USER_GROUP";
+type UserGroup = "NEW_USERS" | "PURCHASED_USERS" | "NEVER_PURCHASED" | "ACTIVE_PLAN" | "LOW_CREDITS";
+
+function formatVnd(val: number) {
+  return `${new Intl.NumberFormat("vi-VN").format(val)}đ`;
 }
 
-function scopeStyle(scope: Coupon["scope"]) {
-  if (scope === "GLOBAL") return "bg-[#A78BFA]";
-  return "bg-[#C7F0D8]";
+function getStatus(coupon: Coupon) {
+  const now = new Date();
+  const endsAt = coupon.endsAt ? new Date(coupon.endsAt) : null;
+  const daysToEnd = endsAt ? (endsAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000) : null;
+
+  if (!coupon.isActive) return { label: "Tạm dừng", className: "border-slate-200 bg-slate-100 text-slate-600" };
+  if (endsAt && endsAt < now) return { label: "Hết hạn", className: "border-rose-100 bg-rose-50 text-rose-700" };
+  if (coupon.usageLimitTotal !== null && coupon._count.redemptions >= coupon.usageLimitTotal) {
+    return { label: "Đã dùng hết lượt", className: "border-violet-100 bg-violet-50 text-violet-700" };
+  }
+  if (daysToEnd !== null && daysToEnd <= 7) return { label: "Sắp hết hạn", className: "border-amber-100 bg-amber-50 text-amber-700" };
+  return { label: "Đang hoạt động", className: "border-emerald-100 bg-emerald-50 text-emerald-700" };
 }
 
 function CouponsSkeleton() {
   return (
-    <div className="space-y-8 overflow-x-hidden">
-      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="flex animate-pulse flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="h-14 w-14 border-4 border-black bg-[#E9E1D0]" />
-              <div className="h-6 w-28 border-2 border-black bg-[#E9E1D0]" />
-            </div>
-            <div className="h-10 w-72 max-w-full bg-[#E9E1D0]" />
-            <div className="h-4 w-[420px] max-w-full bg-[#E9E1D0]" />
-          </div>
-          <div className="h-12 w-36 border-4 border-black bg-[#E9E1D0]" />
-        </div>
+    <div className="space-y-6" aria-hidden="true">
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <Skeleton className="h-5 w-32 rounded-full" />
+        <Skeleton className="mt-4 h-10 w-56 rounded-xl" />
+        <Skeleton className="mt-3 h-5 w-[620px] max-w-full rounded-full" />
       </section>
-
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <article key={index} className="min-h-[150px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000]">
-            <div className="h-full animate-pulse">
-              <div className="h-12 w-12 border-4 border-black bg-[#E9E1D0]" />
-              <div className="mt-5 h-3 w-28 bg-[#E9E1D0]" />
-              <div className="mt-3 h-9 w-20 bg-[#E9E1D0]" />
-              <div className="mt-3 h-4 w-36 bg-[#E9E1D0]" />
-            </div>
-          </article>
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Skeleton className="h-10 w-10 rounded-2xl" />
+            <Skeleton className="mt-5 h-4 w-24 rounded-full" />
+            <Skeleton className="mt-3 h-8 w-24 rounded-xl" />
+          </div>
         ))}
       </section>
-
-      <section className="border-4 border-black bg-[#FFFDF5] p-4 shadow-[7px_7px_0px_0px_#000] md:p-5">
-        <div className="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1fr_190px_190px_auto]">
-          <div className="h-12 border-4 border-black bg-[#E9E1D0] shadow-[3px_3px_0px_0px_#000]" />
-          <div className="h-12 border-4 border-black bg-[#E9E1D0] shadow-[3px_3px_0px_0px_#000]" />
-          <div className="h-12 border-4 border-black bg-[#E9E1D0] shadow-[3px_3px_0px_0px_#000]" />
-          <div className="h-12 border-4 border-black bg-[#E9E1D0] shadow-[3px_3px_0px_0px_#000]" />
-        </div>
-      </section>
-
-      <section className="hidden overflow-hidden border-4 border-black bg-[#FFFDF5] p-4 shadow-[8px_8px_0px_0px_#000] lg:block md:p-5">
-        <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[980px] animate-pulse space-y-3">
-            <div className="grid grid-cols-7 gap-3 border-b-4 border-black pb-4">
-              {Array.from({ length: 7 }).map((__, idx) => (
-                <div key={idx} className="h-4 bg-[#E9E1D0]" />
-              ))}
-            </div>
-            {Array.from({ length: 6 }).map((__, row) => (
-              <div key={row} className="grid grid-cols-7 gap-3 border-b-2 border-black/10 py-3">
-                <div className="h-8 w-40 bg-[#E9E1D0]" />
-                <div className="h-8 w-24 bg-[#E9E1D0]" />
-                <div className="h-8 w-36 bg-[#E9E1D0]" />
-                <div className="h-8 w-28 bg-[#E9E1D0]" />
-                <div className="h-8 w-24 bg-[#E9E1D0]" />
-                <div className="h-8 w-28 bg-[#E9E1D0]" />
-                <div className="h-10 w-24 bg-[#E9E1D0]" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 lg:hidden">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <article key={index} className="space-y-4 border-4 border-black bg-[#FFFDF5] p-4 shadow-[6px_6px_0px_0px_#000]">
-            <div className="h-8 w-36 animate-pulse bg-[#E9E1D0]" />
-            <div className="h-5 w-40 animate-pulse bg-[#E9E1D0]" />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="h-16 border-2 border-black bg-[#E9E1D0]" />
-              <div className="h-16 border-2 border-black bg-[#E9E1D0]" />
-            </div>
-            <div className="h-10 w-24 border-2 border-black bg-[#E9E1D0]" />
-          </article>
-        ))}
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <Skeleton className="h-11 w-full rounded-xl" />
       </section>
     </div>
   );
@@ -143,12 +91,16 @@ function CouponsSkeleton() {
 export default function AdminCouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [filterScope, setFilterScope] = useState("ALL");
-  const [filterActive, setFilterActive] = useState("ALL");
-
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("ALL");
+  const [sortBy, setSortBy] = useState<SortFilter>("NEWEST");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     code: "",
     name: "",
@@ -160,40 +112,55 @@ export default function AdminCouponsPage() {
     endsAt: "",
     isActive: true,
     scope: "GLOBAL" as "GLOBAL" | "ASSIGNED",
+    audienceType: "ALL_USERS" as AudienceType,
+    userGroup: "" as UserGroup | "",
     usageLimitTotal: "0",
     usageLimitPerUser: "1",
-    assignToAllUsers: false,
     userIds: [] as string[],
   });
-
   const [userSearch, setUserSearch] = useState("");
   const [foundUsers, setFoundUsers] = useState<SimpleUser[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<SimpleUser[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
 
-  const { toast, showToast, clearToast } = useToast();
+  const { toast, showToast, clearToast } = useToast(3000);
   const { confirmState, isConfirming, askConfirm, closeConfirm, handleConfirm } = useConfirm();
 
   const fetchCoupons = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/admin/coupons");
+      setLoadError(null);
+      const res = await fetch("/api/admin/coupons", { cache: "no-store" });
       const result = await res.json();
-      if (result.success) setCoupons(result.data);
+      if (!res.ok || !result.success) throw new Error();
+      setCoupons(result.data || []);
     } catch {
-      showToast("Không thể tải danh sách mã giảm giá.", "error");
+      setLoadError("Vui lòng thử lại sau ít phút.");
     } finally {
       setIsLoading(false);
     }
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void fetchCoupons();
-    }, 0);
+    const timer = window.setTimeout(() => void fetchCoupons(), 0);
     return () => window.clearTimeout(timer);
   }, [fetchCoupons]);
 
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.code.trim()) errors.code = "Mã giảm giá là bắt buộc";
+    if (!formData.name.trim()) errors.name = "Tên chương trình là bắt buộc";
+    if (Number(formData.discountPercent) < 0) errors.discountPercent = "Giá trị giảm phải lớn hơn hoặc bằng 0";
+    if (formData.startsAt && formData.endsAt && new Date(formData.endsAt) < new Date(formData.startsAt)) {
+      errors.endsAt = "Ngày hết hạn phải sau ngày bắt đầu";
+    }
+    if (Number(formData.usageLimitPerUser) < 1) errors.usageLimitPerUser = "Số lượt dùng không hợp lệ";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleOpenModal = (coupon?: Coupon) => {
+    setFormErrors({});
     if (coupon) {
       setEditingId(coupon.id);
       setFormData({
@@ -207,9 +174,10 @@ export default function AdminCouponsPage() {
         endsAt: coupon.endsAt ? format(new Date(coupon.endsAt), "yyyy-MM-dd") : "",
         isActive: coupon.isActive,
         scope: coupon.scope,
+        audienceType: coupon.scope === "ASSIGNED" ? "SPECIFIC_USERS" : "ALL_USERS",
+        userGroup: "",
         usageLimitTotal: (coupon.usageLimitTotal || 0).toString(),
         usageLimitPerUser: coupon.usageLimitPerUser.toString(),
-        assignToAllUsers: false,
         userIds: [],
       });
     } else {
@@ -225,12 +193,16 @@ export default function AdminCouponsPage() {
         endsAt: "",
         isActive: true,
         scope: "GLOBAL",
+        audienceType: "ALL_USERS",
+        userGroup: "",
         usageLimitTotal: "0",
         usageLimitPerUser: "1",
-        assignToAllUsers: true,
         userIds: [],
       });
     }
+    setUserSearch("");
+    setFoundUsers([]);
+    setSelectedUsers([]);
     setIsModalOpen(true);
   };
 
@@ -240,47 +212,31 @@ export default function AdminCouponsPage() {
       setIsSearchingUsers(true);
       const res = await fetch(`/api/admin/users?search=${userSearch}&limit=10`);
       const result = await res.json();
-      if (result.success) setFoundUsers(result.data.filter((u: SimpleUser) => !formData.userIds.includes(u.id)));
-    } catch {
-      showToast("Lỗi tìm kiếm người dùng.", "error");
+      if (result.success) {
+        setFoundUsers((result.data || []).filter((u: SimpleUser) => !formData.userIds.includes(u.id)));
+      }
     } finally {
       setIsSearchingUsers(false);
     }
   };
 
-  const handleAddUser = (user: SimpleUser) => {
-    setFormData((prev) => ({ ...prev, userIds: [...prev.userIds, user.id] }));
-    setFoundUsers((prev) => prev.filter((u) => u.id !== user.id));
-  };
-
-  const handleRemoveUser = (userId: string) => {
-    setFormData((prev) => ({ ...prev, userIds: prev.userIds.filter((id) => id !== userId) }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
+    if (formData.audienceType === "SPECIFIC_USERS" && selectedUsers.length === 0) {
+      showToast("Vui lòng chọn ít nhất một người dùng.", "error");
+      return;
+    }
+    if (formData.audienceType === "USER_GROUP") {
+      showToast("Tính năng nhóm người dùng sẽ được cấu hình sau.", "info");
+      return;
+    }
+
     try {
+      setIsSubmitting(true);
       const url = editingId ? `/api/admin/coupons/${editingId}` : "/api/admin/coupons";
       const method = editingId ? "PATCH" : "POST";
-
-      type CouponScopeValue = "GLOBAL" | "ASSIGNED";
-      type CouponPayload = {
-        code: string;
-        name: string;
-        description?: string | null;
-        discountPercent: number;
-        minOrderAmount: number;
-        maxDiscountVnd: number | null;
-        startsAt?: string | null;
-        endsAt?: string | null;
-        usageLimitTotal: number | null;
-        usageLimitPerUser: number;
-        isActive: boolean;
-        scope: CouponScopeValue;
-        userIds?: string[];
-      };
-
-      const basePayload: CouponPayload = {
+      const payload = {
         code: formData.code.trim(),
         name: formData.name.trim(),
         description: formData.description.trim() || null,
@@ -290,478 +246,301 @@ export default function AdminCouponsPage() {
         startsAt: formData.startsAt ? new Date(formData.startsAt).toISOString() : null,
         endsAt: formData.endsAt ? new Date(formData.endsAt).toISOString() : null,
         isActive: formData.isActive,
-        scope: formData.scope as CouponScopeValue,
+        scope: formData.audienceType === "SPECIFIC_USERS" ? "ASSIGNED" : "GLOBAL",
         usageLimitTotal: Number(formData.usageLimitTotal) || null,
         usageLimitPerUser: Number(formData.usageLimitPerUser || 1),
+        userIds: formData.audienceType === "SPECIFIC_USERS" ? selectedUsers.map((u) => u.id) : undefined,
       };
-
-      const payload: CouponPayload = formData.scope === "ASSIGNED" ? { ...basePayload, userIds: formData.userIds } : basePayload;
-      if (formData.scope === "ASSIGNED" && (!formData.userIds || !formData.userIds.length)) {
-        showToast("Vui lòng chọn ít nhất một người dùng.", "error");
-        return;
-      }
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const result = await res.json();
-      if (result.success) {
-        showToast(editingId ? "Cập nhật mã thành công." : "Tạo mã mới thành công.", "success");
+      if (res.ok && result.success) {
+        showToast(editingId ? "Đã lưu mã giảm giá" : "Đã tạo mã giảm giá", "success");
         setIsModalOpen(false);
-        fetchCoupons();
+        void fetchCoupons();
       } else {
-        showToast(result.error?.message || "Lỗi khi lưu mã giảm giá.", "error");
+        showToast(result?.error?.message || "Không thể lưu mã giảm giá", "error");
       }
     } catch {
-      showToast("Lỗi hệ thống.", "error");
+      showToast("Không thể lưu mã giảm giá", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleToggleActive = (coupon: Coupon) => {
-    const action = coupon.isActive ? "Tắt" : "Bật";
+    const willActivate = !coupon.isActive;
     askConfirm({
-      title: `${action} mã giảm giá ${coupon.code}?`,
-      description: coupon.isActive
-        ? "Người dùng sẽ không thể áp dụng mã này cho các đơn hàng mới."
-        : "Mã giảm giá sẽ có hiệu lực trở lại nếu còn hạn sử dụng.",
-      confirmLabel: `Xác nhận ${action}`,
-      cancelLabel: "Hủy",
-      type: coupon.isActive ? "warning" : "success",
+      title: willActivate ? "Kích hoạt mã giảm giá?" : "Tạm dừng mã giảm giá?",
+      description: willActivate
+        ? "Mã này sẽ có thể được người dùng áp dụng nếu còn trong thời hạn và đủ điều kiện."
+        : "Người dùng sẽ không thể áp dụng mã này cho đơn hàng mới cho đến khi được kích hoạt lại.",
+      confirmLabel: willActivate ? "Kích hoạt" : "Tạm dừng mã",
+      type: willActivate ? "primary" : "warning",
       onConfirm: async () => {
         const res = await fetch(`/api/admin/coupons/${coupon.id}/toggle`, { method: "PATCH" });
         if (res.ok) {
-          showToast(`Đã ${action.toLowerCase()} mã giảm giá.`, "success");
-          fetchCoupons();
-        } else {
-          showToast("Có lỗi xảy ra.", "error");
-        }
+          showToast(willActivate ? "Đã kích hoạt mã giảm giá" : "Đã tạm dừng mã giảm giá", "success");
+          void fetchCoupons();
+        } else showToast("Không thể lưu mã giảm giá", "error");
       },
     });
   };
 
-  const filteredCoupons = coupons.filter((c) => {
-    const matchesSearch = c.code.toLowerCase().includes(search.toLowerCase()) || c.name.toLowerCase().includes(search.toLowerCase());
-    const matchesScope = filterScope === "ALL" || c.scope === filterScope;
-    const status = getCouponStatus(c).label;
-    const matchesActive =
-      filterActive === "ALL" ||
-      (filterActive === "ACTIVE" && status === "ĐANG HIỆU LỰC") ||
-      (filterActive === "SCHEDULED" && status === "CHƯA BẮT ĐẦU") ||
-      (filterActive === "EXPIRED" && status === "HẾT HẠN") ||
-      (filterActive === "DISABLED" && status === "ĐÃ TẮT") ||
-      (filterActive === "USEDUP" && status === "HẾT LƯỢT");
-    return matchesSearch && matchesScope && matchesActive;
-  });
+  const filteredCoupons = useMemo(() => {
+    const now = new Date();
+    const list = coupons
+      .filter((c) => {
+        const kw = search.trim().toLowerCase();
+        if (!kw) return true;
+        return (
+          c.code.toLowerCase().includes(kw) ||
+          c.name.toLowerCase().includes(kw) ||
+          (c.description || "").toLowerCase().includes(kw)
+        );
+      })
+      .filter((c) => (scopeFilter === "ALL" ? true : c.scope === scopeFilter))
+      .filter(() => {
+        if (typeFilter === "ALL") return true;
+        return typeFilter === "PERCENT";
+      })
+      .filter((c) => {
+        const status = getStatus(c).label;
+        if (statusFilter === "ALL") return true;
+        if (statusFilter === "ACTIVE") return status === "Đang hoạt động";
+        if (statusFilter === "PAUSED") return status === "Tạm dừng";
+        if (statusFilter === "EXPIRING") return status === "Sắp hết hạn";
+        return status === "Hết hạn";
+      });
 
-  const formatVnd = (val: number) => new Intl.NumberFormat("vi-VN").format(val) + " đ";
-  const totalUses = coupons.reduce((acc, c) => acc + c._count.redemptions, 0);
-  const activeCoupons = coupons.filter((c) => getCouponStatus(c).label === "ĐANG HIỆU LỰC").length;
-  const globalCoupons = coupons.filter((c) => c.scope === "GLOBAL").length;
+    if (sortBy === "EXPIRING_SOON") {
+      return [...list].sort((a, b) => (new Date(a.endsAt || "2999-12-31").getTime() - new Date(b.endsAt || "2999-12-31").getTime()));
+    }
+    if (sortBy === "MOST_USED") return [...list].sort((a, b) => b._count.redemptions - a._count.redemptions);
+    if (sortBy === "HIGH_VALUE") return [...list].sort((a, b) => b.discountPercent - a.discountPercent);
+    return [...list].sort((a, b) => +new Date(b.startsAt || now) - +new Date(a.startsAt || now));
+  }, [coupons, search, scopeFilter, typeFilter, statusFilter, sortBy]);
 
-  const brutalInput =
-    "h-12 w-full border-4 border-black bg-white px-4 text-sm font-bold text-black placeholder:text-black/45 shadow-[3px_3px_0px_0px_#000] outline-none";
+  const summary = useMemo(() => {
+    const total = coupons.length;
+    const active = coupons.filter((c) => getStatus(c).label === "Đang hoạt động").length;
+    const used = coupons.reduce((acc, c) => acc + c._count.redemptions, 0);
+    const expiring = coupons.filter((c) => getStatus(c).label === "Sắp hết hạn").length;
+    return { total, active, used, expiring };
+  }, [coupons]);
 
-  if (isLoading) {
-    return <CouponsSkeleton />;
+  if (isLoading && !coupons.length) return <CouponsSkeleton />;
+
+  if (loadError && !coupons.length) {
+    return (
+      <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <h2 className="text-2xl font-extrabold text-slate-950">Không thể tải danh sách mã giảm giá</h2>
+        <p className="mt-2 text-sm text-slate-600">{loadError}</p>
+        <button type="button" onClick={() => void fetchCoupons()} className="mt-6 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Thử lại</button>
+      </section>
+    );
   }
 
   return (
-    <div className="space-y-8 overflow-x-hidden">
-      <section className="relative overflow-visible border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="pointer-events-none absolute -right-3 -top-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-                <TicketPercent className="h-7 w-7 text-black" />
-              </div>
-              <span className="inline-flex border-2 border-black bg-[#C7F0D8] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-black">COUPONS</span>
-            </div>
-            <h1 className="text-3xl font-black uppercase tracking-tight text-black md:text-4xl">MÃ GIẢM GIÁ</h1>
-            <p className="text-sm font-bold text-black/70 md:text-base">Quản lý chương trình khuyến mãi, mã ưu đãi cho người dùng.</p>
+    <div className="space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-1">
+      <TextFadeInUp as="section" className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">Quản trị ưu đãi</span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Mã giảm giá</h1>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">Tạo và quản lý mã ưu đãi, điều kiện áp dụng, thời hạn và hiệu quả sử dụng trong TzoShop.</p>
           </div>
-          <AppButton onClick={() => handleOpenModal()} variant="primary" className="h-12 border-4 border-black bg-[#FFD93D] px-5 font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] hover:-translate-y-0.5 hover:bg-[#FF6B6B] hover:shadow-[7px_7px_0px_0px_#000]">
-            <Plus className="mr-2 h-4 w-4" />
-            TẠO MÃ MỚI
-          </AppButton>
+          <div className="flex flex-wrap gap-3 lg:justify-end">
+            <CosmicButton onClick={() => handleOpenModal()}><Plus className="h-4 w-4" />Thêm mã giảm giá</CosmicButton>
+          </div>
         </div>
-      </section>
+      </TextFadeInUp>
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "TỔNG MÃ ĐÃ TẠO", value: coupons.length, bg: "bg-[#DBEAFE]" },
-          { label: "ĐANG HIỆU LỰC", value: activeCoupons, bg: "bg-[#C7F0D8]" },
-          { label: "TỔNG LƯỢT DÙNG", value: totalUses, bg: "bg-[#FFD93D]" },
-          { label: "MÃ TOÀN HỆ THỐNG", value: globalCoupons, bg: "bg-[#A78BFA]" },
-        ].map((s) => (
-          <article key={s.label} className="min-h-[130px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_#000]">
-            <div className="flex h-full flex-col justify-between">
-              <div className={`flex h-11 w-11 items-center justify-center border-4 border-black shadow-[3px_3px_0px_0px_#000] ${s.bg}`}>
-                <TicketPercent className="h-5 w-5 text-black" />
-              </div>
-              <div className="mt-4">
-                <p className="text-xs font-black uppercase tracking-[0.08em] text-black/70">{s.label}</p>
-                <p className="mt-3 text-3xl font-black leading-none text-black md:text-4xl">{s.value.toLocaleString("vi-VN")}</p>
-              </div>
-            </div>
-          </article>
+          { label: "Tổng mã giảm giá", value: summary.total, desc: "Tổng chương trình ưu đãi", cls: "bg-indigo-50 text-indigo-700" },
+          { label: "Đang hoạt động", value: summary.active, desc: "Mã có thể áp dụng", cls: "bg-emerald-50 text-emerald-700" },
+          { label: "Đã sử dụng", value: summary.used, desc: "Tổng lượt áp mã", cls: "bg-violet-50 text-violet-700" },
+          { label: "Sắp hết hạn", value: summary.expiring, desc: "Cần kiểm tra sớm", cls: "bg-amber-50 text-amber-700" },
+        ].map((card, i) => (
+          <TextFadeInUp key={card.label} delay={Math.min(i * 0.05, 0.25)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200">
+            <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", card.cls)}><TicketPercent className="h-5 w-5" /></div>
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
+            <p className="mt-3 text-2xl font-extrabold text-slate-950">{card.value.toLocaleString("vi-VN")}</p>
+            <p className="mt-2 text-sm text-slate-600">{card.desc}</p>
+          </TextFadeInUp>
         ))}
       </section>
 
-      <section className="space-y-4 border-4 border-black bg-white p-4 shadow-[7px_7px_0px_0px_#000] md:p-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1fr_190px_190px_auto]">
-          <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase tracking-[0.14em] text-black/60">Tìm kiếm</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/45" />
-              <input type="text" placeholder="Mã hoặc tên chương trình..." value={search} onChange={(e) => setSearch(e.target.value)} className={`${brutalInput} pl-10`} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase tracking-[0.14em] text-black/60">Phạm vi</label>
-            <select value={filterScope} onChange={(e) => setFilterScope(e.target.value)} className={brutalInput}>
-              <option value="ALL">Tất cả phạm vi</option>
-              <option value="GLOBAL">Toàn hệ thống</option>
-              <option value="ASSIGNED">Theo người dùng</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase tracking-[0.14em] text-black/60">Trạng thái</label>
-            <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)} className={brutalInput}>
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang hiệu lực</option>
-              <option value="SCHEDULED">Chưa bắt đầu</option>
-              <option value="EXPIRED">Hết hạn</option>
-              <option value="DISABLED">Đã tắt</option>
-              <option value="USEDUP">Đã dùng hết lượt</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase tracking-[0.14em] text-black/60">Hành động</label>
-            <AppButton
-              onClick={() => {
-                setSearch("");
-                setFilterScope("ALL");
-                setFilterActive("ALL");
-              }}
-              variant="secondary"
-              className="h-12 w-full border-4 border-black bg-white px-4 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              XÓA LỌC
-            </AppButton>
-          </div>
+      <TextFadeInUp as="section" delay={0.05} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+          <div className="relative lg:col-span-2"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo mã, tên chương trình hoặc mô tả..." className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-950 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" /></div>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="ALL">Tất cả</option><option value="ACTIVE">Đang hoạt động</option><option value="PAUSED">Tạm dừng</option><option value="EXPIRING">Sắp hết hạn</option><option value="EXPIRED">Hết hạn</option></select>
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TypeFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="ALL">Tất cả loại giảm</option><option value="PERCENT">Phần trăm</option></select>
+          <div className="grid grid-cols-2 gap-3"><select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="ALL">Tất cả</option><option value="GLOBAL">Toàn bộ gói</option><option value="ASSIGNED">Theo gói cụ thể</option></select><select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="NEWEST">Mới nhất</option><option value="EXPIRING_SOON">Sắp hết hạn</option><option value="MOST_USED">Lượt dùng nhiều</option><option value="HIGH_VALUE">Giá trị giảm cao</option></select></div>
         </div>
-        <p className="text-sm font-bold text-black/70">Đang hiển thị <span className="font-black text-black">{filteredCoupons.length}</span> mã</p>
-      </section>
+      </TextFadeInUp>
 
-      {isLoading ? (
-        <section className="space-y-4">
-          <div className="h-20 border-4 border-black bg-[#FFFDF5] p-4 shadow-[8px_8px_0px_0px_#000]">
-            <div className="h-full w-full animate-pulse bg-[#E9E1D0]" />
-          </div>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 border-4 border-black bg-[#FFFDF5] p-4 shadow-[6px_6px_0px_0px_#000]">
-              <div className="h-full w-full animate-pulse bg-[#E9E1D0]" />
-            </div>
-          ))}
-        </section>
-      ) : filteredCoupons.length === 0 ? (
-        <section className="flex min-h-[320px] flex-col items-center justify-center border-4 border-black bg-[#FFFDF5] p-8 text-center shadow-[8px_8px_0px_0px_#000]">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000]">
-            <TicketPercent className="h-7 w-7 text-black" />
-          </div>
-          <h4 className="text-xl font-black text-black">{coupons.length === 0 ? "CHƯA CÓ MÃ GIẢM GIÁ NÀO" : "KHÔNG TÌM THẤY MÃ GIẢM GIÁ"}</h4>
-          <p className="mt-2 text-sm font-bold text-black/60">
-            {coupons.length === 0
-              ? "Tạo mã ưu đãi đầu tiên để chạy chương trình khuyến mãi cho người dùng."
-              : "Thử đổi từ khóa, phạm vi hoặc trạng thái lọc."}
-          </p>
-          <div className="mt-4">
-            {coupons.length === 0 ? (
-              <AppButton onClick={() => handleOpenModal()} variant="primary" className="h-11 border-4 border-black bg-[#FFD93D] px-4 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]">
-                TẠO MÃ MỚI
-              </AppButton>
-            ) : (
-              <AppButton onClick={() => { setSearch(""); setFilterScope("ALL"); setFilterActive("ALL"); }} variant="secondary" className="h-11 border-4 border-black bg-white px-4 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]">
-                XÓA BỘ LỌC
-              </AppButton>
-            )}
-          </div>
+      {filteredCoupons.length === 0 ? (
+        <section className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><TicketPercent className="h-7 w-7" /></div>
+          <h2 className="text-2xl font-extrabold text-slate-950">Chưa có mã giảm giá</h2>
+          <p className="mt-2 text-sm text-slate-600">Tạo mã ưu đãi đầu tiên để hỗ trợ chương trình khuyến mãi hoặc chăm sóc khách hàng.</p>
+          <div className="mt-6 flex justify-center"><CosmicButton onClick={() => handleOpenModal()}><Plus className="h-4 w-4" />Thêm mã giảm giá</CosmicButton></div>
         </section>
       ) : (
-        <>
-          <section className="hidden overflow-hidden border-4 border-black bg-white p-4 shadow-[8px_8px_0px_0px_#000] lg:block md:p-5">
-            <div className="max-w-full overflow-x-auto">
-              <table className="w-full min-w-[980px] border-collapse text-left">
-                <thead>
-                  <tr className="border-b-4 border-black bg-[#FFFDF5]">
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Thông tin mã</th>
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Giảm</th>
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Điều kiện</th>
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Phạm vi</th>
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Lượt dùng</th>
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Trạng thái</th>
-                    <th className="px-4 py-4 text-right text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCoupons.map((coupon) => {
-                    const status = getCouponStatus(coupon);
-                    const usagePercent =
-                      coupon.usageLimitTotal && coupon.usageLimitTotal > 0
-                        ? Math.min(100, Math.round((coupon._count.redemptions / coupon.usageLimitTotal) * 100))
-                        : 0;
-                    return (
-                      <tr key={coupon.id} className="border-b-2 border-black/10 align-middle transition-colors hover:bg-[#FFF8D6]">
-                        <td className="px-4 py-4">
-                          <div className="min-w-0">
-                            <span className="inline-flex break-all border-2 border-black bg-[#FFD93D] px-3 py-1 text-xs font-black uppercase tracking-wide text-black shadow-[2px_2px_0px_0px_#000]">{coupon.code}</span>
-                            <p className="mt-2 text-base font-black text-black">{coupon.name}</p>
-                            {coupon.description ? <p className="line-clamp-2 text-sm font-bold text-black/60">{coupon.description}</p> : null}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="text-xl font-black text-black">{coupon.discountPercent}%</p>
-                          <span className="mt-1 inline-flex border-2 border-black bg-[#C7F0D8] px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">PERCENT</span>
-                          {coupon.maxDiscountVnd ? <p className="mt-1 text-xs font-bold text-black/60">Tối đa {formatVnd(coupon.maxDiscountVnd)}</p> : null}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="space-y-1 text-sm">
-                            <p><span className="font-bold text-black/60">Tối thiểu: </span><span className="font-black text-black">{formatVnd(coupon.minOrderAmount)}</span></p>
-                            <p><span className="font-bold text-black/60">Từ: </span><span className="font-black text-black">{coupon.startsAt ? format(new Date(coupon.startsAt), "dd/MM/yyyy") : "Không giới hạn"}</span></p>
-                            <p><span className="font-bold text-black/60">Đến: </span><span className="font-black text-black">{coupon.endsAt ? format(new Date(coupon.endsAt), "dd/MM/yyyy") : "Không giới hạn"}</span></p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className={cn("inline-flex border-2 border-black px-3 py-1 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]", scopeStyle(coupon.scope))}>
-                            {coupon.scope === "GLOBAL" ? "TOÀN HỆ THỐNG" : "THEO NGƯỜI DÙNG"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="text-sm font-black text-black">{coupon._count.redemptions} / {coupon.usageLimitTotal ?? "∞"}</p>
-                          {coupon.usageLimitTotal ? (
-                            <div className="mt-1 h-3 w-full max-w-[140px] border-2 border-black bg-white">
-                              <div className="h-full bg-[#C7F0D8]" style={{ width: `${usagePercent}%` }} />
-                            </div>
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className={cn("inline-flex h-8 items-center border-2 border-black px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]", status.bg)}>
-                            {status.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleOpenModal(coupon)}
-                              className="flex h-10 w-10 items-center justify-center border-2 border-black bg-white text-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#FFD93D]"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleActive(coupon)}
-                              title={coupon.isActive ? "Tắt mã" : "Bật mã"}
-                              className={cn(
-                                "flex h-10 w-10 items-center justify-center border-2 border-black text-black shadow-[2px_2px_0px_0px_#000]",
-                                coupon.isActive ? "bg-[#FF6B6B]" : "bg-[#C7F0D8]",
-                              )}
-                            >
-                              {coupon.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
+        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+          {filteredCoupons.map((coupon, i) => {
+            const status = getStatus(coupon);
+            const max = coupon.usageLimitTotal;
+            const used = coupon._count.redemptions;
+            const usagePercent = max && max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
+            const barClass = max && used >= max ? "from-slate-500 to-slate-600" : usagePercent >= 80 ? "from-amber-500 to-orange-500" : "from-indigo-600 to-violet-600";
+            return (
+              <TextFadeInUp key={coupon.id} delay={Math.min(i * 0.04, 0.25)} as="article" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_18px_45px_-22px_rgba(79,70,229,0.30)]">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="break-all text-xl font-extrabold text-slate-950">{coupon.code}</p>
+                  <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", status.className)}>{status.label}</span>
+                </div>
+                <p className="mt-2 text-sm font-semibold text-slate-900">{coupon.name}</p>
+                {coupon.description ? <p className="mt-1 line-clamp-2 text-sm text-slate-600">{coupon.description}</p> : null}
 
-          <section className="grid gap-4 lg:hidden">
-            {filteredCoupons.map((coupon) => {
-              const status = getCouponStatus(coupon);
-              return (
-                <article key={coupon.id} className="space-y-4 border-4 border-black bg-[#FFFDF5] p-4 shadow-[6px_6px_0px_0px_#000]">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="inline-flex break-all border-2 border-black bg-[#FFD93D] px-3 py-1 text-xs font-black uppercase tracking-wide text-black shadow-[2px_2px_0px_0px_#000]">{coupon.code}</span>
-                    <span className={cn("inline-flex h-8 items-center border-2 border-black px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]", status.bg)}>{status.label}</span>
-                  </div>
-                  <p className="text-base font-black text-black">{coupon.name}</p>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="border-2 border-black bg-white p-2">
-                      <p className="text-[11px] font-black uppercase text-black/60">Giảm</p>
-                      <p className="font-black text-black">{coupon.discountPercent}%</p>
-                    </div>
-                    <div className="border-2 border-black bg-white p-2">
-                      <p className="text-[11px] font-black uppercase text-black/60">Lượt dùng</p>
-                      <p className="font-black text-black">{coupon._count.redemptions} / {coupon.usageLimitTotal ?? "∞"}</p>
-                    </div>
-                    <div className="border-2 border-black bg-white p-2">
-                      <p className="text-[11px] font-black uppercase text-black/60">Phạm vi</p>
-                      <p className="font-black text-black">{coupon.scope === "GLOBAL" ? "Toàn hệ thống" : "Theo người dùng"}</p>
-                    </div>
-                    <div className="border-2 border-black bg-white p-2">
-                      <p className="text-[11px] font-black uppercase text-black/60">Đến ngày</p>
-                      <p className="font-black text-black">{coupon.endsAt ? format(new Date(coupon.endsAt), "dd/MM/yyyy") : "Không giới hạn"}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <AppButton onClick={() => handleOpenModal(coupon)} variant="secondary" className="h-10 border-2 border-black bg-white px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">SỬA</AppButton>
-                    <AppButton onClick={() => handleToggleActive(coupon)} variant="secondary" className={cn("h-10 border-2 border-black px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]", coupon.isActive ? "bg-[#FF6B6B]" : "bg-[#C7F0D8]")}>
-                      {coupon.isActive ? "TẮT" : "BẬT"}
-                    </AppButton>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-        </>
+                <div className="mt-4">
+                  <p className="text-3xl font-extrabold text-slate-950">{coupon.discountPercent}%</p>
+                  <p className="text-xs text-slate-500">Giảm theo phần trăm</p>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-700">
+                  <p><span className="font-semibold text-slate-900">Điều kiện áp dụng:</span> Tối thiểu {formatVnd(coupon.minOrderAmount)}</p>
+                  <p className="mt-1"><span className="font-semibold text-slate-900">Giảm tối đa:</span> {coupon.maxDiscountVnd == null ? "Không giới hạn" : formatVnd(coupon.maxDiscountVnd)}</p>
+                  <p className="mt-1"><span className="font-semibold text-slate-900">Phạm vi áp dụng:</span> {coupon.scope === "GLOBAL" ? "Toàn bộ gói" : "Theo gói cụ thể"}</p>
+                </div>
+
+                <div className="mt-4 text-sm text-slate-700">
+                  <p>Bắt đầu: <span className="font-semibold text-slate-900">{coupon.startsAt ? format(new Date(coupon.startsAt), "dd/MM/yyyy") : "Không giới hạn"}</span></p>
+                  <p className="mt-1">Hết hạn: <span className="font-semibold text-slate-900">{coupon.endsAt ? format(new Date(coupon.endsAt), "dd/MM/yyyy") : "Không giới hạn"}</span></p>
+                </div>
+
+                <div className="mt-4">
+                  {max ? (
+                    <>
+                      <p className="text-sm text-slate-700">Đã dùng {used}/{max} lượt</p>
+                      <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                        <div className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-300", barClass)} style={{ width: `${usagePercent}%` }} />
+                      </div>
+                    </>
+                  ) : (
+                    <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Không giới hạn lượt</span>
+                  )}
+                </div>
+
+                <div className="mt-5 grid grid-cols-[1fr_auto] gap-3">
+                  <button type="button" onClick={() => handleOpenModal(coupon)} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Sửa</button>
+                  <button type="button" onClick={() => handleToggleActive(coupon)} className={cn("inline-flex h-11 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition", coupon.isActive ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100")}>{coupon.isActive ? "Tạm dừng" : "Kích hoạt"}</button>
+                </div>
+              </TextFadeInUp>
+            );
+          })}
+        </section>
       )}
 
       <Modal
         open={isModalOpen}
-        title={editingId ? `Cập nhật mã: ${formData.code}` : "Tạo mã giảm giá mới"}
         onClose={() => setIsModalOpen(false)}
-        maxWidthClassName="max-w-3xl"
+        title={editingId ? "Cập nhật mã giảm giá" : "Thêm mã giảm giá"}
+        description="Thiết lập điều kiện áp dụng, phạm vi, thời hạn và giới hạn sử dụng."
+        maxWidthClassName="max-w-4xl"
+        footer={
+          <>
+            <button type="button" onClick={() => setIsModalOpen(false)} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Hủy</button>
+            <button type="submit" form="coupon-form" disabled={isSubmitting} className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-60">{isSubmitting ? "Đang lưu..." : "Lưu mã giảm giá"}</button>
+          </>
+        }
       >
-        <form onSubmit={handleSubmit} className="max-h-[90vh] space-y-6 overflow-y-auto bg-[#FFFDF5] p-6">
+        <form id="coupon-form" onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Mã giảm giá</label>
-              <input type="text" required value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} className={brutalInput} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Tên chương trình</label>
-              <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className={brutalInput} />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Mô tả</label>
-              <textarea rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="min-h-[110px] w-full border-4 border-black bg-white p-3 text-sm font-bold text-black shadow-[3px_3px_0px_0px_#000] outline-none" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Loại giảm</label>
-              <input type="text" disabled value="Phần trăm (%)" className={`${brutalInput} bg-[#E9E1D0]`} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Giá trị giảm (%)</label>
-              <input type="number" min={1} max={100} required value={formData.discountPercent} onChange={(e) => setFormData({ ...formData, discountPercent: e.target.value })} className={brutalInput} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Giảm tối đa (VNĐ)</label>
-              <input type="number" min={0} value={formData.maxDiscountVnd} onChange={(e) => setFormData({ ...formData, maxDiscountVnd: e.target.value })} className={brutalInput} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Đơn tối thiểu (VNĐ)</label>
-              <input type="number" min={0} required value={formData.minOrderAmount} onChange={(e) => setFormData({ ...formData, minOrderAmount: e.target.value })} className={brutalInput} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Ngày bắt đầu</label>
-              <input type="date" value={formData.startsAt} onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })} className={brutalInput} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Ngày kết thúc</label>
-              <input type="date" value={formData.endsAt} onChange={(e) => setFormData({ ...formData, endsAt: e.target.value })} className={brutalInput} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Số lượt dùng tối đa</label>
-              <input type="number" min={0} value={formData.usageLimitTotal} onChange={(e) => setFormData({ ...formData, usageLimitTotal: e.target.value })} className={brutalInput} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Mỗi user</label>
-              <input type="number" min={1} required value={formData.usageLimitPerUser} onChange={(e) => setFormData({ ...formData, usageLimitPerUser: e.target.value })} className={brutalInput} />
-            </div>
+            <Field label="Mã giảm giá" error={formErrors.code}><input value={formData.code} onChange={(e) => setFormData((f) => ({ ...f, code: e.target.value.toUpperCase() }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Tên chương trình" error={formErrors.name}><input value={formData.name} onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Mô tả" className="md:col-span-2"><textarea value={formData.description} onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))} className="min-h-28 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950" /></Field>
+            <Field label="Loại giảm"><select value="PERCENT" disabled className="h-12 w-full rounded-xl border border-slate-200 bg-slate-100 px-4 text-sm text-slate-500"><option>Phần trăm</option></select></Field>
+            <Field label="Giá trị giảm (%)" error={formErrors.discountPercent}><input type="number" min={0} max={100} value={formData.discountPercent} onChange={(e) => setFormData((f) => ({ ...f, discountPercent: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Giảm tối đa"><input type="number" min={0} value={formData.maxDiscountVnd} onChange={(e) => setFormData((f) => ({ ...f, maxDiscountVnd: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Đơn tối thiểu"><input type="number" min={0} value={formData.minOrderAmount} onChange={(e) => setFormData((f) => ({ ...f, minOrderAmount: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Ngày bắt đầu"><input type="date" value={formData.startsAt} onChange={(e) => setFormData((f) => ({ ...f, startsAt: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Ngày hết hạn" error={formErrors.endsAt}><input type="date" value={formData.endsAt} onChange={(e) => setFormData((f) => ({ ...f, endsAt: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Tổng lượt dùng tối đa"><input type="number" min={0} value={formData.usageLimitTotal} onChange={(e) => setFormData((f) => ({ ...f, usageLimitTotal: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Lượt dùng mỗi user" error={formErrors.usageLimitPerUser}><input type="number" min={1} value={formData.usageLimitPerUser} onChange={(e) => setFormData((f) => ({ ...f, usageLimitPerUser: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
           </div>
 
-          <div className="space-y-3 border-4 border-black bg-white p-4">
-            <label className="text-xs font-black uppercase tracking-[0.14em] text-black/60">Phạm vi áp dụng</label>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setFormData({ ...formData, scope: "GLOBAL" })} className={cn("h-10 border-2 border-black px-4 text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000]", formData.scope === "GLOBAL" ? "bg-[#A78BFA]" : "bg-white")}>
-                TOÀN HỆ THỐNG
-              </button>
-              <button type="button" onClick={() => setFormData({ ...formData, scope: "ASSIGNED" })} className={cn("h-10 border-2 border-black px-4 text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000]", formData.scope === "ASSIGNED" ? "bg-[#C7F0D8]" : "bg-white")}>
-                CHỈ ĐỊNH USER
-              </button>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Đối tượng áp dụng</p>
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+              <button type="button" onClick={() => { setFormData((f) => ({ ...f, audienceType: "ALL_USERS", scope: "GLOBAL", userIds: [] })); setSelectedUsers([]); }} className={cn("rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold", formData.audienceType === "ALL_USERS" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50")}><p>Tất cả người dùng</p><p className="mt-1 text-xs font-normal">Mọi tài khoản đều có thể sử dụng mã nếu đủ điều kiện.</p></button>
+              <button type="button" onClick={() => setFormData((f) => ({ ...f, audienceType: "SPECIFIC_USERS", scope: "ASSIGNED" }))} className={cn("rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold", formData.audienceType === "SPECIFIC_USERS" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50")}><p>Người dùng cụ thể</p><p className="mt-1 text-xs font-normal">Chỉ các tài khoản được chọn mới có thể sử dụng mã.</p></button>
+              <button type="button" onClick={() => setFormData((f) => ({ ...f, audienceType: "USER_GROUP", scope: "GLOBAL", userIds: [] }))} className={cn("rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold", formData.audienceType === "USER_GROUP" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50")}><p>Nhóm người dùng</p><p className="mt-1 text-xs font-normal">Áp dụng cho nhóm khách hàng theo điều kiện như người dùng mới, khách đã mua hàng hoặc admin chọn.</p></button>
             </div>
 
-            {formData.scope === "GLOBAL" && (
-              <div className="border-2 border-black bg-[#C7F0D8] p-3 text-sm font-bold text-black">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Mã này áp dụng cho toàn bộ người dùng thường.
-                </div>
-              </div>
-            )}
-
-            {formData.scope === "ASSIGNED" && (
-              <div className="space-y-3">
+            {formData.audienceType === "SPECIFIC_USERS" ? (
+              <div className="mt-4 space-y-3">
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Nhập email user..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearchUsers())}
-                    className={brutalInput}
-                  />
-                  <AppButton type="button" onClick={handleSearchUsers} isLoading={isSearchingUsers} variant="secondary" className="h-12 border-4 border-black bg-white px-4 font-black uppercase text-black shadow-[3px_3px_0px_0px_#000]">
-                    Tìm
-                  </AppButton>
+                  <input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Tìm theo tên hoặc email người dùng..." className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" />
+                  <button type="button" onClick={handleSearchUsers} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-indigo-50" disabled={isSearchingUsers}>{isSearchingUsers ? "Đang tìm..." : "Tìm"}</button>
                 </div>
-                {foundUsers.length > 0 && (
+                {foundUsers.length ? (
                   <div className="space-y-2">
-                    {foundUsers.map((user) => (
-                      <div key={user.id} className="flex items-center justify-between border-2 border-black bg-[#FFFDF5] p-2 text-sm">
-                        <span className="font-bold text-black">{user.email}</span>
-                        <button type="button" onClick={() => handleAddUser(user)} className="border-2 border-black bg-[#FFD93D] px-2 py-1 text-xs font-black uppercase">
-                          Thêm
-                        </button>
+                    {foundUsers.map((u) => (
+                      <div key={u.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 p-2">
+                        <span className="text-sm text-slate-700">{u.email}</span>
+                        <button type="button" onClick={() => { setFormData((f) => ({ ...f, userIds: [...f.userIds, u.id] })); setSelectedUsers((prev) => prev.some((x) => x.id === u.id) ? prev : [...prev, u]); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-indigo-50">Thêm</button>
                       </div>
                     ))}
                   </div>
-                )}
+                ) : null}
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Người dùng đã chọn</p>
                 <div className="flex flex-wrap gap-2">
-                  {formData.userIds.map((userId) => (
-                    <div key={userId} className="flex items-center gap-2 border-2 border-black bg-[#DBEAFE] px-2 py-1 text-xs font-black">
-                      <span className="break-all">{userId}</span>
-                      <button type="button" onClick={() => handleRemoveUser(userId)} className="inline-flex">
-                        <XCircle className="h-4 w-4" />
-                      </button>
-                    </div>
+                  {selectedUsers.map((user) => (
+                    <button key={user.id} type="button" onClick={() => { setSelectedUsers((prev) => prev.filter((x) => x.id !== user.id)); setFormData((f) => ({ ...f, userIds: f.userIds.filter((x) => x !== user.id) })); }} className="max-w-full rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      <span className="block max-w-[220px] truncate">{user.name || user.email}</span>
+                    </button>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-
-          <div className="flex flex-col justify-end gap-2 border-t-2 border-black/10 pt-4 sm:flex-row">
-            <AppButton type="button" onClick={() => setIsModalOpen(false)} variant="secondary" className="h-12 border-4 border-black bg-white px-6 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]">
-              Hủy
-            </AppButton>
-            <AppButton type="submit" variant="primary" className="h-12 border-4 border-black bg-[#FFD93D] px-6 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]">
-              {editingId ? "LƯU MÃ" : "TẠO MÃ"}
-            </AppButton>
+            ) : null}
+            {formData.audienceType === "USER_GROUP" ? (
+              <div className="mt-4 space-y-3">
+                <select
+                  value={formData.userGroup}
+                  onChange={(e) => setFormData((f) => ({ ...f, userGroup: e.target.value as UserGroup }))}
+                  disabled
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-100 px-4 text-sm text-slate-500"
+                >
+                  <option value="">Chọn nhóm người dùng</option>
+                  <option value="NEW_USERS">Người dùng mới</option>
+                  <option value="PURCHASED_USERS">Người dùng đã từng mua hàng</option>
+                  <option value="NEVER_PURCHASED">Người dùng chưa từng mua hàng</option>
+                  <option value="ACTIVE_PLAN">Người dùng có gói đang hoạt động</option>
+                  <option value="LOW_CREDITS">Người dùng sắp hết credits</option>
+                </select>
+                <p className="text-sm text-slate-600">Tính năng nhóm người dùng sẽ được cấu hình sau.</p>
+              </div>
+            ) : null}
           </div>
         </form>
       </Modal>
 
-      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
-      {confirmState && (
-        <ConfirmDialog
-          open={!!confirmState}
-          title={confirmState.title}
-          description={confirmState.description}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          type={confirmState.type}
-          isLoading={isConfirming}
-          onConfirm={handleConfirm}
-          onCancel={closeConfirm}
-        />
-      )}
+      {toast ? <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} /> : null}
+      {confirmState ? <ConfirmDialog open={Boolean(confirmState)} title={confirmState.title} description={confirmState.description} confirmLabel={confirmState.confirmLabel} cancelLabel={confirmState.cancelLabel} type={confirmState.type} isLoading={isConfirming} onConfirm={handleConfirm} onCancel={closeConfirm} /> : null}
+    </div>
+  );
+}
+
+function Field({ label, error, className, children }: { label: string; error?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</label>
+      {children}
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
     </div>
   );
 }

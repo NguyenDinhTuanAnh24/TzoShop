@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { ButtonHTMLAttributes, forwardRef } from "react";
+import { ButtonLoader } from "@/components/ui/app-loader";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "accent" | "secondary" | "danger" | "ghost" | "dark";
@@ -43,9 +44,7 @@ const AppButton = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         {...props}
       >
-        {isLoading ? (
-          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent shrink-0" />
-        ) : null}
+        {isLoading ? <span className="mr-2 shrink-0"><ButtonLoader variant={variant === "dark" ? "white" : "default"} /></span> : null}
         {!isLoading && leftIcon && <span className="mr-2 shrink-0">{leftIcon}</span>}
         {children}
         {!isLoading && rightIcon && <span className="ml-2 shrink-0">{rightIcon}</span>}

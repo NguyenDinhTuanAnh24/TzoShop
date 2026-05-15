@@ -27,7 +27,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
       <div
-        className={`w-full max-w-[calc(100vw-2rem)] ${maxWidthClassName} max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-[0_24px_80px_-28px_rgba(79,70,229,0.45)]`}
+        className={`w-full ${maxWidthClassName} overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_80px_-28px_rgba(79,70,229,0.45)]`}
       >
         <div className="flex items-center justify-between gap-4 border-b border-slate-100 p-5">
           <div>
@@ -44,9 +44,11 @@ export function Modal({
           </button>
         </div>
 
-        <div className="space-y-4 p-5 md:p-6">{children}</div>
+        <div className="max-h-[calc(100vh-14rem)] overflow-y-auto px-6 py-5">
+          <div className="space-y-4">{children}</div>
+        </div>
 
-        {footer ? <div className="flex flex-col-reverse gap-3 border-t border-slate-100 p-5 sm:flex-row sm:justify-end">{footer}</div> : null}
+        {footer ? <div className="flex flex-col-reverse gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:justify-end">{footer}</div> : null}
       </div>
     </div>
   );

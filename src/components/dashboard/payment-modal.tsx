@@ -37,6 +37,7 @@ type PaymentModalProps = {
 
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
+import { ButtonLoader } from "@/components/ui/app-loader";
 
 export function PaymentModal({ payment, onClose, onSuccess, onCancel, askConfirm }: PaymentModalProps) {
   const { toast, showToast, clearToast } = useToast(3000);
@@ -241,7 +242,7 @@ export function PaymentModal({ payment, onClose, onSuccess, onCancel, askConfirm
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-amber-500 font-bold">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                    <ButtonLoader variant="default" />
                     <span className="text-sm">Đang chờ thanh toán...</span>
                   </div>
                 )}

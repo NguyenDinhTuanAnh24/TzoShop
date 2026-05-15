@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { 
   ChevronLeft, 
@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { formatVnd } from "@/lib/format";
+import { PageLoader } from "@/components/ui/app-loader";
 
 type OrderDetail = {
   id: string;
@@ -56,7 +57,8 @@ type OrderDetail = {
   } | null;
 };
 
-export default function AdminOrderDetailPage({ params }: { params: { id: string } }) {
+export default function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast, showToast, clearToast } = useToast();
@@ -64,7 +66,12 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
   const fetchOrder = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/admin/orders/${params.id}`);
+      if (!id || id === "undefined") {
+        setOrder(null);
+        showToast("Không tìm thấy mã đơn hàng", "error");
+        return;
+      }
+      const res = await fetch(`/api/admin/orders/${id}`);
       const result = await res.json();
       if (!res.ok || result?.success !== true || result?.data == null) {
         setOrder(null);
@@ -78,7 +85,7 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
     } finally {
       setIsLoading(false);
     }
-  }, [params.id, showToast]);
+  }, [id, showToast]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -150,11 +157,7 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
   };
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
-      </div>
-    );
+    return <PageLoader label="Đang tải chi tiết đơn hàng..." />;
   }
 
   if (!order) {
@@ -428,5 +431,3 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
     </div>
   );
 }
-
-

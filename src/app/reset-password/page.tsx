@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LockKeyhole, ShieldCheck, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
+import { ButtonLoader } from "@/components/ui/app-loader";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -248,7 +249,7 @@ function ResetPasswordForm() {
                       className="inline-flex w-full items-center justify-center rounded-full !bg-[#0b7a63] px-6 py-4 text-base font-bold !text-white transition hover:opacity-90 disabled:opacity-50"
                     >
                       {isLoading ? (
-                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        <ButtonLoader variant="white" />
                       ) : (
                         "Cập nhật mật khẩu"
                       )}

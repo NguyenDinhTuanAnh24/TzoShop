@@ -28,7 +28,11 @@ export async function PATCH(
     if (body.durationDays !== undefined) updateData.durationDays = Number(body.durationDays);
     if (body.priceVnd !== undefined) updateData.priceVnd = Number(body.priceVnd);
     if (body.apiKeyLimit !== undefined) updateData.apiKeyLimit = Number(body.apiKeyLimit);
-    if (body.allowedModels !== undefined) updateData.allowedModels = body.allowedModels;
+    if (body.allowedModels !== undefined) {
+      updateData.allowedModels = Array.isArray(body.allowedModels)
+        ? body.allowedModels.map((item: unknown) => String(item).trim()).filter(Boolean)
+        : [];
+    }
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
     if (body.isPopular !== undefined) updateData.isPopular = body.isPopular;
     if (body.isContactOnly !== undefined) updateData.isContactOnly = body.isContactOnly;

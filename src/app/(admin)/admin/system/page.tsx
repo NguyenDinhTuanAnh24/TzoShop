@@ -1,28 +1,29 @@
 "use client";
 
-import { useEffect, useState, useCallback, ElementType } from "react";
-import {
-  Activity,
-  Database,
-  ShieldCheck,
-  Mail,
-  RefreshCw,
-  Layers,
-  Zap,
-  Cpu,
-  Globe,
-  CreditCard,
-  HeartPulse,
-  Receipt,
-  LockKeyhole,
-} from "lucide-react";
-import { AppButton } from "@/components/ui/app-button";
-import { Modal } from "@/components/ui/modal";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { ToastMessage } from "@/components/ui/toast-message";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState, type ElementType } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  CreditCard,
+  Database,
+  Globe,
+  HardDrive,
+  Mail,
+  ShieldCheck,
+  Siren,
+  Webhook,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Modal } from "@/components/ui/modal";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CosmicButton } from "@/components/ui/cosmic-button";
+import { TextFadeInUp } from "@/components/animations/text-fade-in-up";
+import { useToast } from "@/hooks/use-toast";
+import { ToastMessage } from "@/components/ui/toast-message";
 
 type StatusInfo = {
   status: "CONFIGURED" | "WARNING" | "MISSING" | "ERROR";
@@ -60,89 +61,58 @@ type SystemData = {
   }[];
 };
 
-type ConfigCardProps = {
+type ServiceCard = {
+  key: string;
   title: string;
-  status: boolean;
-  icon: ElementType;
   description: string;
-  detailKey: string;
-  details?: Record<string, StatusInfo | undefined>;
-  onSelect: (info: StatusInfo) => void;
+  status: StatusInfo["status"];
+  lastChecked: string;
+  icon: ElementType;
+  detail?: StatusInfo;
 };
 
-function statusLabel(status: StatusInfo["status"]) {
-  if (status === "CONFIGURED") return "ĐÃ CẤU HÌNH";
-  if (status === "WARNING") return "THIẾU CẤU HÌNH";
-  if (status === "ERROR") return "LỖI";
-  return "CHƯA KIỂM TRA";
+function mapStatusLabel(status: StatusInfo["status"]) {
+  if (status === "CONFIGURED") return "Hoạt động";
+  if (status === "WARNING") return "Cảnh báo";
+  if (status === "ERROR") return "Lỗi";
+  return "Chưa cấu hình";
 }
 
-function statusClass(status: StatusInfo["status"]) {
-  if (status === "CONFIGURED") return "bg-[#C7F0D8]";
-  if (status === "WARNING") return "bg-[#FFD93D]";
-  if (status === "ERROR") return "bg-[#FF6B6B]";
-  return "bg-[#E9E1D0]";
-}
-
-function statusIconBg(status: StatusInfo["status"]) {
-  if (status === "CONFIGURED") return "bg-[#C7F0D8]";
-  if (status === "WARNING") return "bg-[#FFD93D]";
-  if (status === "ERROR") return "bg-[#FF6B6B]";
-  return "bg-[#E9E1D0]";
-}
-
-function ConfigCard({ title, status, icon: Icon, description, detailKey, details, onSelect }: ConfigCardProps) {
-  const detail = details?.[detailKey] ?? null;
-  const currentStatus: StatusInfo["status"] = detail?.status || (status ? "CONFIGURED" : "MISSING");
-
-  return (
-    <article className="flex min-h-[170px] flex-col justify-between border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_#000]">
-      <div className="flex items-start justify-between gap-3">
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center border-4 border-black shadow-[3px_3px_0px_0px_#000] ${statusIconBg(currentStatus)}`}>
-          <Icon className="h-6 w-6 text-black" />
-        </div>
-        <span className={`inline-flex border-2 border-black px-2 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${statusClass(currentStatus)}`}>
-          {statusLabel(currentStatus)}
-        </span>
-      </div>
-      <div className="mt-4">
-        <h3 className="line-clamp-2 text-base font-black text-black">{title}</h3>
-        <p className="mt-2 line-clamp-2 text-sm font-bold text-black/65">{description}</p>
-      </div>
-      <div className="mt-4">
-        <button
-          onClick={() => detail && onSelect(detail)}
-          disabled={!detail}
-          className="h-8 border-2 border-black bg-white px-3 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#FFD93D] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          CHI TIẾT
-        </button>
-      </div>
-    </article>
-  );
+function mapStatusClass(status: StatusInfo["status"]) {
+  if (status === "CONFIGURED") return "border-emerald-100 bg-emerald-50 text-emerald-700";
+  if (status === "WARNING") return "border-amber-100 bg-amber-50 text-amber-700";
+  if (status === "ERROR") return "border-rose-100 bg-rose-50 text-rose-700";
+  return "border-slate-200 bg-slate-100 text-slate-600";
 }
 
 function SystemSkeleton() {
   return (
-    <div className="space-y-8" aria-hidden="true">
-      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="h-8 w-72 animate-pulse bg-[#E9E1D0]" />
-        <div className="mt-3 h-4 w-full max-w-[560px] animate-pulse bg-[#E9E1D0]" />
+    <div className="space-y-6" aria-hidden="true">
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <Skeleton className="h-5 w-40 rounded-full" />
+        <Skeleton className="mt-4 h-10 w-64 rounded-xl" />
+        <Skeleton className="mt-3 h-5 w-[640px] max-w-full rounded-full" />
       </section>
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="min-h-[170px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[6px_6px_0px_0px_#000]">
-            <div className="h-12 w-12 border-4 border-black bg-[#E9E1D0] animate-pulse" />
-            <div className="mt-4 h-4 w-40 bg-[#E9E1D0] animate-pulse" />
-            <div className="mt-3 h-3 w-48 bg-[#E9E1D0] animate-pulse" />
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Skeleton className="h-6 w-52 rounded-full" />
+        <Skeleton className="mt-4 h-10 w-80 rounded-xl" />
+      </section>
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Skeleton className="h-10 w-10 rounded-2xl" />
+            <Skeleton className="mt-5 h-4 w-28 rounded-full" />
+            <Skeleton className="mt-3 h-8 w-24 rounded-xl" />
           </div>
         ))}
       </section>
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="min-h-[170px] border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000]">
-            <div className="h-5 w-56 animate-pulse bg-[#E9E1D0]" />
-            <div className="mt-5 h-16 w-24 animate-pulse bg-[#E9E1D0]" />
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <Skeleton className="h-10 w-10 rounded-2xl" />
+            <Skeleton className="mt-4 h-5 w-40 rounded-full" />
+            <Skeleton className="mt-2 h-4 w-full rounded-full" />
+            <Skeleton className="mt-2 h-4 w-2/3 rounded-full" />
           </div>
         ))}
       </section>
@@ -155,29 +125,25 @@ export default function AdminSystemPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
   const [selectedConfig, setSelectedConfig] = useState<StatusInfo | null>(null);
-  const { toast, showToast, clearToast } = useToast();
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const { toast, showToast, clearToast } = useToast(3000);
 
   const fetchSystemStatus = useCallback(
     async (showLoading = true) => {
       try {
         if (showLoading) setIsLoading(true);
-
         const [resSystem, resStatus] = await Promise.all([fetch("/api/admin/system"), fetch("/api/admin/system-status")]);
-
         const [resultSystem, resultStatus] = await Promise.all([resSystem.json(), resStatus.json()]);
-
-        if (resultSystem.success) {
-          const combinedData = { ...resultSystem.data };
-          if (resultStatus.success) {
-            combinedData.details = resultStatus.data;
-          }
-          setData(combinedData);
-        } else {
-          showToast(resultSystem.message || "Lỗi khi tải trạng thái", "error");
+        if (!resSystem.ok || !resultSystem.success) {
+          showToast(resultSystem?.message || "Không thể tải trạng thái hệ thống", "error");
+          return;
         }
-      } catch (error) {
-        console.error("fetchSystemStatus failed:", error);
-        showToast("Lỗi hệ thống", "error");
+        const nextData = { ...resultSystem.data };
+        if (resStatus.ok && resultStatus.success) nextData.details = resultStatus.data;
+        setData(nextData);
+        setLastCheckedAt(new Date());
+      } catch {
+        showToast("Không thể tải trạng thái hệ thống", "error");
       } finally {
         if (showLoading) setIsLoading(false);
       }
@@ -185,293 +151,256 @@ export default function AdminSystemPage() {
     [showToast],
   );
 
-  const fetchDetailedStatus = useCallback(async () => {
+  const refetchHealth = useCallback(async () => {
     try {
       setIsChecking(true);
       const res = await fetch("/api/admin/system-status");
       const result = await res.json();
-      if (result.success) {
-        setData((prev) => (prev ? { ...prev, details: result.data } : null));
-        showToast("Đã cập nhật trạng thái hệ thống mới nhất", "success");
-      } else {
-        showToast(result.message || "Lỗi khi kiểm tra", "error");
+      if (!res.ok || !result.success) {
+        showToast("Không thể kiểm tra trạng thái hệ thống", "error");
+        return;
       }
-    } catch (error) {
-      console.error("fetchDetailedStatus failed:", error);
-      showToast("Lỗi khi kết nối API kiểm tra", "error");
+      setData((prev) => (prev ? { ...prev, details: result.data } : prev));
+      setLastCheckedAt(new Date());
+      showToast("Đã cập nhật trạng thái hệ thống", "success");
+    } catch {
+      showToast("Không thể kiểm tra trạng thái hệ thống", "error");
     } finally {
       setIsChecking(false);
     }
   }, [showToast]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void fetchSystemStatus();
-    }, 0);
+    const timer = window.setTimeout(() => void fetchSystemStatus(), 0);
     return () => window.clearTimeout(timer);
   }, [fetchSystemStatus]);
 
+  const serviceCards = useMemo<ServiceCard[]>(() => {
+    if (!data) return [];
+    const details = data.details || {};
+    const nowText = lastCheckedAt ? format(lastCheckedAt, "HH:mm:ss dd/MM/yyyy", { locale: vi }) : "Chưa kiểm tra";
+    return [
+      { key: "database", title: "Database", description: "Kết nối cơ sở dữ liệu chính.", status: details.database?.status || (data.dbConnected ? "CONFIGURED" : "ERROR"), lastChecked: nowText, icon: Database, detail: details.database },
+      { key: "auth", title: "Auth / Session", description: "Google OAuth và phiên đăng nhập.", status: details.googleAuth?.status || (data.config.googleOAuth ? "CONFIGURED" : "MISSING"), lastChecked: nowText, icon: ShieldCheck, detail: details.googleAuth },
+      { key: "storage", title: "Supabase Storage", description: "Lưu trữ file và avatar upload.", status: details.database?.status || (data.config.database ? "CONFIGURED" : "ERROR"), lastChecked: nowText, icon: HardDrive, detail: details.database },
+      { key: "payment", title: "Payment / PayOS", description: "Kết nối thanh toán PayOS.", status: details.payos?.status || (data.config.payos ? "CONFIGURED" : "MISSING"), lastChecked: nowText, icon: CreditCard, detail: details.payos },
+      { key: "email", title: "Email / Resend", description: "Gửi email thông báo hệ thống.", status: details.resend?.status || (data.config.resend ? "CONFIGURED" : "MISSING"), lastChecked: nowText, icon: Mail, detail: details.resend },
+      { key: "providers", title: "AI Providers", description: "Trạng thái providers và models.", status: data.stats.activeProviders > 0 ? "CONFIGURED" : "WARNING", lastChecked: nowText, icon: Globe, detail: { status: data.stats.activeProviders > 0 ? "CONFIGURED" : "WARNING", label: "Providers AI", message: data.stats.activeProviders > 0 ? `${data.stats.activeProviders} provider đang hoạt động.` : "Chưa có provider hoạt động." } },
+      { key: "webhook", title: "Webhook", description: "Theo dõi đồng bộ trạng thái thanh toán.", status: data.config.payos ? "CONFIGURED" : "MISSING", lastChecked: nowText, icon: Webhook, detail: { status: data.config.payos ? "CONFIGURED" : "MISSING", label: "Payment webhook", message: data.config.payos ? "Webhook có thể xử lý khi cấu hình PayOS đầy đủ." : "Thiếu cấu hình PayOS." } },
+    ];
+  }, [data, lastCheckedAt]);
+
+  const summary = useMemo(() => {
+    const ok = serviceCards.filter((s) => s.status === "CONFIGURED").length;
+    const warning = serviceCards.filter((s) => s.status === "WARNING" || s.status === "MISSING").length;
+    const error = serviceCards.filter((s) => s.status === "ERROR").length;
+    return { ok, warning, error };
+  }, [serviceCards]);
+
+  const overall = useMemo(() => {
+    if (summary.error > 0) return { label: "Một số dịch vụ đang gặp sự cố", cls: "text-rose-700", badge: "border-rose-100 bg-rose-50 text-rose-700", dot: "bg-rose-500" };
+    if (summary.warning > 0) return { label: "Hệ thống có cảnh báo cần kiểm tra", cls: "text-amber-700", badge: "border-amber-100 bg-amber-50 text-amber-700", dot: "bg-amber-500" };
+    return { label: "Hệ thống đang hoạt động ổn định", cls: "text-emerald-700", badge: "border-emerald-100 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" };
+  }, [summary]);
+
   if (isLoading && !data) return <SystemSkeleton />;
 
+  if (!data) {
+    return (
+      <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <h2 className="text-2xl font-extrabold text-slate-950">Không thể tải trạng thái hệ thống</h2>
+        <p className="mt-2 text-sm text-slate-600">Vui lòng thử lại sau ít phút.</p>
+      </section>
+    );
+  }
+
   return (
-    <div className="space-y-8 pb-12">
-      <section className="relative overflow-visible border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="pointer-events-none absolute -right-3 -top-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-                <HeartPulse className="h-7 w-7 text-black" />
-              </div>
-              <span className="inline-flex border-2 border-black bg-[#C7F0D8] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-black">
-                SYSTEM HEALTH
-              </span>
-            </div>
-            <h1 className="text-3xl font-black uppercase tracking-tight text-black md:text-4xl">TRẠNG THÁI HỆ THỐNG</h1>
-            <p className="text-sm font-bold text-black/70 md:text-base">
-              Kiểm tra cấu hình môi trường, dịch vụ và sức khỏe ứng dụng.
-            </p>
+    <div className="space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-1">
+      <TextFadeInUp as="section" className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">Giám sát hệ thống</span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Trạng thái hệ thống</h1>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">Theo dõi tình trạng dịch vụ, kết nối hạ tầng, thanh toán, email và các provider AI của TzoShop.</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <AppButton
-              onClick={fetchDetailedStatus}
-              disabled={isChecking || isLoading}
-              className="h-12 border-4 border-black bg-[#FF6B6B] px-5 font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] hover:-translate-y-0.5 hover:bg-[#FFD93D] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-            >
-              <ShieldCheck className={cn("mr-2 h-4 w-4", isChecking && "animate-pulse")} />
-              {isChecking ? "ĐANG KIỂM TRA..." : "KIỂM TRA HỆ THỐNG"}
-            </AppButton>
-            <AppButton
-              onClick={() => void fetchSystemStatus(true)}
-              disabled={isLoading}
-              className="h-12 border-4 border-black bg-white px-5 font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] hover:bg-[#FFD93D]"
-            >
-              <RefreshCw className={cn("mr-2 h-4 w-4", isLoading && "animate-spin")} />
-              LÀM MỚI
-            </AppButton>
+          <div className="flex flex-wrap gap-3 lg:justify-end">
+            <CosmicButton onClick={refetchHealth} disabled={isChecking}>
+              <ShieldCheck className="h-4 w-4" />
+              {isChecking ? "Đang kiểm tra..." : "Kiểm tra lại"}
+            </CosmicButton>
+            <Link href="/admin/providers" className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Providers</Link>
+            <Link href="/admin/audit-logs" className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Nhật ký hệ thống</Link>
           </div>
         </div>
+      </TextFadeInUp>
+
+      <TextFadeInUp as="section" delay={0.04} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Tổng quan hệ thống</p>
+            <h2 className={cn("mt-2 text-2xl font-extrabold", overall.cls)}>{overall.label}</h2>
+            <p className="mt-2 text-sm text-slate-600">Lần kiểm tra gần nhất: {lastCheckedAt ? format(lastCheckedAt, "HH:mm:ss dd/MM/yyyy", { locale: vi }) : "Chưa có dữ liệu"}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={cn("inline-flex rounded-full border px-3 py-1 text-sm font-semibold", overall.badge)}>Ổn định {summary.ok}</span>
+            <span className="inline-flex rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">Cảnh báo {summary.warning}</span>
+            <span className="inline-flex rounded-full border border-rose-100 bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-700">Lỗi {summary.error}</span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700">
+              <span className="relative flex h-3 w-3">
+                <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-30", overall.dot)} />
+                <span className={cn("relative inline-flex h-3 w-3 rounded-full", overall.dot)} />
+              </span>
+              Trạng thái realtime
+            </span>
+          </div>
+        </div>
+      </TextFadeInUp>
+
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Dịch vụ ổn định", value: summary.ok, icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-700" },
+          { label: "Có cảnh báo", value: summary.warning, icon: AlertTriangle, cls: "bg-amber-50 text-amber-700" },
+          { label: "Đang lỗi", value: summary.error, icon: Siren, cls: "bg-rose-50 text-rose-700" },
+          { label: "Lần kiểm tra gần nhất", value: lastCheckedAt ? format(lastCheckedAt, "HH:mm", { locale: vi }) : "--:--", icon: Clock3, cls: "bg-indigo-50 text-indigo-700" },
+        ].map((item, idx) => (
+          <TextFadeInUp key={item.label} delay={Math.min(idx * 0.05, 0.25)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200">
+            <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", item.cls)}><item.icon className="h-5 w-5" /></div>
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{item.label}</p>
+            <p className="mt-3 text-2xl font-extrabold text-slate-950">{typeof item.value === "number" ? item.value.toLocaleString("vi-VN") : item.value}</p>
+          </TextFadeInUp>
+        ))}
       </section>
 
-      {data ? (
-        <>
-          <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-            <ConfigCard
-              title="Cơ sở dữ liệu"
-              status={data.dbConnected}
-              icon={Database}
-              description="Kết nối cơ sở dữ liệu chính."
-              detailKey="database"
-              details={data.details}
-              onSelect={setSelectedConfig}
-            />
-            <ConfigCard
-              title="Cổng thanh toán PayOS"
-              status={data.config.payos}
-              icon={CreditCard}
-              description="Thanh toán trực tuyến."
-              detailKey="payos"
-              details={data.details}
-              onSelect={setSelectedConfig}
-            />
-            <ConfigCard
-              title="Dịch vụ Email"
-              status={data.config.resend}
-              icon={Mail}
-              description="Gửi email hệ thống qua Resend."
-              detailKey="resend"
-              details={data.details}
-              onSelect={setSelectedConfig}
-            />
-            <ConfigCard
-              title="Đăng nhập Google"
-              status={data.config.googleOAuth}
-              icon={Globe}
-              description="Google OAuth Login."
-              detailKey="googleAuth"
-              details={data.details}
-              onSelect={setSelectedConfig}
-            />
-            <ConfigCard
-              title="Mã hóa API Key"
-              status={data.config.encryptionSecret}
-              icon={LockKeyhole}
-              description="Bảo mật dữ liệu nhạy cảm."
-              detailKey="keyEncryption"
-              details={data.details}
-              onSelect={setSelectedConfig}
-            />
-          </section>
-
-          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <article className="relative min-h-[170px] overflow-hidden border-4 border-black bg-[#06130F] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-white/65">NHÀ CUNG CẤP ĐANG HOẠT ĐỘNG</p>
-              <p className="mt-4 text-5xl font-black leading-none text-[#C7F0D8]">{data.stats.activeProviders}</p>
-              <p className="mt-4 text-sm font-bold text-white/80">Sẵn sàng xử lý request</p>
-              <Cpu className="absolute -bottom-3 -right-3 h-24 w-24 text-white/10" />
-            </article>
-
-            <article className="relative min-h-[170px] overflow-hidden border-4 border-black bg-[#C7F0D8] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-black/65">MODELS ĐANG HOẠT ĐỘNG</p>
-              <p className="mt-4 text-5xl font-black leading-none text-black">{data.stats.activeModels}</p>
-              <p className="mt-4 text-sm font-bold text-black/80">Hỗ trợ qua Gateway</p>
-              <Zap className="absolute -bottom-3 -right-3 h-24 w-24 text-black/10" />
-            </article>
-          </section>
-
-          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <article className="min-h-[250px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[7px_7px_0px_0px_#000] md:p-6">
-              <header className="mb-5 flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[3px_3px_0px_0px_#000]">
-                  <Receipt className="h-4 w-4 text-black" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-black">THANH TOÁN GẦN ĐÂY</h3>
-                  <p className="text-sm font-bold text-black/65">Các giao dịch thanh toán đã được xác nhận gần đây.</p>
-                </div>
-              </header>
-
-              {data.recentOrders.length === 0 ? (
-                <div className="flex min-h-[150px] flex-col items-center justify-center text-center">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[3px_3px_0px_0px_#000]">
-                    <Receipt className="h-5 w-5 text-black" />
-                  </div>
-                  <p className="text-base font-black text-black">CHƯA CÓ THANH TOÁN GẦN ĐÂY</p>
-                  <p className="mt-1 text-sm font-bold text-black/60">Các giao dịch PAID mới nhất sẽ xuất hiện tại đây.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {data.recentOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between gap-3 border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_#000]">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-black">{order.user.email || "User"}</p>
-                        <p className="truncate text-xs font-bold text-black/65">{order.product.name}</p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-sm font-black text-black">{order.amountVnd.toLocaleString("vi-VN")}đ</p>
-                        <p className="text-[11px] font-bold text-black/60">{format(new Date(order.updatedAt), "HH:mm dd/MM", { locale: vi })}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </article>
-
-            <article className="min-h-[250px] border-4 border-black bg-[#FFFDF5] p-5 shadow-[7px_7px_0px_0px_#000] md:p-6">
-              <header className="mb-5 flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[3px_3px_0px_0px_#000]">
-                  <Layers className="h-4 w-4 text-black" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-black">SỬ DỤNG API GẦN NHẤT</h3>
-                  <p className="text-sm font-bold text-black/65">Các lượt gọi API gần đây qua hệ thống TzoShop.</p>
-                </div>
-              </header>
-
-              {data.recentUsage.length === 0 ? (
-                <div className="flex min-h-[150px] flex-col items-center justify-center text-center">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[3px_3px_0px_0px_#000]">
-                    <Activity className="h-5 w-5 text-black" />
-                  </div>
-                  <p className="text-base font-black text-black">CHƯA CÓ LƯỢT SỬ DỤNG NÀO</p>
-                  <p className="mt-1 text-sm font-bold text-black/60">Khi người dùng gọi API, thông tin sử dụng sẽ xuất hiện tại đây.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {data.recentUsage.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between gap-3 border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_#000]">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-black">{log.model}</p>
-                        <p className="truncate text-xs font-bold text-black/65">{log.user.email}</p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <span className={`inline-flex border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${log.status === "SUCCESS" ? "bg-[#C7F0D8]" : "bg-[#FF6B6B]"}`}>
-                          {log.status === "SUCCESS" ? "THÀNH CÔNG" : "THẤT BẠI"}
-                        </span>
-                        <p className="mt-1 text-[11px] font-bold text-black/60">{format(new Date(log.createdAt), "HH:mm:ss", { locale: vi })}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </article>
-          </section>
-        </>
-      ) : null}
-
-      {selectedConfig && (
-        <Modal open={!!selectedConfig} onClose={() => setSelectedConfig(null)} title="CHI TIẾT DỊCH VỤ" maxWidthClassName="max-w-2xl">
-          <div className="space-y-4 bg-[#FFFDF5] p-1">
-            <div className="border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000]">
-              <p className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Trạng thái</p>
-              <span className={`mt-2 inline-flex border-2 border-black px-3 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${statusClass(selectedConfig.status)}`}>
-                {statusLabel(selectedConfig.status)}
-              </span>
-              <p className="mt-3 text-sm font-bold text-black/75">{selectedConfig.message}</p>
-            </div>
-
-            <div className="border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000]">
-              <p className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Biến môi trường kiểm tra</p>
-              <div className="mt-3 space-y-2">
-                {selectedConfig.label === "Cơ sở dữ liệu" && (
-                  <>
-                    <EnvStatus label="DATABASE_URL" exists={true} />
-                    <EnvStatus label="Prisma Client" exists={selectedConfig.status === "CONFIGURED"} />
-                  </>
-                )}
-                {selectedConfig.label === "Cổng thanh toán PayOS" && (
-                  <>
-                    <EnvStatus label="PAYOS_CLIENT_ID" exists={selectedConfig.status === "CONFIGURED"} />
-                    <EnvStatus label="PAYOS_API_KEY" exists={selectedConfig.status === "CONFIGURED"} />
-                    <EnvStatus label="PAYOS_CHECKSUM_KEY" exists={selectedConfig.status === "CONFIGURED"} />
-                  </>
-                )}
-                {selectedConfig.label === "Dịch vụ Email" && (
-                  <>
-                    <EnvStatus label="RESEND_API_KEY" exists={selectedConfig.status === "CONFIGURED" || selectedConfig.status === "WARNING"} />
-                    <EnvStatus label="RESET_PASSWORD_FROM_EMAIL" exists={selectedConfig.status === "CONFIGURED"} />
-                  </>
-                )}
-                {selectedConfig.label === "Đăng nhập Google" && (
-                  <>
-                    <EnvStatus label="GOOGLE_CLIENT_ID" exists={selectedConfig.status === "CONFIGURED"} />
-                    <EnvStatus label="GOOGLE_CLIENT_SECRET" exists={selectedConfig.status === "CONFIGURED"} />
-                  </>
-                )}
-                {selectedConfig.label === "Mã hóa API Key" && (
-                  <>
-                    <EnvStatus label="API_KEY_ENCRYPTION_SECRET" exists={selectedConfig.status === "CONFIGURED"} />
-                  </>
-                )}
+      <TextFadeInUp as="section" delay={0.08} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5">
+          <h3 className="text-xl font-extrabold text-slate-950">Dịch vụ chính</h3>
+          <p className="mt-1 text-sm text-slate-600">Theo dõi trạng thái các thành phần quan trọng trong hệ thống.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {serviceCards.map((service, i) => (
+            <TextFadeInUp key={service.key} delay={Math.min(i * 0.04, 0.25)} as="article" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_18px_45px_-22px_rgba(79,70,229,0.30)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700"><service.icon className="h-5 w-5" /></div>
+                <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", mapStatusClass(service.status))}>{mapStatusLabel(service.status)}</span>
               </div>
+              <h4 className="mt-4 text-lg font-extrabold text-slate-950">{service.title}</h4>
+              <p className="mt-1 text-sm text-slate-600">{service.description}</p>
+              <p className="mt-3 text-xs text-slate-500">Lần kiểm tra: {service.lastChecked}</p>
+              <div className="mt-4 flex gap-2">
+                <button type="button" onClick={() => service.detail && setSelectedConfig(service.detail)} className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.98]">
+                  Chi tiết
+                </button>
+              </div>
+            </TextFadeInUp>
+          ))}
+        </div>
+      </TextFadeInUp>
+
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <TextFadeInUp as="article" delay={0.1} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-xl font-extrabold text-slate-950">Trạng thái providers AI</h3>
+          <p className="mt-1 text-sm text-slate-600">Theo dõi số provider và model đang hoạt động.</p>
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <div>
+                <p className="font-semibold text-slate-900">Providers hoạt động</p>
+                <p className="text-sm text-slate-600">{data.stats.activeProviders} providers</p>
+              </div>
+              <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", data.stats.activeProviders > 0 ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-amber-100 bg-amber-50 text-amber-700")}>
+                {data.stats.activeProviders > 0 ? "Hoạt động" : "Cảnh báo"}
+              </span>
             </div>
-
-            <AppButton onClick={() => setSelectedConfig(null)} className="h-11 border-4 border-black bg-white px-4 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]">
-              ĐÓNG
-            </AppButton>
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <div>
+                <p className="font-semibold text-slate-900">Models hoạt động</p>
+                <p className="text-sm text-slate-600">{data.stats.activeModels} models</p>
+              </div>
+              <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", data.stats.activeModels > 0 ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-amber-100 bg-amber-50 text-amber-700")}>
+                {data.stats.activeModels > 0 ? "Hoạt động" : "Cảnh báo"}
+              </span>
+            </div>
           </div>
-        </Modal>
-      )}
+          <Link href="/admin/providers" className="mt-5 inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Quản lý providers</Link>
+        </TextFadeInUp>
 
-      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
-    </div>
-  );
-}
+        <TextFadeInUp as="article" delay={0.12} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-xl font-extrabold text-slate-950">Thanh toán và webhook</h3>
+          <p className="mt-1 text-sm text-slate-600">Giám sát PayOS và đồng bộ trạng thái đơn hàng.</p>
+          <div className="mt-5 space-y-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <p className="font-semibold text-slate-900">PayOS API</p>
+              <p className="mt-1 text-sm text-slate-600">{data.details?.payos?.message || "Chưa có dữ liệu kiểm tra."}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <p className="font-semibold text-slate-900">Payment webhook</p>
+              <p className="mt-1 text-sm text-slate-600">Theo dõi trạng thái webhook qua cấu hình PayOS.</p>
+            </div>
+          </div>
+          <Link href="/admin/orders" className="mt-5 inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Xem đơn hàng</Link>
+        </TextFadeInUp>
+      </section>
 
-function EnvStatus({ label, exists }: { label: string; exists: boolean }) {
-  return (
-    <div className="flex items-center justify-between border-2 border-black bg-[#FFFDF5] px-3 py-2">
-      <span className="max-w-[65%] truncate font-mono text-xs font-bold text-black" title={label}>
-        {label}
-      </span>
-      <span
-        className={cn(
-          "inline-flex border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]",
-          exists ? "bg-[#C7F0D8]" : "bg-[#FF6B6B]",
-        )}
+      <TextFadeInUp as="section" delay={0.14} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="text-xl font-extrabold text-slate-950">Lưu trữ và email</h3>
+        <p className="mt-1 text-sm text-slate-600">Trạng thái dịch vụ gửi email và lưu trữ file.</p>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <p className="font-semibold text-slate-900">Supabase Storage</p>
+            <p className="mt-1 text-sm text-slate-600">{data.details?.database?.status === "CONFIGURED" ? "Storage có thể hoạt động khi database ổn định." : "Cần kiểm tra cấu hình storage."}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <p className="font-semibold text-slate-900">Resend Email</p>
+            <p className="mt-1 text-sm text-slate-600">{data.details?.resend?.message || "Chưa có dữ liệu kiểm tra email."}</p>
+          </div>
+        </div>
+      </TextFadeInUp>
+
+      <TextFadeInUp as="section" delay={0.16} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="text-xl font-extrabold text-slate-950">Cảnh báo gần đây</h3>
+        <div className="mt-4 space-y-3">
+          {serviceCards.filter((s) => s.status !== "CONFIGURED").length === 0 ? (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="font-semibold text-emerald-700">Không có cảnh báo mới</p>
+              <p className="mt-1 text-sm text-emerald-700/80">Các dịch vụ chính đang hoạt động ổn định.</p>
+            </div>
+          ) : (
+            serviceCards
+              .filter((s) => s.status !== "CONFIGURED")
+              .map((s) => (
+                <div key={s.key} className={cn("rounded-2xl border p-4", s.status === "ERROR" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50")}>
+                  <p className={cn("font-semibold", s.status === "ERROR" ? "text-rose-700" : "text-amber-700")}>{s.title}</p>
+                  <p className={cn("mt-1 text-sm", s.status === "ERROR" ? "text-rose-700/80" : "text-amber-700/80")}>{s.detail?.message || s.description}</p>
+                </div>
+              ))
+          )}
+        </div>
+      </TextFadeInUp>
+
+      <Modal
+        open={Boolean(selectedConfig)}
+        onClose={() => setSelectedConfig(null)}
+        title="Chi tiết health check"
+        description="Thông tin trạng thái dịch vụ gần nhất."
+        maxWidthClassName="max-w-2xl"
       >
-        {exists ? "ĐÃ CẤU HÌNH" : "THIẾU CẤU HÌNH"}
-      </span>
+        {selectedConfig ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dịch vụ</p>
+              <p className="mt-1 text-lg font-extrabold text-slate-950">{selectedConfig.label}</p>
+              <span className={cn("mt-3 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", mapStatusClass(selectedConfig.status))}>{mapStatusLabel(selectedConfig.status)}</span>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chi tiết</p>
+              <p className="mt-2 text-sm leading-6 text-slate-700 break-words">{selectedConfig.message}</p>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      {toast ? <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} /> : null}
     </div>
   );
 }

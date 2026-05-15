@@ -2,25 +2,51 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
 import { CouponScope, UserRole } from "@prisma/client";
+import { buildPagination, getPagination } from "@/lib/pagination";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await requireAdminUser();
 
-    const coupons = await prisma.coupon.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        _count: {
-          select: {
-            assignments: true,
-            redemptions: true
+    const { searchParams } = new URL(request.url);
+    const { page, pageSize, skip, take } = getPagination(searchParams);
+    const search = searchParams.get("search")?.trim() || "";
+    const where = search
+      ? {
+          OR: [
+            { code: { contains: search, mode: "insensitive" as const } },
+            { name: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
+    const [total, coupons] = await Promise.all([
+      prisma.coupon.count({ where }),
+      prisma.coupon.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+        include: {
+          _count: {
+            select: {
+              assignments: true,
+              redemptions: true
+            }
           }
         }
-      }
-    });
+      }),
+    ]);
 
-    return NextResponse.json({ success: true, data: coupons });
+    return NextResponse.json({ success: true, data: coupons, items: coupons, pagination: buildPagination({ page, pageSize, total }) });
   } catch (error: unknown) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     const message = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ error: { message } }, { status: 500 });
   }
@@ -125,6 +151,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: coupon });
   } catch (error: unknown) {
+    if (error instanceof Error) {
+      if (error.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
+      }
+      if (error.message === "FORBIDDEN") {
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
+      }
+    }
     console.error("Coupon creation error:", error);
     const message = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ error: { message } }, { status: 500 });

@@ -2,27 +2,47 @@ import { ApiFamily } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
+import { buildPagination, getPagination } from "@/lib/pagination";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await requireAdminUser();
 
-    const products = await prisma.product.findMany({
-      orderBy: [
-        { apiFamily: "asc" },
-        { priceVnd: "asc" }
-      ],
-    });
+    const { searchParams } = new URL(request.url);
+    const { page, pageSize, skip, take } = getPagination(searchParams);
+    const search = searchParams.get("search")?.trim() || "";
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" as const } },
+            { slug: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
 
-    // Convert BigInt to string for JSON
-    const data = products.map(p => ({
+    const [total, products] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        orderBy: [{ apiFamily: "asc" }, { priceVnd: "asc" }],
+        skip,
+        take,
+      }),
+    ]);
+
+    const data = products.map((p) => ({
       ...p,
-      credits: p.credits.toString()
+      credits: p.credits.toString(),
     }));
 
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({
+      success: true,
+      data,
+      items: data,
+      pagination: buildPagination({ page, pageSize, total }),
+    });
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "UNAUTHORIZED") {
@@ -59,14 +79,17 @@ export async function POST(request: NextRequest) {
       isContactOnly,
     } = body;
 
+    const normalizedAllowedModels = Array.isArray(allowedModels)
+      ? allowedModels.map((item: unknown) => String(item).trim()).filter(Boolean)
+      : [];
+
     if (!name || !apiFamily || !durationDays || (!isContactOnly && priceVnd === undefined)) {
       return NextResponse.json(
-        { success: false, message: "Thiếu thông tin bắt buộc." },
+        { success: false, message: "Thi?u thông tin b?t bu?c." },
         { status: 400 }
       );
     }
 
-    // Tự sinh slug nếu không có
     let slug = providedSlug;
     if (!slug) {
       const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -84,12 +107,12 @@ export async function POST(request: NextRequest) {
         durationDays: Number(durationDays),
         priceVnd: Number(priceVnd || 0),
         apiKeyLimit: Number(apiKeyLimit || 1),
-        allowedModels: allowedModels || [],
+        allowedModels: normalizedAllowedModels,
         allowedReasoning: [],
         isActive: isActive !== undefined ? isActive : true,
         isPopular: isPopular !== undefined ? isPopular : false,
         isContactOnly: isContactOnly !== undefined ? isContactOnly : false,
-      }
+      },
     });
 
     const { createAuditLog } = await import("@/lib/server/audit-log");
@@ -97,17 +120,16 @@ export async function POST(request: NextRequest) {
       action: "CREATE",
       entityType: "PRODUCT",
       entityId: newProduct.id,
-      metadata: { name: newProduct.name, apiFamily: newProduct.apiFamily }
+      metadata: { name: newProduct.name, apiFamily: newProduct.apiFamily },
     });
 
     return NextResponse.json({
       success: true,
       data: {
         ...newProduct,
-        credits: newProduct.credits.toString()
-      }
+        credits: newProduct.credits.toString(),
+      },
     });
-
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "UNAUTHORIZED") {
@@ -124,3 +146,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

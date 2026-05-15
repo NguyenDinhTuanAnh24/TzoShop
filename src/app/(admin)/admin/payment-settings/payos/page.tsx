@@ -18,6 +18,7 @@ import { ui } from "@/lib/ui-tokens";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
+import { AppLoader, ButtonLoader } from "@/components/ui/app-loader";
 
 export default function PayOSSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -93,7 +94,7 @@ export default function PayOSSettingsPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#00d4a4] border-t-transparent" />
+        <AppLoader size="lg" />
         <p className={cn(ui.label, "animate-pulse")}>Đang tải cấu hình...</p>
       </div>
     );
@@ -227,7 +228,7 @@ export default function PayOSSettingsPage() {
               className="w-full sm:w-auto px-10 h-[56px]"
             >
               {isSaving ? (
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <ButtonLoader variant="white" />
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />

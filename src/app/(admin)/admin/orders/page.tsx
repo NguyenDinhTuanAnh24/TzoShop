@@ -1,24 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  CheckCircle2,
-  ChevronRight,
-  CreditCard,
-  FileText,
-  Inbox,
-  ReceiptText,
-  RefreshCw,
-  Search,
-  ShoppingCart,
-  XCircle,
-} from "lucide-react";
-import { formatVnd } from "@/lib/format";
-import AdminStatCard from "@/components/admin/admin-stat-card";
 import { format } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
+import { CheckCircle2, Eye, RefreshCw, Search, ShoppingCart, Wallet } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TextFadeInUp } from "@/components/animations/text-fade-in-up";
+import { ConfirmDialog } from "@/components/ui/confirm-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
+import { useConfirm } from "@/hooks/use-confirm";
+import { useToast } from "@/hooks/use-toast";
+import { formatVnd } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { CosmicButton } from "@/components/ui/cosmic-button";
 
 type OrderItem = {
   id: string;
@@ -41,52 +35,60 @@ type OrderItem = {
   discountAmount?: number;
 };
 
+type StatusFilter = "ALL" | "PENDING" | "PAID" | "CANCELLED" | "EXPIRED";
+type FamilyFilter = "ALL" | "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
+type TimeFilter = "ALL" | "TODAY" | "7D" | "30D" | "MONTH";
+type SortFilter = "NEWEST" | "OLDEST" | "PRICE_HIGH" | "PRICE_LOW";
+
 function statusLabel(status: string) {
-  if (status === "PENDING") return "CHỜ THANH TOÁN";
-  if (status === "PAID") return "ĐÃ THANH TOÁN";
-  if (status === "CANCELLED") return "ĐÃ HỦY";
-  if (status === "EXPIRED") return "HẾT HẠN";
-  return status;
+  if (status === "PENDING") return "Chờ thanh toán";
+  if (status === "PAID") return "Đã thanh toán";
+  if (status === "CANCELLED") return "Đã hủy";
+  if (status === "EXPIRED") return "Hết hạn";
+  return "Đang xử lý";
 }
 
-function statusBg(status: string) {
-  if (status === "PENDING") return "bg-[#FFD93D]";
-  if (status === "PAID") return "bg-[#C7F0D8]";
-  if (status === "CANCELLED") return "bg-[#FF6B6B]";
-  return "bg-[#E9E1D0]";
+function statusClass(status: string) {
+  if (status === "PAID") return "border-emerald-100 bg-emerald-50 text-emerald-700";
+  if (status === "PENDING") return "border-amber-100 bg-amber-50 text-amber-700";
+  if (status === "CANCELLED") return "border-rose-100 bg-rose-50 text-rose-700";
+  if (status === "EXPIRED") return "border-slate-200 bg-slate-100 text-slate-600";
+  return "border-indigo-100 bg-indigo-50 text-indigo-700";
 }
 
-function familyBg(family: string) {
-  if (family === "CODEXAI") return "bg-[#C7F0D8]";
-  if (family === "CLAUDE") return "bg-[#FFD93D]";
-  if (family === "GEMINI") return "bg-[#A78BFA]";
-  if (family === "DEEPSEEK") return "bg-[#FF6B6B]";
-  return "bg-[#93C5FD]";
+function familyClass(family: string) {
+  if (family === "CODEXAI") return "border-indigo-100 bg-indigo-50 text-indigo-700";
+  if (family === "CLAUDE") return "border-orange-100 bg-orange-50 text-orange-700";
+  if (family === "GEMINI") return "border-sky-100 bg-sky-50 text-sky-700";
+  if (family === "DEEPSEEK") return "border-violet-100 bg-violet-50 text-violet-700";
+  return "border-slate-200 bg-slate-100 text-slate-700";
+}
+
+function getInitials(name?: string, email?: string) {
+  const source = (name || email || "K").trim();
+  return source[0]?.toUpperCase() || "K";
 }
 
 function OrdersSkeleton() {
   return (
     <div className="space-y-6" aria-hidden="true">
-      <div className="h-36 border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000]">
-        <div className="h-8 w-64 animate-pulse bg-[#E9E1D0]" />
-      </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <Skeleton className="h-5 w-36 rounded-full" />
+        <Skeleton className="mt-4 h-10 w-52 rounded-xl" />
+        <Skeleton className="mt-3 h-5 w-[620px] max-w-full rounded-full" />
+      </section>
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-28 border-4 border-black bg-[#FFFDF5] p-4 shadow-[5px_5px_0px_0px_#000]">
-            <div className="h-full w-full animate-pulse bg-[#E9E1D0]" />
+          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Skeleton className="h-10 w-10 rounded-2xl" />
+            <Skeleton className="mt-5 h-4 w-28 rounded-full" />
+            <Skeleton className="mt-3 h-8 w-32 rounded-xl" />
           </div>
         ))}
-      </div>
-      <div className="h-36 border-4 border-black bg-white p-4 shadow-[7px_7px_0px_0px_#000]">
-        <div className="h-full w-full animate-pulse bg-[#E9E1D0]" />
-      </div>
-      <div className="space-y-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-24 border-4 border-black bg-[#FFFDF5] p-4 shadow-[6px_6px_0px_0px_#000]">
-            <div className="h-full w-full animate-pulse bg-[#E9E1D0]" />
-          </div>
-        ))}
-      </div>
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <Skeleton className="h-11 w-full rounded-xl" />
+      </section>
     </div>
   );
 }
@@ -94,375 +96,205 @@ function OrdersSkeleton() {
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  const [filterStatus, setFilterStatus] = useState("ALL");
-  const [filterEmail, setFilterEmail] = useState("");
-  const [filterStartDate, setFilterStartDate] = useState("");
-  const [filterEndDate, setFilterEndDate] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [familyFilter, setFamilyFilter] = useState<FamilyFilter>("ALL");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("ALL");
+  const [sortFilter, setSortFilter] = useState<SortFilter>("NEWEST");
   const { toast, showToast, clearToast } = useToast();
+  const { confirmState, isConfirming, askConfirm, closeConfirm, handleConfirm } = useConfirm();
 
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-      const params = new URLSearchParams();
-      if (filterStatus !== "ALL") params.append("status", filterStatus);
-      if (filterEmail) params.append("email", filterEmail);
-      if (filterStartDate) params.append("startDate", filterStartDate);
-      if (filterEndDate) params.append("endDate", filterEndDate);
-      const res = await fetch(`/api/admin/orders?${params.toString()}`);
+      setLoadError(null);
+      const res = await fetch("/api/admin/orders", { cache: "no-store" });
       const result = await res.json();
-      if (result.success) setOrders(result.data);
-    } catch (error) {
-      console.error(error);
+      if (!res.ok || !result.success) throw new Error();
+      setOrders(result.data || []);
+    } catch {
+      setLoadError("Vui lòng thử lại sau ít phút.");
     } finally {
       setIsLoading(false);
     }
-  }, [filterStatus, filterEmail, filterStartDate, filterEndDate]);
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchOrders();
-    }, 0);
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(() => void fetchOrders(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchOrders]);
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-    // Confirmation handled by custom UI flow in future refactor.
-
-    try {
-      const res = await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, status: newStatus }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        showToast("Đã cập nhật trạng thái đơn hàng.", "success");
-        void fetchOrders();
-      }
-    } catch {
-      showToast("Không thể cập nhật trạng thái.", "error");
-    }
+    const res = await fetch("/api/admin/orders", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId, status: newStatus }),
+    });
+    const result = await res.json();
+    if (res.ok && result.success) {
+      showToast("Đã cập nhật trạng thái đơn hàng.", "success");
+      void fetchOrders();
+    } else showToast("Không thể cập nhật trạng thái.", "error");
   };
 
   const handleVerifyPayment = async (orderId: string) => {
-    try {
-      showToast("Đang kiểm tra với PayOS...", "info");
-      const res = await fetch(`/api/admin/orders/${orderId}/verify`, {
-        method: "POST",
-      });
-      const result = await res.json();
-      if (result.success) {
-        showToast(result.message, result.status === "PAID" ? "success" : "info");
-        if (result.status === "PAID") void fetchOrders();
-      } else {
-        showToast(result.message, "error");
-      }
-    } catch {
-      showToast("Lỗi khi gọi API kiểm tra.", "error");
-    }
+    showToast("Đang kiểm tra thanh toán...", "info");
+    const res = await fetch(`/api/admin/orders/${orderId}/verify`, { method: "POST" });
+    const result = await res.json();
+    if (res.ok && result.success) {
+      showToast(result.message || "Đã kiểm tra thanh toán.", result.status === "PAID" ? "success" : "info");
+      void fetchOrders();
+    } else showToast(result.message || "Lỗi kiểm tra thanh toán.", "error");
   };
 
-  const filteredOrders = orders.filter((o) => {
-    if (!search) return true;
-    return o.orderCode.toLowerCase().includes(search.toLowerCase()) || o.user.email.toLowerCase().includes(search.toLowerCase());
-  });
+  const filteredOrders = useMemo(() => {
+    const now = new Date();
+    const list = orders
+      .filter((o) => {
+        const kw = search.trim().toLowerCase();
+        if (!kw) return true;
+        return (
+          o.orderCode.toLowerCase().includes(kw) ||
+          o.user.email.toLowerCase().includes(kw) ||
+          (o.product?.name || "").toLowerCase().includes(kw)
+        );
+      })
+      .filter((o) => (statusFilter === "ALL" ? true : o.status === statusFilter))
+      .filter((o) => (familyFilter === "ALL" ? true : o.product?.apiFamily === familyFilter))
+      .filter((o) => {
+        if (timeFilter === "ALL") return true;
+        const createdAt = new Date(o.createdAt).getTime();
+        if (timeFilter === "TODAY") {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          return createdAt >= today;
+        }
+        if (timeFilter === "7D") return createdAt >= now.getTime() - 7 * 24 * 60 * 60 * 1000;
+        if (timeFilter === "30D") return createdAt >= now.getTime() - 30 * 24 * 60 * 60 * 1000;
+        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        return createdAt >= startMonth;
+      });
 
-  const totalRevenue = useMemo(() => orders.reduce((acc, o) => (o.status === "PAID" ? acc + o.amountVnd : acc), 0), [orders]);
-  const totalOrders = orders.length;
-  const paidOrders = orders.filter((o) => o.status === "PAID").length;
-  const pendingOrders = orders.filter((o) => o.status === "PENDING").length;
-  const cancelledExpired = orders.filter((o) => o.status === "CANCELLED" || o.status === "EXPIRED").length;
+    if (sortFilter === "OLDEST") return [...list].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+    if (sortFilter === "PRICE_HIGH") return [...list].sort((a, b) => b.amountVnd - a.amountVnd);
+    if (sortFilter === "PRICE_LOW") return [...list].sort((a, b) => a.amountVnd - b.amountVnd);
+    return [...list].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  }, [orders, search, statusFilter, familyFilter, timeFilter, sortFilter]);
 
-  if (isLoading && orders.length === 0) return <OrdersSkeleton />;
+  const summary = useMemo(() => {
+    const total = orders.length;
+    const paid = orders.filter((o) => o.status === "PAID").length;
+    const pending = orders.filter((o) => o.status === "PENDING").length;
+    const totalRevenue = orders.reduce((acc, o) => (o.status === "PAID" ? acc + o.amountVnd : acc), 0);
+    return { total, paid, pending, totalRevenue };
+  }, [orders]);
+
+  if (isLoading && !orders.length) return <OrdersSkeleton />;
+
+  if (loadError && !orders.length) {
+    return (
+      <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <h2 className="text-2xl font-extrabold text-slate-950">Không thể tải danh sách đơn hàng</h2>
+        <p className="mt-2 text-sm text-slate-600">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => void fetchOrders()}
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+        >
+          Thử lại
+        </button>
+      </section>
+    );
+  }
 
   return (
-    <div className="w-full max-w-full min-w-0 space-y-8 overflow-x-clip">
-      <section className="relative overflow-visible border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="pointer-events-none absolute -right-3 -top-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-                <ShoppingCart className="h-7 w-7 text-black" />
-              </div>
-              <span className="inline-flex border-2 border-black bg-[#C7F0D8] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-black">ORDERS</span>
-            </div>
-            <h1 className="text-3xl font-black uppercase tracking-tight text-black md:text-4xl">ĐƠN HÀNG</h1>
-            <p className="text-sm font-bold text-black/70 md:text-base">Theo dõi đơn mua credits, thanh toán và trạng thái kích hoạt gói.</p>
+    <div className="space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-1">
+      <TextFadeInUp as="section" className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">Quản trị đơn hàng</span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Đơn hàng</h1>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">Quản lý đơn hàng, trạng thái thanh toán, gói credits và lịch sử mua hàng của người dùng.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="border-4 border-black bg-[#C7F0D8] px-4 py-3 shadow-[4px_4px_0px_0px_#000]">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-black/60">Tổng doanh thu</p>
-              <p className="text-2xl font-black text-black">{formatVnd(totalRevenue)}</p>
-            </div>
-            <button
-              onClick={fetchOrders}
-              className="inline-flex h-11 w-11 items-center justify-center border-4 border-black bg-white text-black shadow-[4px_4px_0px_0px_#000] hover:bg-[#FFD93D]"
-              title="Làm mới"
-              aria-label="Làm mới"
-            >
-              <RefreshCw className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`} />
-            </button>
+          <div className="flex flex-wrap gap-3 lg:justify-end">
+            <CosmicButton href="/admin/revenue" className="min-w-[140px]">Doanh thu</CosmicButton>
           </div>
         </div>
-      </section>
+      </TextFadeInUp>
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Tổng đơn hàng", value: totalOrders, sub: "Tất cả đơn mua credits", bg: "bg-[#DBEAFE]", icon: ReceiptText },
-          { label: "Đã thanh toán", value: paidOrders, sub: "Đơn hàng đã thanh toán", bg: "bg-[#C7F0D8]", icon: CheckCircle2 },
-          { label: "Chờ thanh toán", value: pendingOrders, sub: "Đơn hàng đang chờ thanh toán", bg: "bg-[#FFD93D]", icon: CreditCard },
-          { label: "Đã hủy / Hết hạn", value: cancelledExpired, sub: "Đơn hàng đã hủy hoặc hết hạn", bg: "bg-[#FF6B6B]", icon: XCircle },
-        ].map((card) => (
-          <AdminStatCard
-            key={card.label}
-            label={card.label}
-            value={card.value.toLocaleString("vi-VN")}
-            description={card.sub}
-            icon={card.icon}
-            iconBgClass={card.bg}
-            mini
-          />
+          { label: "Tổng đơn hàng", value: summary.total.toLocaleString("vi-VN"), desc: "Tất cả đơn mua credits", icon: ShoppingCart, cls: "bg-indigo-50 text-indigo-700" },
+          { label: "Đã thanh toán", value: summary.paid.toLocaleString("vi-VN"), desc: "Đơn hàng thanh toán thành công", icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-700" },
+          { label: "Chờ thanh toán", value: summary.pending.toLocaleString("vi-VN"), desc: "Đơn hàng đang chờ xử lý", icon: RefreshCw, cls: "bg-amber-50 text-amber-700" },
+          { label: "Tổng doanh thu", value: formatVnd(summary.totalRevenue ?? 0), desc: "Doanh thu từ đơn đã thanh toán", icon: Wallet, cls: "bg-violet-50 text-violet-700" },
+        ].map((card, i) => (
+          <TextFadeInUp key={card.label} delay={Math.min(i * 0.05, 0.25)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200">
+            <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", card.cls)}><card.icon className="h-5 w-5" /></div>
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
+            <p className="mt-3 break-words text-2xl font-extrabold text-slate-950">{card.value}</p>
+            <p className="mt-2 text-sm text-slate-600">{card.desc}</p>
+          </TextFadeInUp>
         ))}
       </section>
 
-      <section className="w-full max-w-full min-w-0 overflow-hidden border-4 border-black bg-[#FFFDF5] p-4 shadow-[6px_6px_0px_0px_#000] md:p-5">
-        <div className="grid w-full min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_220px_180px_180px]">
-          <div className="min-w-0 max-w-full space-y-2">
-            <label className="mb-2 block break-words text-xs font-black uppercase tracking-[0.12em] text-black/60">Tìm mã đơn</label>
-            <div className="relative min-w-0 max-w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/45" />
-              <input
-                type="text"
-                placeholder="Nhập mã đơn..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-12 w-full min-w-0 max-w-full border-4 border-black bg-white pl-10 pr-4 text-sm font-black text-black placeholder:text-black/40 shadow-[3px_3px_0px_0px_#000] outline-none"
-              />
-            </div>
-          </div>
-          <div className="min-w-0 max-w-full space-y-2">
-            <label className="mb-2 block break-words text-xs font-black uppercase tracking-[0.12em] text-black/60">Email khách hàng</label>
-            <input
-              type="text"
-              placeholder="Nhập email khách..."
-              value={filterEmail}
-              onChange={(e) => setFilterEmail(e.target.value)}
-              className="h-12 w-full min-w-0 max-w-full border-4 border-black bg-white px-4 text-sm font-black text-black placeholder:text-black/40 shadow-[3px_3px_0px_0px_#000] outline-none"
-            />
-          </div>
-          <div className="min-w-0 max-w-full space-y-2">
-            <label className="mb-2 block break-words text-xs font-black uppercase tracking-[0.12em] text-black/60">Trạng thái</label>
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-12 w-full min-w-0 max-w-full border-4 border-black bg-white px-4 text-sm font-black text-black shadow-[3px_3px_0px_0px_#000] outline-none">
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="PENDING">Chờ thanh toán</option>
-              <option value="PAID">Đã thanh toán</option>
-              <option value="CANCELLED">Đã hủy</option>
-              <option value="EXPIRED">Hết hạn</option>
-            </select>
-          </div>
-          <div className="min-w-0 max-w-full space-y-2">
-            <label className="mb-2 block break-words text-xs font-black uppercase tracking-[0.12em] text-black/60">Từ ngày</label>
-            <div className="min-w-0 max-w-full overflow-hidden">
-              <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-12 w-full min-w-0 max-w-full appearance-none border-4 border-black bg-white px-4 text-sm font-black text-black shadow-[3px_3px_0px_0px_#000] outline-none" />
-            </div>
-          </div>
-          <div className="min-w-0 max-w-full space-y-2">
-            <label className="mb-2 block break-words text-xs font-black uppercase tracking-[0.12em] text-black/60">Đến ngày</label>
-            <div className="min-w-0 max-w-full overflow-hidden">
-              <input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-12 w-full min-w-0 max-w-full appearance-none border-4 border-black bg-white px-4 text-sm font-black text-black shadow-[3px_3px_0px_0px_#000] outline-none" />
-            </div>
-          </div>
+      <TextFadeInUp as="section" delay={0.05} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+          <div className="relative lg:col-span-2"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo mã đơn, email khách hàng hoặc tên gói..." className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-950 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" /></div>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">Tất cả</option><option value="PENDING">Chờ thanh toán</option><option value="PAID">Đã thanh toán</option><option value="CANCELLED">Đã hủy</option><option value="EXPIRED">Hết hạn</option></select>
+          <select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value as FamilyFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">Tất cả dòng AI</option><option value="CODEXAI">CodexAI</option><option value="CLAUDE">Claude</option><option value="GEMINI">Gemini</option><option value="DEEPSEEK">DeepSeek</option></select>
+          <div className="grid grid-cols-2 gap-3"><select value={timeFilter} onChange={(e) => setTimeFilter(e.target.value as TimeFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">Tất cả</option><option value="TODAY">Hôm nay</option><option value="7D">7 ngày</option><option value="30D">30 ngày</option><option value="MONTH">Tháng này</option></select><select value={sortFilter} onChange={(e) => setSortFilter(e.target.value as SortFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="NEWEST">Mới nhất</option><option value="OLDEST">Cũ nhất</option><option value="PRICE_HIGH">Giá cao</option><option value="PRICE_LOW">Giá thấp</option></select></div>
         </div>
-        <div className="mt-5 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="min-w-0 break-words text-xs font-black uppercase tracking-[0.1em] text-black/70">Đang hiển thị <span className="text-black">{filteredOrders.length}</span> đơn hàng</p>
-          <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-2">
-            <button
-              onClick={() => {
-                setSearch("");
-                setFilterEmail("");
-                setFilterStatus("ALL");
-                setFilterStartDate("");
-                setFilterEndDate("");
-              }}
-              className="h-12 w-full border-4 border-black bg-white px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] sm:w-auto"
-            >
-              Xóa lọc
-            </button>
-            <button onClick={fetchOrders} className="h-12 w-full border-4 border-black bg-[#C7F0D8] px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] sm:w-auto">
-              Làm mới
-            </button>
-          </div>
-        </div>
-      </section>
+      </TextFadeInUp>
 
       {filteredOrders.length === 0 ? (
-        <section className="min-h-[300px] border-4 border-black bg-[#FFFDF5] p-8 shadow-[8px_8px_0px_0px_#000]">
-          <div className="flex h-full min-h-[230px] flex-col items-center justify-center text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000]">
-              <Inbox className="h-7 w-7 text-black" />
-            </div>
-            <p className="text-xl font-black text-black">{orders.length === 0 ? "CHƯA CÓ ĐƠN HÀNG NÀO" : "KHÔNG TÌM THẤY ĐƠN HÀNG"}</p>
-            <p className="mt-2 text-sm font-bold text-black/60">
-              {orders.length === 0
-                ? "Các đơn mua credits sẽ xuất hiện tại đây sau khi khách hàng chọn gói."
-                : "Thử đổi bộ lọc, khoảng ngày hoặc làm mới danh sách."}
-            </p>
-            {orders.length > 0 && (
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setFilterEmail("");
-                  setFilterStatus("ALL");
-                  setFilterStartDate("");
-                  setFilterEndDate("");
-                }}
-                className="mt-5 h-11 border-4 border-black bg-[#FFD93D] px-5 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-              >
-                XÓA BỘ LỌC
-              </button>
-            )}
-          </div>
+        <section className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><ShoppingCart className="h-7 w-7" /></div>
+          <h2 className="text-2xl font-extrabold text-slate-950">Chưa có đơn hàng</h2>
+          <p className="mt-2 text-sm text-slate-600">Đơn hàng mới sẽ hiển thị tại đây sau khi người dùng mua gói credits.</p>
+          <div className="mt-6 flex justify-center gap-3"><button type="button" onClick={() => void fetchOrders()} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700">Làm mới</button><Link href="/admin/revenue" className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700">Xem doanh thu</Link></div>
         </section>
       ) : (
         <>
-          <section className="hidden overflow-hidden border-4 border-black bg-white shadow-[8px_8px_0px_0px_#000] lg:block">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] border-collapse text-left">
-                <thead>
-                  <tr className="border-b-4 border-black bg-[#FFFDF5]">
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Mã đơn</th>
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Khách hàng</th>
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Gói mua</th>
-                    <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Số tiền</th>
-                    <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Trạng thái</th>
-                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Thời gian</th>
-                    <th className="px-4 py-4 text-right text-[11px] font-black uppercase tracking-[0.16em] text-black/60">Thao tác</th>
+          <TextFadeInUp as="section" delay={0.08} className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:block">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Đơn hàng</th><th className="px-4 py-3">Khách hàng</th><th className="px-4 py-3">Gói credits</th><th className="px-4 py-3">Dòng AI</th><th className="px-4 py-3">Số tiền</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Ngày tạo</th><th className="px-4 py-3">Hành động</th></tr></thead>
+              <tbody>
+                {filteredOrders.map((order) => (
+                  <tr key={order.id} className="border-t border-slate-100 transition hover:bg-indigo-50/30">
+                    <td className="px-4 py-3"><p className="font-semibold text-slate-900">#{order.orderCode}</p><p className="text-xs text-slate-400">{order.id}</p></td>
+                    <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">{getInitials(order.user.name, order.user.email)}</div><div className="min-w-0"><p className="truncate font-semibold text-slate-900">{order.user.name || "Khách hàng"}</p><p className="truncate text-sm text-slate-600">{order.user.email}</p></div></div></td>
+                    <td className="px-4 py-3"><p className="truncate text-slate-900">{order.product?.name || "Không xác định"}</p></td>
+                    <td className="px-4 py-3"><span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", familyClass(order.product?.apiFamily || ""))}>{order.product?.apiFamily || "N/A"}</span></td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">{formatVnd(order.amountVnd ?? 0)}</td>
+                    <td className="px-4 py-3"><span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", statusClass(order.status))}>{statusLabel(order.status)}</span></td>
+                    <td className="px-4 py-3 text-slate-600">{format(new Date(order.createdAt), "dd/MM/yyyy HH:mm")}</td>
+                    <td className="px-4 py-3"><div className="flex items-center gap-2"><Link href={`/admin/orders/${order.id}`} className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"><Eye className="h-4 w-4" /></Link>{order.status === "PENDING" ? <><button type="button" onClick={() => askConfirm({ title: "Kiểm tra thanh toán?", description: "Hệ thống sẽ kiểm tra trạng thái thanh toán mới nhất của đơn hàng.", confirmLabel: "Kiểm tra", type: "primary", onConfirm: async () => handleVerifyPayment(order.id) })} className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Kiểm tra</button><button type="button" onClick={() => askConfirm({ title: "Đánh dấu đơn hàng đã thanh toán?", description: "Hệ thống sẽ kích hoạt gói credits cho người dùng. Hãy chỉ thực hiện khi đã xác nhận thanh toán.", confirmLabel: "Xác nhận thanh toán", type: "warning", onConfirm: async () => handleUpdateStatus(order.id, "PAID") })} className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Duyệt</button><button type="button" onClick={() => askConfirm({ title: "Hủy đơn hàng này?", description: "Đơn hàng đang chờ thanh toán sẽ được chuyển sang trạng thái đã hủy. Hành động này không ảnh hưởng đến các đơn hàng khác.", confirmLabel: "Hủy đơn", type: "danger", onConfirm: async () => handleUpdateStatus(order.id, "CANCELLED") })} className="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100">Hủy</button></> : null}</div></td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.map((order) => (
-                    <tr key={order.id} className="border-b-2 border-black/10 align-middle transition-colors hover:bg-[#FFF8D6]">
-                      <td className="px-4 py-4">
-                        <div className="inline-flex items-center gap-2 border-2 border-black bg-[#FFFDF5] px-2 py-1 shadow-[2px_2px_0px_0px_#000]">
-                          <FileText className="h-3.5 w-3.5 text-black" />
-                          <span className="text-xs font-black text-black">#{order.orderCode}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center border-4 border-black bg-[#C7F0D8] text-sm font-black uppercase text-black shadow-[3px_3px_0px_0px_#000]">
-                            {(order.user.name?.[0] || order.user.email?.[0] || "K").toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="max-w-[210px] truncate text-sm font-black text-black">{order.user.name || "Khách vãng lai"}</p>
-                            <p className="max-w-[260px] truncate text-sm font-bold text-black/60">{order.user.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="text-sm font-bold text-black">{order.product?.name || "Không xác định"}</p>
-                        <span className={`mt-1 inline-flex border-2 border-black px-2 py-0.5 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${familyBg(order.product?.apiFamily)}`}>
-                          {order.product?.apiFamily || "N/A"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <p className="text-lg font-black text-black">{formatVnd(order.amountVnd ?? 0)}</p>
-                        {order.couponCode ? <p className="mt-1 text-xs font-black text-black/60">-{formatVnd(order.discountAmount ?? 0)}</p> : null}
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <span className={`inline-flex h-8 items-center border-2 border-black px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${statusBg(order.status)}`}>
-                          {statusLabel(order.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="text-sm font-bold text-black">{format(new Date(order.createdAt), "dd/MM/yyyy HH:mm")}</p>
-                        {order.paidAt ? <p className="text-xs font-bold text-black/60">Thanh toán: {format(new Date(order.paidAt), "dd/MM/yyyy HH:mm")}</p> : null}
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {order.status === "PENDING" && (
-                            <>
-                              <button onClick={() => void handleUpdateStatus(order.id, "CANCELLED")} className="h-10 border-2 border-black bg-white px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#FFD93D]">
-                                Hủy
-                              </button>
-                              <button onClick={() => void handleVerifyPayment(order.id)} className="h-10 border-2 border-black bg-white px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#FFD93D]">
-                                Check
-                              </button>
-                              <button onClick={() => void handleUpdateStatus(order.id, "PAID")} className="h-10 border-2 border-black bg-[#C7F0D8] px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                                Duyệt
-                              </button>
-                            </>
-                          )}
-                          <Link href={`/admin/orders/${order.id}`} className="inline-flex h-10 w-10 items-center justify-center border-2 border-black bg-white text-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#FFD93D]">
-                            <ChevronRight className="h-4 w-4" />
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                ))}
+              </tbody>
+            </table>
+          </TextFadeInUp>
 
-          <section className="grid w-full max-w-full min-w-0 gap-4 lg:hidden">
+          <TextFadeInUp as="section" delay={0.12} className="space-y-4 lg:hidden">
             {filteredOrders.map((order) => (
-              <article key={order.id} className="w-full max-w-full min-w-0 overflow-hidden space-y-4 border-4 border-black bg-[#FFFDF5] p-4 shadow-[6px_6px_0px_0px_#000]">
-                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 max-w-full">
-                    <div className="inline-flex max-w-full min-w-0 break-all border-2 border-black bg-white px-2 py-1 text-xs font-black text-black shadow-[2px_2px_0px_0px_#000]">#{order.orderCode}</div>
-                    <p className="mt-2 text-sm font-black text-black">{order.user.name || "Khách vãng lai"}</p>
-                    <p className="break-all text-sm font-bold text-black/60">{order.user.email}</p>
-                  </div>
-                  <span className={`inline-flex max-w-full break-words border-2 border-black px-3 py-2 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${statusBg(order.status)}`}>
-                    {statusLabel(order.status)}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="min-w-0 max-w-full overflow-hidden border-2 border-black bg-white p-2">
-                    <p className="text-xs font-black uppercase text-black/60">Gói mua</p>
-                    <p className="break-words text-sm font-bold text-black">{order.product?.name || "Không xác định"}</p>
-                  </div>
-                  <div className="min-w-0 max-w-full overflow-hidden border-2 border-black bg-white p-2">
-                    <p className="text-xs font-black uppercase text-black/60">Số tiền</p>
-                    <p className="text-sm font-black text-black">{formatVnd(order.amountVnd ?? 0)}</p>
-                  </div>
-                  <div className="min-w-0 max-w-full overflow-hidden border-2 border-black bg-white p-2 sm:col-span-2">
-                    <p className="text-xs font-black uppercase text-black/60">Thời gian</p>
-                    <p className="text-sm font-bold text-black">{format(new Date(order.createdAt), "dd/MM/yyyy HH:mm")}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {order.status === "PENDING" && (
-                    <>
-                      <button onClick={() => void handleUpdateStatus(order.id, "CANCELLED")} className="h-10 border-2 border-black bg-white px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                        Hủy
-                      </button>
-                      <button onClick={() => void handleVerifyPayment(order.id)} className="h-10 border-2 border-black bg-white px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                        Check PayOS
-                      </button>
-                      <button onClick={() => void handleUpdateStatus(order.id, "PAID")} className="h-10 border-2 border-black bg-[#C7F0D8] px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                        Duyệt
-                      </button>
-                    </>
-                  )}
-                  <Link href={`/admin/orders/${order.id}`} className="inline-flex h-10 items-center border-2 border-black bg-[#FFD93D] px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-                    Chi tiết
-                  </Link>
-                </div>
+              <article key={order.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3"><p className="font-semibold text-slate-900">#{order.orderCode}</p><span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", statusClass(order.status))}>{statusLabel(order.status)}</span></div>
+                <p className="mt-2 truncate text-sm text-slate-700">{order.user.email}</p>
+                <p className="mt-1 truncate text-sm text-slate-700">{order.product?.name || "Không xác định"}</p>
+                <div className="mt-3 flex items-center gap-2"><span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", familyClass(order.product?.apiFamily || ""))}>{order.product?.apiFamily || "N/A"}</span></div>
+                <div className="mt-3 flex items-center justify-between text-sm"><span className="font-semibold text-slate-900">{formatVnd(order.amountVnd ?? 0)}</span><span className="text-slate-600">{format(new Date(order.createdAt), "dd/MM/yyyy HH:mm")}</span></div>
+                <div className="mt-4 flex flex-wrap gap-2"><Link href={`/admin/orders/${order.id}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Chi tiết</Link>{order.status === "PENDING" ? <><button type="button" onClick={() => askConfirm({ title: "Kiểm tra thanh toán?", description: "Hệ thống sẽ kiểm tra trạng thái thanh toán mới nhất của đơn hàng.", confirmLabel: "Kiểm tra", type: "primary", onConfirm: async () => handleVerifyPayment(order.id) })} className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Kiểm tra thanh toán</button><button type="button" onClick={() => askConfirm({ title: "Hủy đơn hàng này?", description: "Đơn hàng đang chờ thanh toán sẽ được chuyển sang trạng thái đã hủy. Hành động này không ảnh hưởng đến các đơn hàng khác.", confirmLabel: "Hủy đơn", type: "danger", onConfirm: async () => handleUpdateStatus(order.id, "CANCELLED") })} className="inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100">Hủy đơn</button></> : null}</div>
               </article>
             ))}
-          </section>
+          </TextFadeInUp>
         </>
       )}
 
-      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
+      {confirmState ? <ConfirmDialog open={Boolean(confirmState)} title={confirmState.title} description={confirmState.description} confirmLabel={confirmState.confirmLabel} cancelLabel={confirmState.cancelLabel} type={confirmState.type} isLoading={isConfirming} onConfirm={handleConfirm} onCancel={closeConfirm} /> : null}
+      {toast ? <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} /> : null}
     </div>
   );
 }

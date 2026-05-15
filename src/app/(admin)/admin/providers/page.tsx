@@ -1,30 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import {
-  Server,
-  Search,
-  Plus,
-  Edit,
-  Globe,
-  ShieldCheck,
-  Clock,
-  LockKeyhole,
-  Key,
-  RefreshCw,
-  Link as LinkIcon,
-} from "lucide-react";
-import { AppButton } from "@/components/ui/app-button";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Copy, Eye, EyeOff, Plus, RefreshCw, Search, Server } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
-import { AiFamilyLogo, familyIconBoxClass } from "@/components/admin/ai-family-logo";
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmDialog } from "@/components/ui/confirm-toast";
 import { Switch } from "@/components/ui/switch";
-import { format } from "date-fns";
-import { vi } from "date-fns/locale";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CosmicButton } from "@/components/ui/cosmic-button";
+import { TextFadeInUp } from "@/components/animations/text-fade-in-up";
 
 type AiProvider = {
   id: string;
@@ -36,13 +24,9 @@ type AiProvider = {
   updatedAt: string;
 };
 
-function familyBadgeClass(family: string) {
-  if (family === "CODEXAI") return "bg-[#C7F0D8]";
-  if (family === "CLAUDE") return "bg-[#FFD93D]";
-  if (family === "GEMINI") return "bg-[#A78BFA]";
-  if (family === "DEEPSEEK") return "bg-[#FF6B6B]";
-  return "bg-[#DBEAFE]";
-}
+type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE" | "ERROR" | "MAINTENANCE";
+type FamilyFilter = "ALL" | "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
+type SortFilter = "NEWEST" | "NAME_ASC" | "STATUS";
 
 function familyLabel(family: string) {
   if (family === "CODEXAI") return "CodexAI";
@@ -52,76 +36,99 @@ function familyLabel(family: string) {
   return family;
 }
 
-function maskEncryptedKey(encryptedApiKey: string) {
-  const last4 = (encryptedApiKey || "").slice(-4);
-  return `********${last4 || "****"}`;
+function familyClass(family: string) {
+  if (family === "CODEXAI") return "border-indigo-100 bg-indigo-50 text-indigo-700";
+  if (family === "CLAUDE") return "border-orange-100 bg-orange-50 text-orange-700";
+  if (family === "GEMINI") return "border-sky-100 bg-sky-50 text-sky-700";
+  if (family === "DEEPSEEK") return "border-violet-100 bg-violet-50 text-violet-700";
+  return "border-slate-200 bg-slate-100 text-slate-700";
 }
 
 function ProvidersSkeleton() {
   return (
     <div className="space-y-6" aria-hidden="true">
-      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="h-8 w-56 animate-pulse bg-[#E9E1D0]" />
-        <div className="mt-3 h-4 w-full max-w-[560px] animate-pulse bg-[#E9E1D0]" />
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <Skeleton className="h-5 w-36 rounded-full" />
+        <Skeleton className="mt-4 h-10 w-48 rounded-xl" />
+        <Skeleton className="mt-3 h-5 w-[620px] max-w-full rounded-full" />
       </section>
-      <section className="border-4 border-black bg-[#C7F0D8] p-4 shadow-[6px_6px_0px_0px_#000]">
-        <div className="h-12 animate-pulse bg-[#E9E1D0]" />
-      </section>
-      <section className="border-4 border-black bg-white p-4 shadow-[7px_7px_0px_0px_#000] md:p-5">
-        <div className="h-20 animate-pulse bg-[#E9E1D0]" />
-      </section>
-      <section className="border-4 border-black bg-white p-4 shadow-[8px_8px_0px_0px_#000] md:p-5">
-        <div className="space-y-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-14 border-2 border-black bg-[#E9E1D0] animate-pulse" />
-          ))}
-        </div>
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Skeleton className="h-10 w-10 rounded-2xl" />
+            <Skeleton className="mt-5 h-4 w-24 rounded-full" />
+            <Skeleton className="mt-3 h-8 w-20 rounded-xl" />
+          </div>
+        ))}
       </section>
     </div>
   );
 }
 
 export default function AdminProvidersPage() {
-  const [providers, setProviders] = useState<AiProvider[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filterFamily, setFilterFamily] = useState("ALL");
-  const [filterActive, setFilterActive] = useState("ALL");
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const emptyProviderForm = {
     name: "",
     apiFamily: "CODEXAI",
     baseUrl: "",
     apiKey: "",
     isActive: true,
-  });
+  };
 
-  const { toast, showToast, clearToast } = useToast();
+  const [providers, setProviders] = useState<AiProvider[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [filterFamily, setFilterFamily] = useState<FamilyFilter>("ALL");
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>("ALL");
+  const [sortBy, setSortBy] = useState<SortFilter>("NEWEST");
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState(emptyProviderForm);
+
+  const { toast, showToast, clearToast } = useToast(3000);
   const { confirmState, isConfirming, askConfirm, closeConfirm, handleConfirm } = useConfirm();
 
   const fetchProviders = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/admin/providers");
+      setLoadError(null);
+      const res = await fetch("/api/admin/providers", { cache: "no-store" });
       const result = await res.json();
-      if (result.success) setProviders(result.data);
-    } catch (error) {
-      console.error(error);
+      if (!res.ok || !result.success) throw new Error();
+      setProviders(result.data || []);
+    } catch {
+      setLoadError("Vui lòng thử lại sau ít phút.");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchProviders();
-    }, 0);
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(() => void fetchProviders(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchProviders]);
 
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.name.trim()) errors.name = "Tên provider là bắt buộc";
+    if (!formData.apiFamily) errors.apiFamily = "Dòng AI là bắt buộc";
+    if (!formData.baseUrl.trim()) errors.baseUrl = "Base URL là bắt buộc";
+    try {
+      if (formData.baseUrl.trim()) new URL(formData.baseUrl);
+    } catch {
+      errors.baseUrl = "Base URL không hợp lệ";
+    }
+    if (!editingId && !formData.apiKey.trim()) errors.apiKey = "API key là bắt buộc";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleOpenModal = (provider?: AiProvider) => {
+    setFormErrors({});
     if (provider) {
       setEditingId(provider.id);
       setFormData({
@@ -133,60 +140,20 @@ export default function AdminProvidersPage() {
       });
     } else {
       setEditingId(null);
-      setFormData({
-        name: "",
-        apiFamily: "CODEXAI",
-        baseUrl: "",
-        apiKey: "",
-        isActive: true,
-      });
+      setFormData(emptyProviderForm);
     }
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!editingId && !formData.apiKey) {
-      showToast("Vui lòng nhập API Key.", "error");
-      return;
-    }
-
-    try {
-      const url = editingId ? `/api/admin/providers/${editingId}` : "/api/admin/providers";
-      const method = editingId ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      const result = await res.json();
-      if (result.success) {
-        showToast(editingId ? "Đã cập nhật provider." : "Đã tạo provider mới.", "success");
-        setIsModalOpen(false);
-        void fetchProviders();
-      } else {
-        showToast(result.error?.message || result.message || "Lỗi khi lưu.", "error");
-      }
-    } catch {
-      showToast("Lỗi hệ thống.", "error");
-    }
-  };
-
   const handleToggleActive = (provider: AiProvider) => {
     const isActivating = !provider.isActive;
-    const action = isActivating ? "Bật" : "Tắt";
-
     askConfirm({
-      title: `${action} provider ${provider.name}?`,
+      title: isActivating ? "Bật provider này?" : "Tắt provider này?",
       description: isActivating
-        ? "Kết nối API này sẽ được đưa vào sử dụng để điều phối các lượt gọi model."
-        : "Các model dùng provider này sẽ không thể gọi API cho đến khi được bật lại hoặc có provider khác thay thế.",
-      confirmLabel: `Xác nhận ${action}`,
-      cancelLabel: "Hủy",
-      type: isActivating ? "warning" : "danger",
+        ? "Provider sẽ được sử dụng lại cho các request phù hợp nếu cấu hình hợp lệ."
+        : "Các model phụ thuộc provider này có thể không hoạt động cho request mới cho đến khi provider được bật lại.",
+      confirmLabel: isActivating ? "Bật provider" : "Tắt provider",
+      type: isActivating ? "primary" : "warning",
       onConfirm: async () => {
         const res = await fetch(`/api/admin/providers/${provider.id}`, {
           method: "PATCH",
@@ -194,433 +161,212 @@ export default function AdminProvidersPage() {
           body: JSON.stringify({ isActive: isActivating }),
         });
         const result = await res.json();
-        if (result.success) {
-          showToast(`Đã ${action.toLowerCase()} provider.`, "success");
+        if (res.ok && result.success) {
+          showToast(isActivating ? "Đã bật provider" : "Đã tắt provider", "success");
           void fetchProviders();
         } else {
-          showToast("Có lỗi xảy ra.", "error");
+          showToast("Không thể lưu provider", "error");
         }
       },
     });
   };
 
-  const filteredProviders = providers.filter((p) => {
-    const s = search.toLowerCase();
-    const matchesSearch =
-      p.name.toLowerCase().includes(s) ||
-      p.apiFamily.toLowerCase().includes(s) ||
-      p.baseUrl.toLowerCase().includes(s);
-    const matchesFamily = filterFamily === "ALL" || p.apiFamily === filterFamily;
-    const matchesActive = filterActive === "ALL" || (filterActive === "ACTIVE" ? p.isActive : !p.isActive);
-    return matchesSearch && matchesFamily && matchesActive;
-  });
+  const handleCopyBaseUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Đã sao chép Base URL", "success");
+    } catch {
+      showToast("Không thể sao chép Base URL", "error");
+    }
+  };
 
-  const activeCount = providers.filter((p) => p.isActive).length;
-  const inactiveCount = Math.max(0, providers.length - activeCount);
-  const familyCount = new Set(providers.map((p) => p.apiFamily)).size;
+  const filteredProviders = useMemo(() => {
+    const list = providers
+      .filter((p) => {
+        const kw = search.trim().toLowerCase();
+        if (!kw) return true;
+        return p.name.toLowerCase().includes(kw) || p.apiFamily.toLowerCase().includes(kw) || p.baseUrl.toLowerCase().includes(kw);
+      })
+      .filter((p) => (filterFamily === "ALL" ? true : p.apiFamily === filterFamily))
+      .filter((p) => {
+        if (filterStatus === "ALL") return true;
+        if (filterStatus === "ACTIVE") return p.isActive;
+        if (filterStatus === "INACTIVE") return !p.isActive;
+        return false;
+      });
 
-  const brutalInput =
-    "h-12 w-full border-4 border-black bg-white px-4 text-sm font-bold text-black placeholder:text-black/45 shadow-[3px_3px_0px_0px_#000] outline-none";
+    if (sortBy === "NAME_ASC") return [...list].sort((a, b) => a.name.localeCompare(b.name));
+    if (sortBy === "STATUS") return [...list].sort((a, b) => Number(b.isActive) - Number(a.isActive));
+    return [...list].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+  }, [providers, search, filterFamily, filterStatus, sortBy]);
 
-  if (isLoading && providers.length === 0) {
-    return <ProvidersSkeleton />;
+  const summary = useMemo(() => {
+    const total = providers.length;
+    const active = providers.filter((p) => p.isActive).length;
+    const inactive = total - active;
+    const families = new Set(providers.map((p) => p.apiFamily)).size;
+    return { total, active, inactive, families };
+  }, [providers]);
+
+  if (isLoading && !providers.length) return <ProvidersSkeleton />;
+
+  if (loadError && !providers.length) {
+    return (
+      <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <h2 className="text-2xl font-extrabold text-slate-950">Không thể tải danh sách providers</h2>
+        <p className="mt-2 text-sm text-slate-600">{loadError}</p>
+        <button type="button" onClick={() => void fetchProviders()} className="mt-6 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Thử lại</button>
+      </section>
+    );
   }
 
   return (
-    <div className="space-y-8 overflow-x-hidden">
-      <section className="relative overflow-visible border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="pointer-events-none absolute -right-3 -top-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-                <Server className="h-7 w-7 text-black" />
-              </div>
-              <span className="inline-flex border-2 border-black bg-[#C7F0D8] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-black">
-                PROVIDERS
-              </span>
-            </div>
-            <h1 className="text-3xl font-black uppercase tracking-tight text-black md:text-4xl">PROVIDERS</h1>
-            <p className="text-sm font-bold text-black/70 md:text-base">
-              Quản lý kết nối upstream API dùng cho từng dòng AI.
-            </p>
+    <div className="space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-1">
+      <TextFadeInUp as="section" className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">Quản trị providers</span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Providers</h1>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">Quản lý trạng thái nhà cung cấp AI, cấu hình kết nối, giới hạn sử dụng và tình trạng hoạt động của từng dòng model.</p>
           </div>
-
-          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-end lg:w-auto">
-            <div className="border-4 border-black bg-[#C7F0D8] px-4 py-3 text-black shadow-[4px_4px_0px_0px_#000]">
-              <p className="text-[11px] font-black uppercase tracking-[0.1em] text-black/60">Đang kết nối</p>
-              <p className="text-xl font-black text-black">
-                {activeCount} / {providers.length}
-              </p>
-            </div>
-            <AppButton
-              onClick={() => handleOpenModal()}
-              className="h-12 border-4 border-black bg-[#FFD93D] px-5 font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] hover:-translate-y-0.5 hover:bg-[#FF6B6B] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              THÊM PROVIDER
-            </AppButton>
+          <div className="flex flex-wrap gap-3 lg:justify-end">
+            <CosmicButton onClick={() => handleOpenModal()}><Plus className="h-4 w-4" />Thêm provider</CosmicButton>
           </div>
         </div>
-      </section>
+      </TextFadeInUp>
 
-      <section className="flex min-w-0 items-start gap-4 border-4 border-black bg-[#C7F0D8] p-4 shadow-[6px_6px_0px_0px_#000] md:p-5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center border-4 border-black bg-white shadow-[3px_3px_0px_0px_#000]">
-          <ShieldCheck className="h-5 w-5 text-black" />
-        </div>
-        <div>
-          <p className="text-sm font-black uppercase text-black">BẢO MẬT API KEY</p>
-          <p className="mt-1 text-sm font-bold text-black/70">
-            API key provider được mã hóa trước khi lưu trữ và chỉ hiển thị dạng ẩn trong khu vực quản trị.
-          </p>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Tổng providers", value: providers.length, bg: "bg-[#DBEAFE]" },
-          { label: "Đang bật", value: activeCount, bg: "bg-[#C7F0D8]" },
-          { label: "Đang tắt", value: inactiveCount, bg: "bg-[#FF6B6B]" },
-          { label: "Dòng AI", value: familyCount, bg: "bg-[#FFD93D]" },
-        ].map((item) => (
-          <article key={item.label} className="min-h-[110px] border-4 border-black bg-[#FFFDF5] p-4 shadow-[5px_5px_0px_0px_#000]">
-            <div className="flex items-center gap-4">
-              <div className={`flex h-11 w-11 items-center justify-center border-4 border-black shadow-[3px_3px_0px_0px_#000] ${item.bg}`}>
-                <Server className="h-5 w-5 text-black" />
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.08em] text-black/70">{item.label}</p>
-                <p className="mt-2 text-2xl font-black leading-none text-black">{item.value.toLocaleString("vi-VN")}</p>
-              </div>
-            </div>
-          </article>
+          { label: "Tổng providers", value: summary.total, desc: "Tất cả providers", cls: "bg-indigo-50 text-indigo-700" },
+          { label: "Đang hoạt động", value: summary.active, desc: "Provider sẵn sàng", cls: "bg-emerald-50 text-emerald-700" },
+          { label: "Đang tắt", value: summary.inactive, desc: "Provider tạm ngưng", cls: "bg-slate-100 text-slate-700" },
+          { label: "Dòng AI", value: summary.families, desc: "Family đang hỗ trợ", cls: "bg-violet-50 text-violet-700" },
+        ].map((card, i) => (
+          <TextFadeInUp key={card.label} delay={Math.min(i * 0.05, 0.25)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200">
+            <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", card.cls)}><Server className="h-5 w-5" /></div>
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
+            <p className="mt-3 text-2xl font-extrabold text-slate-950">{card.value.toLocaleString("vi-VN")}</p>
+            <p className="mt-2 text-sm text-slate-600">{card.desc}</p>
+          </TextFadeInUp>
         ))}
       </section>
 
-      <section className="border-4 border-black bg-white p-4 shadow-[7px_7px_0px_0px_#000] md:p-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1fr_190px_170px_auto]">
-          <div className="space-y-2">
-            <label className="mb-2 text-[11px] font-black uppercase tracking-[0.12em] text-black/60">Tìm kiếm</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/45" />
-              <input
-                type="text"
-                placeholder="Tìm theo tên provider hoặc dòng AI..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={cn(brutalInput, "pl-10")}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="mb-2 text-[11px] font-black uppercase tracking-[0.12em] text-black/60">Dòng AI</label>
-            <select value={filterFamily} onChange={(e) => setFilterFamily(e.target.value)} className={brutalInput}>
-              <option value="ALL">Tất cả dòng AI</option>
-              <option value="CODEXAI">CodexAI</option>
-              <option value="CLAUDE">Claude</option>
-              <option value="GEMINI">Gemini</option>
-              <option value="DEEPSEEK">DeepSeek</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="mb-2 text-[11px] font-black uppercase tracking-[0.12em] text-black/60">Trạng thái</label>
-            <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)} className={brutalInput}>
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang bật</option>
-              <option value="INACTIVE">Đang tắt</option>
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <AppButton
-              onClick={() => {
-                setSearch("");
-                setFilterFamily("ALL");
-                setFilterActive("ALL");
-                void fetchProviders();
-              }}
-              className="h-12 w-full border-4 border-black bg-[#FFD93D] px-4 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-            >
-              <RefreshCw className={cn("mr-2 h-4 w-4", isLoading && "animate-spin")} />
-              LÀM MỚI
-            </AppButton>
-          </div>
+      <TextFadeInUp as="section" delay={0.05} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+          <div className="relative lg:col-span-2"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo tên provider, dòng AI hoặc endpoint..." className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-950 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" /></div>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as StatusFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="ALL">Tất cả trạng thái</option><option value="ACTIVE">Đang hoạt động</option><option value="INACTIVE">Đang tắt</option><option value="ERROR">Có lỗi</option><option value="MAINTENANCE">Đang bảo trì</option></select>
+          <select value={filterFamily} onChange={(e) => setFilterFamily(e.target.value as FamilyFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="ALL">Tất cả dòng AI</option><option value="CODEXAI">CodexAI</option><option value="CLAUDE">Claude</option><option value="GEMINI">Gemini</option><option value="DEEPSEEK">DeepSeek</option></select>
+          <div className="grid grid-cols-2 gap-3"><select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="NEWEST">Mới nhất</option><option value="NAME_ASC">Theo tên A-Z</option><option value="STATUS">Trạng thái</option></select><button type="button" onClick={() => void fetchProviders()} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"><RefreshCw className={cn("mr-2 h-4 w-4", isLoading && "animate-spin")} />Làm mới</button></div>
         </div>
-      </section>
+      </TextFadeInUp>
 
-      <section className="min-w-0 hidden overflow-hidden border-4 border-black bg-white p-4 shadow-[8px_8px_0px_0px_#000] lg:block md:p-5">
-        <div className="max-w-full overflow-x-auto">
-          <table className="w-full min-w-[1100px] border-collapse text-left">
-            <thead>
-              <tr className="border-b-4 border-black bg-[#FFFDF5]">
-                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Tên provider</th>
-                <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Dòng AI</th>
-                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Base URL / Endpoint</th>
-                <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.14em] text-black/65">API key đã ẩn</th>
-                <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Trạng thái</th>
-                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Cập nhật</th>
-                <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProviders.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
-                    <div className="mx-auto flex w-fit flex-col items-center">
-                      <div className="mb-4 flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000]">
-                        <Server className="h-7 w-7 text-black" />
-                      </div>
-                      <p className="text-xl font-black text-black">
-                        {providers.length === 0 ? "CHƯA CÓ PROVIDER NÀO" : "KHÔNG TÌM THẤY PROVIDER"}
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-black/60">Thử đổi bộ lọc hoặc thêm provider mới.</p>
-                      <AppButton
-                        onClick={() => handleOpenModal()}
-                        className="mt-4 h-11 border-4 border-black bg-[#FFD93D] px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-                      >
-                        THÊM PROVIDER
-                      </AppButton>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredProviders.map((provider) => (
-                  <tr key={provider.id} className="border-b-2 border-black/10 align-middle transition-colors hover:bg-[#FFF8D6]">
-                    <td className="px-4 py-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className={cn("h-10 w-10 shrink-0", familyIconBoxClass(provider.apiFamily))}>
-                          <AiFamilyLogo family={provider.apiFamily} className="h-6 w-6 object-contain" />
-                        </div>
-                        <p className="break-all text-base font-black text-black">{provider.name}</p>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4 text-center">
-                      <span className={`inline-flex border-2 border-black px-3 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${familyBadgeClass(provider.apiFamily)}`}>
-                        {familyLabel(provider.apiFamily)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span
-                        title={provider.baseUrl}
-                        className="inline-flex max-w-[280px] min-w-0 items-center gap-2 truncate border-2 border-black bg-[#FFFDF5] px-3 py-1.5 font-mono text-xs font-bold text-black shadow-[2px_2px_0px_0px_#000]"
-                      >
-                        <Globe className="h-3.5 w-3.5" />
-                        {provider.baseUrl}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 text-center">
-                      <span
-                        title="API key đã được ẩn."
-                        className="inline-flex max-w-[220px] items-center gap-2 border-2 border-black bg-white px-3 py-1.5 font-mono text-xs font-black text-black shadow-[2px_2px_0px_0px_#000]"
-                      >
-                        <LockKeyhole className="h-3.5 w-3.5" />
-                        {maskEncryptedKey(provider.encryptedApiKey)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 text-center">
-                      <div className="flex justify-center">
-                        <Switch
-                          checked={provider.isActive}
-                          onCheckedChange={() => handleToggleActive(provider)}
-                          className="border-2 border-black data-[state=checked]:bg-[#C7F0D8] data-[state=unchecked]:bg-[#FF6B6B]"
-                        />
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2 text-sm font-bold text-black">
-                        <Clock className="h-4 w-4 text-black/70" />
-                        <span title={provider.updatedAt}>{format(new Date(provider.updatedAt), "HH:mm dd/MM", { locale: vi })}</span>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenModal(provider)}
-                        title="Sửa provider"
-                        aria-label="Sửa provider"
-                        className="inline-flex h-10 w-10 items-center justify-center border-4 border-black bg-white text-black shadow-[3px_3px_0px_0px_#000] transition-all duration-100 hover:bg-[#FFD93D] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="grid gap-4 lg:hidden">
-        {filteredProviders.length === 0 ? (
-          <article className="flex min-h-[260px] flex-col items-center justify-center border-4 border-black bg-[#FFFDF5] p-6 text-center shadow-[6px_6px_0px_0px_#000]">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000]">
-              <Server className="h-7 w-7 text-black" />
-            </div>
-            <p className="text-lg font-black text-black">
-              {providers.length === 0 ? "CHƯA CÓ PROVIDER NÀO" : "KHÔNG TÌM THẤY PROVIDER"}
-            </p>
-            <p className="mt-1 text-sm font-bold text-black/60">Thử đổi bộ lọc hoặc thêm provider mới.</p>
-          </article>
-        ) : (
-          filteredProviders.map((provider) => (
-            <article key={provider.id} className="space-y-4 border-4 border-black bg-[#FFFDF5] p-4 shadow-[6px_6px_0px_0px_#000]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="break-words text-base font-black text-black">{provider.name}</p>
-                  <p className="mt-1 text-xs font-bold text-black/60">{format(new Date(provider.updatedAt), "HH:mm dd/MM", { locale: vi })}</p>
+      {filteredProviders.length === 0 ? (
+        <section className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Server className="h-7 w-7" /></div>
+          <h2 className="text-2xl font-extrabold text-slate-950">Chưa có provider</h2>
+          <p className="mt-2 text-sm text-slate-600">Thêm provider đầu tiên để cấu hình nguồn model cho các dòng AI trong TzoShop.</p>
+          <div className="mt-6 flex justify-center"><CosmicButton onClick={() => handleOpenModal()}><Plus className="h-4 w-4" />Thêm provider</CosmicButton></div>
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+          {filteredProviders.map((provider, i) => {
+            const secretShown = showSecrets[provider.id] || false;
+            return (
+              <TextFadeInUp key={provider.id} delay={Math.min(i * 0.04, 0.25)} as="article" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_18px_45px_-22px_rgba(79,70,229,0.30)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><h3 className="truncate text-lg font-extrabold text-slate-950">{provider.name}</h3><p className="mt-1 text-sm text-slate-600">{new Date(provider.updatedAt).toLocaleString("vi-VN")}</p></div>
+                  <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", provider.isActive ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600")}>{provider.isActive ? "Đang hoạt động" : "Đang tắt"}</span>
                 </div>
-                <span className={`inline-flex border-2 border-black px-3 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${familyBadgeClass(provider.apiFamily)}`}>
-                  {familyLabel(provider.apiFamily)}
-                </span>
-              </div>
 
-              <div className="space-y-3">
-                <div className="border-2 border-black bg-white p-2">
-                  <p className="text-[11px] font-black uppercase text-black/60">Base URL</p>
-                  <p className="mt-1 break-all text-xs font-bold text-black">{provider.baseUrl}</p>
-                </div>
-                <div className="border-2 border-black bg-white p-2">
-                  <p className="text-[11px] font-black uppercase text-black/60">API key đã ẩn</p>
-                  <p className="mt-1 break-all font-mono text-xs font-black text-black">{maskEncryptedKey(provider.encryptedApiKey)}</p>
-                </div>
-              </div>
+                <div className="mt-4 flex flex-wrap gap-2"><span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", familyClass(provider.apiFamily))}>{familyLabel(provider.apiFamily)}</span><span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">Chưa cấu hình</span></div>
 
-              <div className="flex items-center justify-between gap-3">
-                <Switch
-                  checked={provider.isActive}
-                  onCheckedChange={() => handleToggleActive(provider)}
-                  className="border-2 border-black data-[state=checked]:bg-[#C7F0D8] data-[state=unchecked]:bg-[#FF6B6B]"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleOpenModal(provider)}
-                  className="inline-flex h-10 w-10 items-center justify-center border-4 border-black bg-white text-black shadow-[3px_3px_0px_0px_#000]"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-              </div>
-            </article>
-          ))
-        )}
-      </section>
+                <div className="mt-4 flex items-center gap-2">
+                  <code className="block max-w-full flex-1 truncate rounded-xl bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600">{provider.baseUrl}</code>
+                  <button type="button" onClick={() => void handleCopyBaseUrl(provider.baseUrl)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-700"><Copy className="h-4 w-4" /></button>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">API key</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <code className="block flex-1 truncate rounded-lg bg-white px-3 py-2 font-mono text-xs text-slate-600">{secretShown ? provider.encryptedApiKey : provider.encryptedApiKey.replace(/.(?=.{4})/g, "•")}</code>
+                    <button type="button" onClick={() => setShowSecrets((s) => ({ ...s, [provider.id]: !s[provider.id] }))} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-700">{secretShown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-[1fr_auto] gap-3">
+                  <button type="button" onClick={() => handleOpenModal(provider)} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Sửa</button>
+                  <label className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3"><Switch checked={provider.isActive} onCheckedChange={() => handleToggleActive(provider)} /></label>
+                </div>
+              </TextFadeInUp>
+            );
+          })}
+        </section>
+      )}
 
       <Modal
         open={isModalOpen}
-        title={editingId ? "Cập nhật Provider" : "Thêm Provider mới"}
         onClose={() => setIsModalOpen(false)}
+        title={editingId ? "Cập nhật provider" : "Thêm provider"}
+        description="Quản lý base URL, API key và trạng thái hoạt động của provider."
         maxWidthClassName="max-w-3xl"
+        footer={
+          <>
+            <button type="button" onClick={() => setIsModalOpen(false)} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Hủy</button>
+            <button type="submit" form="provider-form" disabled={isSubmitting} className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-60">{isSubmitting ? "Đang lưu..." : "Lưu provider"}</button>
+          </>
+        }
       >
-        <form onSubmit={handleSubmit} className="max-h-[90vh] space-y-6 overflow-y-auto bg-[#FFFDF5] p-6">
+        <form id="provider-form" autoComplete="off" onSubmit={async (e) => {
+          e.preventDefault();
+          if (!validateForm()) return;
+          try {
+            setIsSubmitting(true);
+            const url = editingId ? `/api/admin/providers/${editingId}` : "/api/admin/providers";
+            const method = editingId ? "PATCH" : "POST";
+            const payload = {
+              name: formData.name.trim(),
+              apiFamily: formData.apiFamily,
+              baseUrl: formData.baseUrl.trim(),
+              isActive: formData.isActive,
+              ...(!editingId || formData.apiKey.trim() ? { apiKey: formData.apiKey.trim() } : {}),
+            };
+            const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            const result = await res.json();
+            if (res.ok && result.success) {
+              showToast(editingId ? "Đã lưu provider" : "Đã tạo provider", "success");
+              setIsModalOpen(false);
+              void fetchProviders();
+            } else showToast(result?.error?.message || result?.message || "Không thể lưu provider", "error");
+          } catch {
+            showToast("Không thể lưu provider", "error");
+          } finally {
+            setIsSubmitting(false);
+          }
+        }} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Tên provider</label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ví dụ: OpenAI Default"
-                className={brutalInput}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Dòng AI</label>
-              <select
-                value={formData.apiFamily}
-                onChange={(e) => setFormData({ ...formData, apiFamily: e.target.value })}
-                className={brutalInput}
-              >
-                <option value="CODEXAI">CodexAI</option>
-                <option value="CLAUDE">Claude</option>
-                <option value="GEMINI">Gemini</option>
-                <option value="DEEPSEEK">DeepSeek</option>
-              </select>
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Base URL</label>
-              <div className="relative">
-                <LinkIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/60" />
-                <input
-                  type="url"
-                  required
-                  value={formData.baseUrl}
-                  onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
-                  placeholder="https://api.openai.com/v1"
-                  className={cn(brutalInput, "pl-10")}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">API key</label>
-              <div className="relative">
-                <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/60" />
-                <input
-                  type="password"
-                  required={!editingId}
-                  value={formData.apiKey}
-                  onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                  placeholder={editingId ? "Bỏ trống nếu muốn giữ API key cũ" : "sk-proj-..."}
-                  className={cn(brutalInput, "pl-10")}
-                />
-              </div>
-              <p className="text-xs font-bold text-black/60">API key sẽ được mã hóa trước khi lưu.</p>
-            </div>
+            <Field label="Tên provider" error={formErrors.name}><input name="provider-display-name" autoComplete="off" value={formData.name} onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))} placeholder="Ví dụ: OpenAI Gateway" className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Dòng AI" error={formErrors.apiFamily}><select value={formData.apiFamily} onChange={(e) => setFormData((f) => ({ ...f, apiFamily: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="CODEXAI">CodexAI</option><option value="CLAUDE">Claude</option><option value="GEMINI">Gemini</option><option value="DEEPSEEK">DeepSeek</option></select></Field>
+            <Field label="Base URL" className="md:col-span-2" error={formErrors.baseUrl}><input name="provider-base-url" autoComplete="off" type="url" value={formData.baseUrl} onChange={(e) => setFormData((f) => ({ ...f, baseUrl: e.target.value }))} placeholder="https://api.example.com/v1" className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="API key" className="md:col-span-2" error={formErrors.apiKey}><input name="provider-api-key-new" autoComplete="new-password" type="password" value={formData.apiKey} onChange={(e) => setFormData((f) => ({ ...f, apiKey: e.target.value }))} placeholder={editingId ? "Nhập API key mới nếu muốn thay đổi" : "Nhập API key của provider"} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
           </div>
-
-          <label className="flex items-center gap-3 border-4 border-black bg-white p-4">
-            <input
-              type="checkbox"
-              checked={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="h-5 w-5 border-2 border-black"
-            />
-            <span className="text-sm font-black text-black">Kích hoạt Provider</span>
-          </label>
-
-          <div className="flex flex-col justify-end gap-3 border-t-2 border-black/20 pt-4 sm:flex-row">
-            <AppButton
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="h-12 border-4 border-black bg-white px-6 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-            >
-              Hủy
-            </AppButton>
-            <AppButton
-              type="submit"
-              className="h-12 border-4 border-black bg-[#FFD93D] px-6 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-            >
-              {editingId ? "LƯU PROVIDER" : "THÊM PROVIDER"}
-            </AppButton>
-          </div>
+          <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm font-semibold text-slate-700"><span>Đang hoạt động</span><Switch checked={formData.isActive} onCheckedChange={(v) => setFormData((f) => ({ ...f, isActive: v }))} /></label>
         </form>
       </Modal>
 
-      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
+      {toast ? <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} /> : null}
+      {confirmState ? <ConfirmDialog open={Boolean(confirmState)} title={confirmState.title} description={confirmState.description} confirmLabel={confirmState.confirmLabel} cancelLabel={confirmState.cancelLabel} type={confirmState.type} isLoading={isConfirming} onConfirm={handleConfirm} onCancel={closeConfirm} /> : null}
+    </div>
+  );
+}
 
-      {confirmState && (
-        <ConfirmDialog
-          open={!!confirmState}
-          title={confirmState.title}
-          description={confirmState.description}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          type={confirmState.type}
-          isLoading={isConfirming}
-          onConfirm={handleConfirm}
-          onCancel={closeConfirm}
-        />
-      )}
+function Field({ label, error, className, children }: { label: string; error?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</label>
+      {children}
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
     </div>
   );
 }

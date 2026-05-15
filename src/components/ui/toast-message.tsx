@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
@@ -49,18 +49,20 @@ export function ToastMessage({ message, type = "success", onClose }: ToastMessag
 
   const toast = (
     <div
-      className="fixed right-4 top-20 z-[10000] w-[calc(100vw-2rem)] max-w-sm animate-in fade-in slide-in-from-top-2 duration-200 sm:right-6 sm:top-24"
+      className="fixed right-4 top-20 z-[10000] w-[calc(100vw-2rem)] max-w-[360px] animate-in fade-in slide-in-from-top-2 duration-200 sm:right-6 sm:top-24"
       role="status"
       aria-live="polite"
     >
       <div
-        className={`flex min-h-[64px] items-center gap-3 rounded-2xl border bg-white/95 px-4 py-3 text-sm text-slate-950 shadow-[0_18px_45px_-22px_rgba(79,70,229,0.35)] backdrop-blur-xl ${toastStyles[type]}`}
+        className={`flex w-full max-w-[360px] gap-3 rounded-2xl border bg-white/95 p-3 shadow-[0_18px_45px_-24px_rgba(79,70,229,0.35)] backdrop-blur-xl ${toastStyles[type]}`}
       >
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconStyles[type]}`}>
-          <Icon className="h-4.5 w-4.5" />
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${iconStyles[type]}`}>
+          <Icon className="h-4 w-4" />
         </span>
 
-        <p className="flex-1 text-sm font-semibold leading-6 text-slate-900">{message}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-slate-950">{message}</p>
+        </div>
 
         {onClose && (
           <button

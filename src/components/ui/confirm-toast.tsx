@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, type ElementType } from "react";
 import { createPortal } from "react-dom";
@@ -48,7 +48,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Xác nhận",
-  cancelLabel = "H?y",
+  cancelLabel = "Hủy",
   type = "warning",
   isLoading = false,
   onConfirm,
@@ -72,9 +72,9 @@ export function ConfirmDialog({
 
   const modal = (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.45)]">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.45)]">
         <div className="flex items-start justify-between gap-4">
-          <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl", iconBoxClass[type])}>
+          <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl", iconBoxClass[type])}>
             <Icon className="h-5 w-5" />
           </div>
 
@@ -89,8 +89,8 @@ export function ConfirmDialog({
           </button>
         </div>
 
-        <h2 className="mt-5 text-xl font-extrabold text-slate-950">{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+        <h2 className="mt-4 text-lg font-extrabold text-slate-950">{title}</h2>
+        <p className="mt-1 line-clamp-3 text-sm leading-6 text-slate-600">{description}</p>
 
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button

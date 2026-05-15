@@ -2,29 +2,49 @@ import { ApiFamily, Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
+import { buildPagination, getPagination } from "@/lib/pagination";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await requireAdminUser();
 
-    const models = await prisma.aiModel.findMany({
-      include: {
-        provider: {
-          select: {
-            name: true
-          }
+    const { searchParams } = new URL(request.url);
+    const { page, pageSize, skip, take } = getPagination(searchParams);
+    const search = searchParams.get("search")?.trim() || "";
+    const where = search
+      ? {
+          OR: [
+            { publicName: { contains: search, mode: "insensitive" as const } },
+            { upstreamModel: { contains: search, mode: "insensitive" as const } },
+          ],
         }
-      },
-      orderBy: {
-        publicName: "asc",
-      }
-    });
+      : {};
+    const [total, models] = await Promise.all([
+      prisma.aiModel.count({ where }),
+      prisma.aiModel.findMany({
+        where,
+        include: {
+          provider: {
+            select: {
+              name: true
+            }
+          }
+        },
+        orderBy: {
+          publicName: "asc",
+        },
+        skip,
+        take,
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
-      data: models
+      data: models,
+      items: models,
+      pagination: buildPagination({ page, pageSize, total }),
     });
 
   } catch (error) {

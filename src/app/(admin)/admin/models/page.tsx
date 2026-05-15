@@ -1,26 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import {
-  Bot,
-  Search,
-  Plus,
-  Server,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Pencil,
-  RefreshCw,
-  Layers,
-} from "lucide-react";
-import { AppButton } from "@/components/ui/app-button";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Bot, Copy, Pencil, Plus, Search } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
-import { AiFamilyLogo, familyIconBoxClass } from "@/components/admin/ai-family-logo";
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmDialog } from "@/components/ui/confirm-toast";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CosmicButton } from "@/components/ui/cosmic-button";
+import { TextFadeInUp } from "@/components/animations/text-fade-in-up";
 
 type AiModel = {
   id: string;
@@ -41,13 +33,9 @@ type AiProvider = {
   apiFamily: string;
 };
 
-function familyBadgeClass(family: string) {
-  if (family === "CODEXAI") return "bg-[#C7F0D8]";
-  if (family === "CLAUDE") return "bg-[#FFD93D]";
-  if (family === "GEMINI") return "bg-[#A78BFA]";
-  if (family === "DEEPSEEK") return "bg-[#FF6B6B]";
-  return "bg-[#DBEAFE]";
-}
+type FamilyFilter = "ALL" | "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
+type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE";
+type SortFilter = "NEWEST" | "NAME_ASC" | "FAMILY" | "USAGE";
 
 function familyLabel(family: string) {
   if (family === "CODEXAI") return "CodexAI";
@@ -57,24 +45,30 @@ function familyLabel(family: string) {
   return family;
 }
 
+function familyClass(family: string) {
+  if (family === "CODEXAI") return "border-indigo-100 bg-indigo-50 text-indigo-700";
+  if (family === "CLAUDE") return "border-orange-100 bg-orange-50 text-orange-700";
+  if (family === "GEMINI") return "border-sky-100 bg-sky-50 text-sky-700";
+  if (family === "DEEPSEEK") return "border-violet-100 bg-violet-50 text-violet-700";
+  return "border-slate-200 bg-slate-100 text-slate-700";
+}
+
 function ModelsSkeleton() {
   return (
     <div className="space-y-6" aria-hidden="true">
-      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="h-8 w-64 animate-pulse bg-[#E9E1D0]" />
-        <div className="mt-3 h-4 w-full max-w-[560px] animate-pulse bg-[#E9E1D0]" />
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <Skeleton className="h-5 w-28 rounded-full" />
+        <Skeleton className="mt-4 h-10 w-44 rounded-xl" />
+        <Skeleton className="mt-3 h-5 w-[580px] max-w-full rounded-full" />
       </section>
-
-      <section className="border-4 border-black bg-white p-4 shadow-[7px_7px_0px_0px_#000] md:p-5">
-        <div className="h-20 animate-pulse bg-[#E9E1D0]" />
-      </section>
-
-      <section className="border-4 border-black bg-white p-4 shadow-[8px_8px_0px_0px_#000] md:p-5">
-        <div className="space-y-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-14 border-2 border-black bg-[#E9E1D0] animate-pulse" />
-          ))}
-        </div>
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Skeleton className="h-10 w-10 rounded-2xl" />
+            <Skeleton className="mt-5 h-4 w-24 rounded-full" />
+            <Skeleton className="mt-3 h-8 w-20 rounded-xl" />
+          </div>
+        ))}
       </section>
     </div>
   );
@@ -84,17 +78,17 @@ export default function AdminModelsPage() {
   const [models, setModels] = useState<AiModel[]>([]);
   const [providersList, setProvidersList] = useState<AiProvider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [filterFamily, setFilterFamily] = useState("ALL");
+  const [filterFamily, setFilterFamily] = useState<FamilyFilter>("ALL");
   const [filterProvider, setFilterProvider] = useState("ALL");
-  const [filterActive, setFilterActive] = useState("ALL");
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>("ALL");
+  const [sortBy, setSortBy] = useState<SortFilter>("NEWEST");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     publicName: "",
     upstreamModel: "",
@@ -106,41 +100,42 @@ export default function AdminModelsPage() {
     isActive: true,
   });
 
-  const { toast, showToast, clearToast } = useToast();
+  const { toast, showToast, clearToast } = useToast(3000);
   const { confirmState, isConfirming, askConfirm, closeConfirm, handleConfirm } = useConfirm();
 
   const fetchModels = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/admin/models");
-      const result = await res.json();
-      if (result.success) setModels(result.data);
-    } catch (err) {
-      console.error(err);
+      setLoadError(null);
+      const [resModels, resProviders] = await Promise.all([fetch("/api/admin/models", { cache: "no-store" }), fetch("/api/admin/providers", { cache: "no-store" })]);
+      const [modelsJson, providersJson] = await Promise.all([resModels.json(), resProviders.json()]);
+      if (!resModels.ok || !modelsJson.success) throw new Error();
+      setModels(modelsJson.data || []);
+      if (providersJson.success) setProvidersList(providersJson.data || []);
+    } catch {
+      setLoadError("Vui lòng thử lại sau ít phút.");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const fetchProviders = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/providers");
-      const result = await res.json();
-      if (result.success) setProvidersList(result.data);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
-
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchModels();
-      void fetchProviders();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [fetchModels, fetchProviders]);
+    const timer = window.setTimeout(() => void fetchModels(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchModels]);
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.publicName.trim()) errors.publicName = "Tên hiển thị là bắt buộc";
+    if (!formData.upstreamModel.trim()) errors.upstreamModel = "Model ID là bắt buộc";
+    if (!formData.apiFamily) errors.apiFamily = "Dòng AI là bắt buộc";
+    if (!/^[a-z0-9/_\-.]+$/i.test(formData.upstreamModel)) errors.upstreamModel = "Model ID không đúng định dạng";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleOpenModal = (model?: AiModel) => {
+    setFormErrors({});
     if (model) {
       setEditingId(model.id);
       setFormData({
@@ -159,7 +154,7 @@ export default function AdminModelsPage() {
         publicName: "",
         upstreamModel: "",
         apiFamily: "CODEXAI",
-        providerId: providersList.length > 0 ? providersList[0].id : "",
+        providerId: providersList.find((p) => p.apiFamily === "CODEXAI")?.id || "",
         inputCreditRate: "1",
         outputCreditRate: "1",
         upstreamEndpointType: "CHAT_COMPLETIONS",
@@ -171,52 +166,40 @@ export default function AdminModelsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
     try {
-      if (!editingId && models.some((m) => m.publicName.toLowerCase() === formData.publicName.toLowerCase())) {
-        showToast("Tên Public Name này đã tồn tại.", "error");
-        return;
-      }
-
-      if (!formData.providerId) {
-        showToast("Vui lòng chọn Provider.", "error");
-        return;
-      }
-
+      setIsSubmitting(true);
       const url = editingId ? `/api/admin/models/${editingId}` : "/api/admin/models";
       const method = editingId ? "PATCH" : "POST";
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-
       const result = await res.json();
-      if (result.success) {
-        showToast(editingId ? "Đã cập nhật model." : "Đã tạo model mới.", "success");
+      if (res.ok && result.success) {
+        showToast(editingId ? "Đã lưu model" : "Đã tạo model", "success");
         setIsModalOpen(false);
         void fetchModels();
       } else {
-        showToast(result.error?.message || result.message || "Lỗi khi lưu.", "error");
+        showToast(result?.error?.message || result?.message || "Không thể lưu model", "error");
       }
-    } catch (err) {
-      showToast("Lỗi khi lưu model", "error");
-      console.error(err);
+    } catch {
+      showToast("Không thể lưu model", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleToggleActive = (model: AiModel) => {
     const isActivating = !model.isActive;
-    const action = isActivating ? "Bật" : "Tắt";
-
     askConfirm({
-      title: `${action} model ${model.publicName}?`,
+      title: isActivating ? "Bật model này?" : "Tắt model này?",
       description: isActivating
-        ? "Người dùng sẽ có thể gọi API sử dụng model này."
-        : "Model này sẽ tạm thời bị ẩn khỏi danh sách hỗ trợ của hệ thống.",
-      confirmLabel: `Xác nhận ${action}`,
-      cancelLabel: "Hủy",
-      type: isActivating ? "warning" : "danger",
+        ? "Model này sẽ có thể được sử dụng lại trong các gói credits."
+        : "Model này sẽ không còn được hiển thị hoặc chọn cho các gói mới.",
+      confirmLabel: isActivating ? "Bật model" : "Tắt model",
+      type: isActivating ? "primary" : "warning",
       onConfirm: async () => {
         const res = await fetch(`/api/admin/models/${model.id}`, {
           method: "PATCH",
@@ -224,570 +207,192 @@ export default function AdminModelsPage() {
           body: JSON.stringify({ isActive: isActivating }),
         });
         const result = await res.json();
-        if (result.success) {
-          showToast(`Đã ${action.toLowerCase()} model.`, "success");
+        if (res.ok && result.success) {
+          showToast(isActivating ? "Đã bật model" : "Đã tắt model", "success");
           void fetchModels();
         } else {
-          showToast("Có lỗi xảy ra.", "error");
+          showToast("Không thể lưu model", "error");
         }
       },
     });
   };
 
-  const filteredModels = models.filter((m) => {
-    const matchesSearch =
-      m.publicName.toLowerCase().includes(search.toLowerCase()) ||
-      m.upstreamModel.toLowerCase().includes(search.toLowerCase());
-    const matchesFamily = filterFamily === "ALL" || m.apiFamily === filterFamily;
-    const matchesProvider = filterProvider === "ALL" || m.providerId === filterProvider;
-    const matchesActive = filterActive === "ALL" || (filterActive === "ACTIVE" ? m.isActive : !m.isActive);
+  const handleCopyModelId = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast("Đã sao chép model id", "success");
+    } catch {
+      showToast("Không thể sao chép model id", "error");
+    }
+  };
 
-    return matchesSearch && matchesFamily && matchesProvider && matchesActive;
-  });
+  const filteredModels = useMemo(() => {
+    const list = models
+      .filter((m) => {
+        const kw = search.trim().toLowerCase();
+        if (!kw) return true;
+        return (
+          m.publicName.toLowerCase().includes(kw) ||
+          m.upstreamModel.toLowerCase().includes(kw) ||
+          m.apiFamily.toLowerCase().includes(kw)
+        );
+      })
+      .filter((m) => (filterFamily === "ALL" ? true : m.apiFamily === filterFamily))
+      .filter((m) => (filterProvider === "ALL" ? true : m.providerId === filterProvider))
+      .filter((m) => (filterStatus === "ALL" ? true : filterStatus === "ACTIVE" ? m.isActive : !m.isActive));
 
-  const totalPages = Math.max(1, Math.ceil(filteredModels.length / ITEMS_PER_PAGE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedModels = filteredModels.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
+    if (sortBy === "NAME_ASC") return [...list].sort((a, b) => a.publicName.localeCompare(b.publicName));
+    if (sortBy === "FAMILY") return [...list].sort((a, b) => a.apiFamily.localeCompare(b.apiFamily));
+    if (sortBy === "USAGE") return [...list].sort((a, b) => b.outputCreditRate - a.outputCreditRate);
+    return [...list].sort((a, b) => a.publicName.localeCompare(b.publicName));
+  }, [models, search, filterFamily, filterProvider, filterStatus, sortBy]);
 
-  const families = Array.from(new Set(models.map((m) => m.apiFamily)));
-  const uniqueProviders = Array.from(new Set(models.map((m) => m.providerId))).map((id) => {
-    const model = models.find((m) => m.providerId === id);
-    return { id, name: model?.provider?.name || "Unknown" };
-  });
+  const summary = useMemo(() => {
+    const total = models.length;
+    const active = models.filter((m) => m.isActive).length;
+    const inactive = total - active;
+    const families = new Set(models.map((m) => m.apiFamily)).size;
+    return { total, active, inactive, families };
+  }, [models]);
 
-  const activeCount = models.filter((m) => m.isActive).length;
-  const inactiveCount = Math.max(0, models.length - activeCount);
-  const providerCount = new Set(models.map((m) => m.providerId)).size;
+  const providers = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of providersList) map.set(p.id, p.name);
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [providersList]);
 
-  const brutalInput =
-    "h-12 w-full border-4 border-black bg-white px-4 text-sm font-bold text-black placeholder:text-black/45 shadow-[3px_3px_0px_0px_#000] outline-none";
+  const filteredProviders = providersList.filter((p) => p.apiFamily === formData.apiFamily);
 
-  if (isLoading && models.length === 0) {
-    return <ModelsSkeleton />;
+  if (isLoading && !models.length) return <ModelsSkeleton />;
+
+  if (loadError && !models.length) {
+    return (
+      <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <h2 className="text-2xl font-extrabold text-slate-950">Không thể tải danh sách model</h2>
+        <p className="mt-2 text-sm text-slate-600">{loadError}</p>
+        <button type="button" onClick={() => void fetchModels()} className="mt-6 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Thử lại</button>
+      </section>
+    );
   }
 
   return (
-    <div className="space-y-8 overflow-x-hidden">
-      <section className="relative overflow-visible border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="pointer-events-none absolute -right-3 -top-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-                <Bot className="h-7 w-7 text-black" />
-              </div>
-              <span className="inline-flex border-2 border-black bg-[#C7F0D8] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-black">
-                MODEL REGISTRY
-              </span>
-            </div>
-            <h1 className="text-3xl font-black uppercase tracking-tight text-black md:text-4xl">AI MODELS</h1>
-            <p className="text-sm font-bold text-black/70 md:text-base">
-              Quản lý model public, model upstream và mức quy đổi credits.
-            </p>
+    <div className="space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-1">
+      <TextFadeInUp as="section" className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">Quản trị model</span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Model</h1>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">Quản lý danh sách model, dòng AI, trạng thái hiển thị và khả năng sử dụng trong các gói credits.</p>
           </div>
-
-          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-end lg:w-auto">
-            <div className="border-4 border-black bg-[#C7F0D8] px-4 py-3 text-black shadow-[4px_4px_0px_0px_#000]">
-              <p className="text-[11px] font-black uppercase tracking-[0.1em] text-black/60">Đang sẵn sàng</p>
-              <p className="text-xl font-black text-black">
-                {activeCount} / {models.length}
-              </p>
-            </div>
-            <AppButton
-              onClick={() => handleOpenModal()}
-              className="h-12 border-4 border-black bg-[#FFD93D] px-5 font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] hover:-translate-y-0.5 hover:bg-[#FF6B6B] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              THÊM MODEL
-            </AppButton>
+          <div className="flex flex-wrap gap-3 lg:justify-end">
+            <CosmicButton onClick={() => handleOpenModal()}><Plus className="h-4 w-4" />Thêm model</CosmicButton>
           </div>
         </div>
-      </section>
+      </TextFadeInUp>
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Tổng models", value: models.length, bg: "bg-[#DBEAFE]", icon: Layers },
-          { label: "Đang bật", value: activeCount, bg: "bg-[#C7F0D8]", icon: Bot },
-          { label: "Đang tắt", value: inactiveCount, bg: "bg-[#FF6B6B]", icon: Bot },
-          { label: "Providers", value: providerCount, bg: "bg-[#FFD93D]", icon: Server },
-        ].map((item) => (
-          <article key={item.label} className="min-h-[110px] border-4 border-black bg-[#FFFDF5] p-4 shadow-[5px_5px_0px_0px_#000]">
-            <div className="flex items-center gap-4">
-              <div className={`flex h-11 w-11 items-center justify-center border-4 border-black shadow-[3px_3px_0px_0px_#000] ${item.bg}`}>
-                <item.icon className="h-5 w-5 text-black" />
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.08em] text-black/70">{item.label}</p>
-                <p className="mt-2 text-2xl font-black leading-none text-black">{item.value.toLocaleString("vi-VN")}</p>
-              </div>
-            </div>
-          </article>
+          { label: "Tổng model", value: summary.total, desc: "Tất cả model đang quản lý", cls: "bg-indigo-50 text-indigo-700" },
+          { label: "Đang hoạt động", value: summary.active, desc: "Model sẵn sàng sử dụng", cls: "bg-emerald-50 text-emerald-700" },
+          { label: "Đang tắt", value: summary.inactive, desc: "Model tạm ngưng", cls: "bg-slate-100 text-slate-700" },
+          { label: "Dòng AI", value: summary.families, desc: "Số dòng AI hiện có", cls: "bg-violet-50 text-violet-700" },
+        ].map((card, i) => (
+          <TextFadeInUp key={card.label} delay={Math.min(i * 0.05, 0.25)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200">
+            <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", card.cls)}><Bot className="h-5 w-5" /></div>
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
+            <p className="mt-3 text-2xl font-extrabold text-slate-950">{card.value.toLocaleString("vi-VN")}</p>
+            <p className="mt-2 text-sm text-slate-600">{card.desc}</p>
+          </TextFadeInUp>
         ))}
       </section>
 
-      <section className="space-y-4 border-4 border-black bg-white p-4 shadow-[7px_7px_0px_0px_#000] md:p-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1fr_190px_220px_170px]">
-          <div className="space-y-2">
-            <label className="mb-2 text-[11px] font-black uppercase tracking-[0.12em] text-black/60">Tìm kiếm</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/45" />
-              <input
-                type="text"
-                placeholder="Tìm theo tên model hoặc upstream..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className={cn(brutalInput, "pl-10")}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="mb-2 text-[11px] font-black uppercase tracking-[0.12em] text-black/60">Dòng AI</label>
-            <select
-              value={filterFamily}
-              onChange={(e) => {
-                setFilterFamily(e.target.value);
-                setCurrentPage(1);
-              }}
-              className={brutalInput}
-            >
-              <option value="ALL">Tất cả dòng AI</option>
-              {families.map((f) => (
-                <option key={f} value={f}>
-                  {familyLabel(f)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="mb-2 text-[11px] font-black uppercase tracking-[0.12em] text-black/60">Provider</label>
-            <select
-              value={filterProvider}
-              onChange={(e) => {
-                setFilterProvider(e.target.value);
-                setCurrentPage(1);
-              }}
-              className={brutalInput}
-            >
-              <option value="ALL">Tất cả provider</option>
-              {uniqueProviders.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="mb-2 text-[11px] font-black uppercase tracking-[0.12em] text-black/60">Trạng thái</label>
-            <select
-              value={filterActive}
-              onChange={(e) => {
-                setFilterActive(e.target.value);
-                setCurrentPage(1);
-              }}
-              className={brutalInput}
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang bật</option>
-              <option value="INACTIVE">Đang tắt</option>
-            </select>
-          </div>
+      <TextFadeInUp as="section" delay={0.05} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+          <div className="relative lg:col-span-2"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo tên model, slug hoặc dòng AI..." className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-950 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" /></div>
+          <select value={filterFamily} onChange={(e) => setFilterFamily(e.target.value as FamilyFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="ALL">Tất cả dòng AI</option><option value="CODEXAI">CodexAI</option><option value="CLAUDE">Claude</option><option value="GEMINI">Gemini</option><option value="DEEPSEEK">DeepSeek</option></select>
+          <select value={filterProvider} onChange={(e) => setFilterProvider(e.target.value)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="ALL">Tất cả provider</option>{providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          <div className="grid grid-cols-2 gap-3"><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as StatusFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="ALL">Tất cả trạng thái</option><option value="ACTIVE">Đang hoạt động</option><option value="INACTIVE">Đang tắt</option></select><select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortFilter)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="NEWEST">Mới nhất</option><option value="NAME_ASC">Theo tên A-Z</option><option value="FAMILY">Theo dòng AI</option><option value="USAGE">Đang dùng nhiều</option></select></div>
         </div>
+      </TextFadeInUp>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-bold text-black/70">
-            Đang hiển thị <span className="font-black text-black">{filteredModels.length}</span> models
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <AppButton
-              onClick={() => {
-                setSearch("");
-                setFilterFamily("ALL");
-                setFilterProvider("ALL");
-                setFilterActive("ALL");
-                setCurrentPage(1);
-              }}
-              className="h-11 border-4 border-black bg-white px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-            >
-              XÓA LỌC
-            </AppButton>
-            <AppButton
-              onClick={() => {
-                void fetchModels();
-                void fetchProviders();
-              }}
-              className="h-11 border-4 border-black bg-[#FFD93D] px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-            >
-              <RefreshCw className={cn("mr-2 h-4 w-4", isLoading && "animate-spin")} />
-              LÀM MỚI
-            </AppButton>
-          </div>
-        </div>
-      </section>
-
-      <section className="min-w-0 hidden overflow-hidden border-4 border-black bg-white p-4 shadow-[8px_8px_0px_0px_#000] lg:block md:p-5">
-        <div className="max-w-full overflow-x-auto">
-          <table className="w-full min-w-[1100px] border-collapse text-left">
-            <thead>
-              <tr className="border-b-4 border-black bg-[#FFFDF5]">
-                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Tên hiển thị</th>
-                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Dòng AI</th>
-                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Nhà cung cấp</th>
-                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Model gốc upstream</th>
-                <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Hệ số input</th>
-                <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Hệ số output</th>
-                <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Trạng thái</th>
-                <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.14em] text-black/65">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedModels.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center">
-                    <div className="mx-auto flex w-fit flex-col items-center">
-                      <div className="mb-4 flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000]">
-                        <Bot className="h-7 w-7 text-black" />
-                      </div>
-                      <p className="text-xl font-black text-black">KHÔNG TÌM THẤY MODEL</p>
-                      <p className="mt-1 text-sm font-bold text-black/60">Thử đổi bộ lọc hoặc thêm model mới.</p>
-                      <AppButton
-                        onClick={() => handleOpenModal()}
-                        className="mt-4 h-11 border-4 border-black bg-[#FFD93D] px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-                      >
-                        THÊM MODEL
-                      </AppButton>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                paginatedModels.map((model) => (
-                  <tr key={model.id} className="border-b-2 border-black/10 align-middle transition-colors hover:bg-[#FFF8D6]">
-                    <td className="px-4 py-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className={cn("h-10 w-10 shrink-0", familyIconBoxClass(model.apiFamily))}>
-                          <AiFamilyLogo family={model.apiFamily} className="h-6 w-6 object-contain" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="break-all text-sm font-black text-black">{model.publicName}</p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex border-2 border-black px-3 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${familyBadgeClass(model.apiFamily)}`}>
-                        {familyLabel(model.apiFamily)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Server className="h-4 w-4 shrink-0 text-black/70" />
-                        <span className="max-w-[240px] truncate text-sm font-bold text-black" title={model.provider?.name || "Chưa gán provider"}>
-                          {model.provider?.name || "Chưa gán provider"}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span
-                        className="inline-flex max-w-[280px] truncate border-2 border-black bg-[#FFFDF5] px-3 py-1.5 font-mono text-xs font-bold text-black shadow-[2px_2px_0px_0px_#000]"
-                        title={model.upstreamModel}
-                      >
-                        {model.upstreamModel}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 text-center">
-                      <span className="inline-flex items-center gap-1 border-2 border-black bg-[#C7F0D8] px-3 py-1 text-xs font-black text-black shadow-[2px_2px_0px_0px_#000]">
-                        <ArrowDownLeft className="h-3.5 w-3.5" />
-                        × {model.inputCreditRate}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 text-center">
-                      <span className="inline-flex items-center gap-1 border-2 border-black bg-[#DBEAFE] px-3 py-1 text-xs font-black text-black shadow-[2px_2px_0px_0px_#000]">
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                        × {model.outputCreditRate}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 text-center">
-                      <div className="flex justify-center">
-                        <Switch
-                          checked={model.isActive}
-                          onCheckedChange={() => handleToggleActive(model)}
-                          className="border-2 border-black data-[state=checked]:bg-[#C7F0D8] data-[state=unchecked]:bg-[#FF6B6B]"
-                        />
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenModal(model)}
-                        title="Sửa model"
-                        aria-label="Sửa model"
-                        className="inline-flex h-10 w-10 items-center justify-center border-4 border-black bg-white text-black shadow-[3px_3px_0px_0px_#000] transition-all duration-100 hover:bg-[#FFD93D] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredModels.length > 0 && totalPages > 1 ? (
-          <div className="mt-4 flex flex-col gap-4 border-t-2 border-black/20 pt-4 md:flex-row md:items-center md:justify-between">
-            <p className="text-sm font-bold text-black/70">
-              Hiển thị <span className="font-black text-black">{(safeCurrentPage - 1) * ITEMS_PER_PAGE + 1}</span> -{" "}
-              <span className="font-black text-black">{Math.min(safeCurrentPage * ITEMS_PER_PAGE, filteredModels.length)}</span> trong tổng{" "}
-              <span className="font-black text-black">{filteredModels.length}</span> models
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <AppButton
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={safeCurrentPage === 1}
-                className="h-11 border-4 border-black bg-white px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
-              >
-                Trước
-              </AppButton>
-              <div className="h-11 border-4 border-black bg-[#FFD93D] px-4 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] inline-flex items-center">
-                {safeCurrentPage} / {totalPages}
-              </div>
-              <AppButton
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={safeCurrentPage === totalPages}
-                className="h-11 border-4 border-black bg-white px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
-              >
-                Sau
-              </AppButton>
-            </div>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="grid gap-4 lg:hidden">
-        {paginatedModels.length === 0 ? (
-          <article className="flex min-h-[260px] flex-col items-center justify-center border-4 border-black bg-[#FFFDF5] p-6 text-center shadow-[6px_6px_0px_0px_#000]">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[4px_4px_0px_0px_#000]">
-              <Bot className="h-7 w-7 text-black" />
-            </div>
-            <p className="text-lg font-black text-black">KHÔNG TÌM THẤY MODEL</p>
-            <p className="mt-1 text-sm font-bold text-black/60">Thử đổi bộ lọc hoặc thêm model mới.</p>
-          </article>
-        ) : (
-          paginatedModels.map((model) => (
-            <article key={model.id} className="space-y-4 border-4 border-black bg-[#FFFDF5] p-4 shadow-[6px_6px_0px_0px_#000]">
+      {filteredModels.length === 0 ? (
+        <section className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Bot className="h-7 w-7" /></div>
+          <h2 className="text-2xl font-extrabold text-slate-950">Chưa có model</h2>
+          <p className="mt-2 text-sm text-slate-600">Thêm model đầu tiên để gắn vào các gói credits và hiển thị trong tài liệu sử dụng.</p>
+          <div className="mt-6 flex justify-center"><CosmicButton onClick={() => handleOpenModal()}><Plus className="h-4 w-4" />Thêm model</CosmicButton></div>
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+          {filteredModels.map((model, i) => (
+            <TextFadeInUp key={model.id} delay={Math.min(i * 0.04, 0.25)} as="article" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_18px_45px_-22px_rgba(79,70,229,0.30)]">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="break-all text-base font-black text-black">{model.publicName}</p>
-                  <p className="mt-1 break-all text-xs font-bold text-black/60">{model.provider?.name || "Chưa gán provider"}</p>
-                </div>
-                <span className={`inline-flex border-2 border-black px-3 py-1 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000] ${familyBadgeClass(model.apiFamily)}`}>
-                  {familyLabel(model.apiFamily)}
-                </span>
+                <div className="min-w-0"><h3 className="truncate text-lg font-extrabold text-slate-950">{model.publicName}</h3><p className="mt-1 text-sm text-slate-600">{model.provider?.name || "Chưa gắn provider"}</p></div>
+                <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", model.isActive ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600")}>{model.isActive ? "Đang hoạt động" : "Đang tắt"}</span>
               </div>
 
-              <div className="space-y-3">
-                <div className="border-2 border-black bg-white p-2">
-                  <p className="text-[11px] font-black uppercase text-black/60">Upstream</p>
-                  <p className="mt-1 break-all font-mono text-xs font-bold text-black">{model.upstreamModel}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="border-2 border-black bg-[#C7F0D8] p-2 text-center">
-                    <p className="text-[11px] font-black uppercase text-black/60">Input</p>
-                    <p className="text-sm font-black text-black">× {model.inputCreditRate}</p>
-                  </div>
-                  <div className="border-2 border-black bg-[#DBEAFE] p-2 text-center">
-                    <p className="text-[11px] font-black uppercase text-black/60">Output</p>
-                    <p className="text-sm font-black text-black">× {model.outputCreditRate}</p>
-                  </div>
-                </div>
+              <div className="mt-4 flex flex-wrap gap-2"><span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", familyClass(model.apiFamily))}>{familyLabel(model.apiFamily)}</span><span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{model.upstreamEndpointType === "RESPONSES" ? "Reasoning" : "Chat"}</span></div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <code className="block max-w-full flex-1 truncate rounded-xl bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600">{model.upstreamModel}</code>
+                <button type="button" onClick={() => void handleCopyModelId(model.upstreamModel)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-700"><Copy className="h-4 w-4" /></button>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <Switch
-                  checked={model.isActive}
-                  onCheckedChange={() => handleToggleActive(model)}
-                  className="border-2 border-black data-[state=checked]:bg-[#C7F0D8] data-[state=unchecked]:bg-[#FF6B6B]"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleOpenModal(model)}
-                  className="inline-flex h-10 w-10 items-center justify-center border-4 border-black bg-white text-black shadow-[3px_3px_0px_0px_#000]"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3"><p className="text-xs text-slate-500">Input rate</p><p className="mt-1 text-sm font-semibold text-slate-900">x {model.inputCreditRate}</p></div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3"><p className="text-xs text-slate-500">Output rate</p><p className="mt-1 text-sm font-semibold text-slate-900">x {model.outputCreditRate}</p></div>
               </div>
-            </article>
-          ))
-        )}
-      </section>
+
+              <div className="mt-5 grid grid-cols-[1fr_auto] gap-3">
+                <button type="button" onClick={() => handleOpenModal(model)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"><Pencil className="h-4 w-4" />Sửa</button>
+                <label className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3"><Switch checked={model.isActive} onCheckedChange={() => handleToggleActive(model)} /></label>
+              </div>
+            </TextFadeInUp>
+          ))}
+        </section>
+      )}
 
       <Modal
         open={isModalOpen}
-        title={editingId ? "Cập nhật AI Model" : "Thêm AI Model mới"}
         onClose={() => setIsModalOpen(false)}
+        title={editingId ? "Cập nhật model" : "Thêm model"}
+        description="Quản lý model id, dòng AI, provider, trạng thái và hệ số credits."
         maxWidthClassName="max-w-3xl"
+        footer={
+          <>
+            <button type="button" onClick={() => setIsModalOpen(false)} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Hủy</button>
+            <button type="submit" form="model-form" disabled={isSubmitting} className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-60">{isSubmitting ? "Đang lưu..." : "Lưu model"}</button>
+          </>
+        }
       >
-        <form onSubmit={handleSubmit} className="max-h-[90vh] space-y-6 overflow-y-auto bg-[#FFFDF5] p-6">
+        <form id="model-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Tên model public</label>
-              <input
-                type="text"
-                required
-                value={formData.publicName}
-                onChange={(e) => setFormData({ ...formData, publicName: e.target.value })}
-                placeholder="Ví dụ: claude/claude-haiku-4.5"
-                className={brutalInput}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Dòng AI</label>
-              <select
-                value={formData.apiFamily}
-                onChange={(e) => setFormData({ ...formData, apiFamily: e.target.value })}
-                className={brutalInput}
-              >
-                <option value="CODEXAI">CodexAI</option>
-                <option value="CLAUDE">Claude</option>
-                <option value="GEMINI">Gemini</option>
-                <option value="DEEPSEEK">DeepSeek</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Provider</label>
-              <select
-                required
-                value={formData.providerId}
-                onChange={(e) => setFormData({ ...formData, providerId: e.target.value })}
-                className={brutalInput}
-              >
-                <option value="" disabled>
-                  Chọn Provider
-                </option>
-                {providersList
-                  .filter((p) => p.apiFamily === formData.apiFamily)
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                {providersList.filter((p) => p.apiFamily === formData.apiFamily).length === 0 ? (
-                  <option value="" disabled>
-                    Không có provider cho family này
-                  </option>
-                ) : null}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Model upstream</label>
-              <input
-                type="text"
-                required
-                value={formData.upstreamModel}
-                onChange={(e) => setFormData({ ...formData, upstreamModel: e.target.value })}
-                placeholder="Ví dụ: claude-sonnet-4-5"
-                className={brutalInput}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Hệ số input</label>
-              <input
-                type="number"
-                step="0.001"
-                required
-                min="0"
-                value={formData.inputCreditRate}
-                onChange={(e) => setFormData({ ...formData, inputCreditRate: e.target.value })}
-                className={brutalInput}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Hệ số output</label>
-              <input
-                type="number"
-                step="0.001"
-                required
-                min="0"
-                value={formData.outputCreditRate}
-                onChange={(e) => setFormData({ ...formData, outputCreditRate: e.target.value })}
-                className={brutalInput}
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-black uppercase tracking-[0.1em] text-black/60">Kiểu upstream endpoint</label>
-              <select
-                value={formData.upstreamEndpointType}
-                onChange={(e) => setFormData({ ...formData, upstreamEndpointType: e.target.value })}
-                className={brutalInput}
-              >
-                <option value="CHAT_COMPLETIONS">Chat Completions (/v1/chat/completions)</option>
-                <option value="RESPONSES">Responses API (/v1/responses)</option>
-              </select>
-              <p className="text-xs font-bold text-black/60">
-                Chọn Responses API cho các model đặc thù yêu cầu cấu trúc input/output khác.
-              </p>
-            </div>
+            <Field label="Tên hiển thị" error={formErrors.publicName}><input value={formData.publicName} onChange={(e) => setFormData((f) => ({ ...f, publicName: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Model ID" error={formErrors.upstreamModel}><input value={formData.upstreamModel} onChange={(e) => setFormData((f) => ({ ...f, upstreamModel: e.target.value }))} placeholder="codexai/gpt-5.3-codex" className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Dòng AI" error={formErrors.apiFamily}><select value={formData.apiFamily} onChange={(e) => setFormData((f) => ({ ...f, apiFamily: e.target.value, providerId: "" }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="CODEXAI">CodexAI</option><option value="CLAUDE">Claude</option><option value="GEMINI">Gemini</option><option value="DEEPSEEK">DeepSeek</option></select></Field>
+            <Field label="Provider"><select value={formData.providerId} onChange={(e) => setFormData((f) => ({ ...f, providerId: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="">Chọn provider</option>{filteredProviders.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+            <Field label="Input credit rate"><input type="number" min={0} step="0.001" value={formData.inputCreditRate} onChange={(e) => setFormData((f) => ({ ...f, inputCreditRate: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Output credit rate"><input type="number" min={0} step="0.001" value={formData.outputCreditRate} onChange={(e) => setFormData((f) => ({ ...f, outputCreditRate: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950" /></Field>
+            <Field label="Loại model" className="md:col-span-2"><select value={formData.upstreamEndpointType} onChange={(e) => setFormData((f) => ({ ...f, upstreamEndpointType: e.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"><option value="CHAT_COMPLETIONS">Chat</option><option value="RESPONSES">Reasoning</option></select></Field>
           </div>
-
-          <label className="flex items-center gap-3 border-4 border-black bg-white p-4">
-            <input
-              type="checkbox"
-              checked={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="h-5 w-5 border-2 border-black"
-            />
-            <span className="text-sm font-black text-black">Trạng thái hoạt động</span>
-          </label>
-
-          <div className="flex flex-col justify-end gap-3 border-t-2 border-black/20 pt-4 sm:flex-row">
-            <AppButton
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="h-12 border-4 border-black bg-white px-6 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-            >
-              Hủy
-            </AppButton>
-            <AppButton
-              type="submit"
-              className="h-12 border-4 border-black bg-[#FFD93D] px-6 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]"
-            >
-              {editingId ? "Lưu thay đổi" : "Lưu model"}
-            </AppButton>
-          </div>
+          <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm font-semibold text-slate-700"><span>Đang hoạt động</span><Switch checked={formData.isActive} onCheckedChange={(v) => setFormData((f) => ({ ...f, isActive: v }))} /></label>
         </form>
       </Modal>
 
-      {toast && <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} />}
+      {toast ? <ToastMessage message={toast.message} type={toast.type} onClose={clearToast} /> : null}
+      {confirmState ? <ConfirmDialog open={Boolean(confirmState)} title={confirmState.title} description={confirmState.description} confirmLabel={confirmState.confirmLabel} cancelLabel={confirmState.cancelLabel} type={confirmState.type} isLoading={isConfirming} onConfirm={handleConfirm} onCancel={closeConfirm} /> : null}
+    </div>
+  );
+}
 
-      {confirmState && (
-        <ConfirmDialog
-          open={!!confirmState}
-          title={confirmState.title}
-          description={confirmState.description}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          type={confirmState.type}
-          isLoading={isConfirming}
-          onConfirm={handleConfirm}
-          onCancel={closeConfirm}
-        />
-      )}
+function Field({ label, error, className, children }: { label: string; error?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</label>
+      {children}
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
     </div>
   );
 }

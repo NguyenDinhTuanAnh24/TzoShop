@@ -2,6 +2,7 @@ import { Prisma, OrderStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
+import { buildPagination, getPagination } from "@/lib/pagination";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,7 @@ export async function GET(request: NextRequest) {
     await requireAdminUser();
 
     const searchParams = request.nextUrl.searchParams;
+    const { page, pageSize, skip, take } = getPagination(searchParams);
     const status = searchParams.get("status");
     const email = searchParams.get("email") || undefined;
     const startDate = searchParams.get("startDate") || undefined;
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
     if (status && status !== "ALL") where.status = status as OrderStatus;
     if (email) {
       where.user = {
-        email: { contains: email, mode: 'insensitive' }
+        email: { contains: email, mode: "insensitive" },
       };
     }
     if (startDate || endDate) {
@@ -28,54 +30,59 @@ export async function GET(request: NextRequest) {
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
-    const orders = await prisma.order.findMany({
-      where,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          }
+    const [total, orders] = await Promise.all([
+      prisma.order.count({ where }),
+      prisma.order.findMany({
+        where,
+        orderBy: {
+          createdAt: "desc",
         },
-        product: {
-          select: {
-            name: true,
-            apiFamily: true,
-          }
-        }
-      }
-    });
+        skip,
+        take,
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          product: {
+            select: {
+              name: true,
+              apiFamily: true,
+            },
+          },
+        },
+      }),
+    ]);
 
-    // Check if credits are granted for each order
-    const orderIds = orders.map(o => o.id);
+    const orderIds = orders.map((o) => o.id);
     const ledgers = await prisma.creditLedger.findMany({
       where: {
         referenceId: { in: orderIds },
-        type: "PURCHASE"
+        type: "PURCHASE",
       },
       select: {
         referenceId: true,
-        creditBucketId: true
-      }
+        creditBucketId: true,
+      },
     });
 
-    const ledgerMap = new Map(ledgers.map(l => [l.referenceId, l]));
+    const ledgerMap = new Map(ledgers.map((l) => [l.referenceId, l]));
 
-    const ordersWithGrantStatus = orders.map(order => ({
+    const ordersWithGrantStatus = orders.map((order) => ({
       ...order,
       payosOrderCode: order.payosOrderCode?.toString(),
       isCreditsGranted: ledgerMap.has(order.id),
-      creditBucketId: ledgerMap.get(order.id)?.creditBucketId
+      creditBucketId: ledgerMap.get(order.id)?.creditBucketId,
     }));
 
     return NextResponse.json({
       success: true,
-      data: ordersWithGrantStatus
+      data: ordersWithGrantStatus,
+      items: ordersWithGrantStatus,
+      pagination: buildPagination({ page, pageSize, total }),
     });
-
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "UNAUTHORIZED") {
@@ -102,7 +109,7 @@ export async function PATCH(request: NextRequest) {
 
     if (!orderId || !status) {
       return NextResponse.json(
-        { error: { message: "Thiếu thông tin cập nhật." } },
+        { error: { message: "Thi?u thông tin c?p nh?t." } },
         { status: 400 }
       );
     }
@@ -117,14 +124,13 @@ export async function PATCH(request: NextRequest) {
       action: "UPDATE",
       entityType: "ORDER",
       entityId: updatedOrder.id,
-      metadata: { status }
+      metadata: { status },
     });
 
     return NextResponse.json({
       success: true,
-      data: updatedOrder
+      data: updatedOrder,
     });
-
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "UNAUTHORIZED") {
@@ -141,3 +147,4 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+

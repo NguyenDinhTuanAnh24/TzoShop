@@ -19,6 +19,7 @@ import { vi } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { formatVnd, translateStatus } from "@/lib/format";
+import { PageLoader } from "@/components/ui/app-loader";
 
 type UserDetail = {
   id: string;
@@ -91,11 +92,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
   }, [fetchUser]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
-      </div>
-    );
+    return <PageLoader label="Đang tải thông tin người dùng..." />;
   }
 
   if (!user) {

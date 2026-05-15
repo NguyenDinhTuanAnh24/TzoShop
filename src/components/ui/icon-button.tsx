@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { ButtonHTMLAttributes, forwardRef } from "react";
+import { ButtonLoader } from "@/components/ui/app-loader";
 
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "outline" | "ghost" | "dark" | "danger" | "success";
@@ -37,9 +38,7 @@ const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         )}
         {...props}
       >
-        {isLoading ? (
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-        ) : children}
+        {isLoading ? <ButtonLoader variant={variant === "dark" ? "white" : "default"} /> : children}
       </button>
     );
   }

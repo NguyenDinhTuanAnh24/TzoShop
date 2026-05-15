@@ -32,6 +32,18 @@ type Notification = {
   isAlert?: boolean;
 };
 
+async function readJsonSafe(res: Response) {
+  const contentType = res.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return res.json();
+  }
+
+  const text = await res.text();
+  console.error("API returned non-JSON:", text.slice(0, 500));
+  throw new Error("API không trả về JSON");
+}
+
 export function NotificationBell() {
   const { data: session } = useSession();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -45,7 +57,10 @@ export function NotificationBell() {
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications");
-      const result = await res.json();
+      const result = await readJsonSafe(res);
+      if (!res.ok) {
+        throw new Error(result?.error || "Không thể tải thông báo");
+      }
       let allNotifications: Notification[] = (result.notifications || []).map((n: Notification) => ({
         ...n,
         isAlert: false,
@@ -56,7 +71,10 @@ export function NotificationBell() {
       if (user?.role === "ADMIN") {
         try {
           const alertRes = await fetch("/api/admin/alerts");
-          const alertData = await alertRes.json();
+          const alertData = await readJsonSafe(alertRes);
+          if (!alertRes.ok) {
+            throw new Error(alertData?.error || "Không thể tải cảnh báo quản trị");
+          }
           if (alertData.success && alertData.alerts?.length > 0) {
             const mappedAlerts: Notification[] = alertData.alerts.slice(0, 10).map((a: Notification) => ({
               ...a,
@@ -112,7 +130,10 @@ export function NotificationBell() {
 
     try {
       const res = await fetch("/api/notifications/mark-read", { method: "POST" });
-      const data = await res.json();
+      const data = await readJsonSafe(res);
+      if (!res.ok) {
+        throw new Error(data?.error || "Không thể cập nhật trạng thái thông báo");
+      }
       if (data.success) {
         setNotifications((prev) => prev.map((n) => (n.isAlert ? n : { ...n, isRead: true })));
         setUnreadCount(0);

@@ -2,6 +2,7 @@ import { ApiFamily } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
+import { buildPagination, getPagination } from "@/lib/pagination";
 import { encryptText, decryptText } from "@/lib/crypto";
 
 export const runtime = "nodejs";
@@ -12,15 +13,32 @@ function maskApiKey(key: string) {
   return "••••••••" + key.slice(-4);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await requireAdminUser();
 
-    const providers = await prisma.aiProvider.findMany({
-      orderBy: {
-        createdAt: "desc",
+    const { searchParams } = new URL(request.url);
+    const { page, pageSize, skip, take } = getPagination(searchParams);
+    const search = searchParams.get("search")?.trim() || "";
+    const where = search
+      ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" as const } },
+          { baseUrl: { contains: search, mode: "insensitive" as const } },
+        ],
       }
-    });
+      : {};
+    const [total, providers] = await Promise.all([
+      prisma.aiProvider.count({ where }),
+      prisma.aiProvider.findMany({
+        where,
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip,
+        take,
+      }),
+    ]);
 
     const maskedProviders = providers.map(p => {
       let plainKey = "";
@@ -37,7 +55,9 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      data: maskedProviders
+      data: maskedProviders,
+      items: maskedProviders,
+      pagination: buildPagination({ page, pageSize, total }),
     });
 
   } catch (error) {
@@ -115,3 +135,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
+
