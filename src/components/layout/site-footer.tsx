@@ -1,56 +1,41 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import Image from "next/image";
 import { CONTACT_INFO, CONTACT_LINKS } from "@/lib/contact";
 
 const footerColumns = [
   {
-    title: "Sản phẩm",
+    title: "Liên kết nhanh",
     links: [
-      { label: "Bảng giá", href: "/pricing" },
-      { label: "Hướng dẫn sử dụng", href: "/docs" },
-      { label: "Câu hỏi thường gặp", href: "/docs/faq" },
-      { label: "API trực tiếp", href: "/docs/api" },
+      { label: "Trang chủ", href: "/" },
+      { label: "Gói credits", href: "/plans" },
+      { label: "Tài liệu", href: "/api-docs" },
+      { label: "Hướng dẫn API", href: "/api-docs" },
     ],
   },
   {
-    title: "Dòng AI",
+    title: "Tài khoản",
     links: [
-      { label: "CodexAI", href: "/pricing" },
-      { label: "Claude", href: "/pricing" },
-      { label: "Gemini", href: "/pricing" },
-      { label: "DeepSeek", href: "/pricing" },
+      { label: "Đăng nhập", href: "/?auth=login" },
+      { label: "Đăng ký", href: "/?auth=register" },
+      { label: "Gói của tôi", href: "/my-plans" },
+      { label: "Thanh toán", href: "/billing" },
     ],
   },
   {
     title: "Hỗ trợ",
     links: [
-      { label: "Câu hỏi thường gặp", href: "/faq" },
-      { label: "Hướng dẫn sử dụng", href: "/docs" },
-      { label: "Chính sách", href: "/policies" },
+      { label: "Trung tâm hỗ trợ", href: "/support" },
+      { label: "Email", value: "support@tzoshop.io.vn", href: CONTACT_LINKS.email, external: true },
+      { label: "Zalo", value: "0866555468", href: CONTACT_LINKS.zalo || "#", external: true },
+      { label: "Telegram", value: "@tzora24", href: CONTACT_LINKS.telegram || "#", external: true },
     ],
   },
-];
-
-const contactLinks = [
   {
-    label: `SĐT: ${CONTACT_INFO.zalo}`,
-    href: CONTACT_LINKS.zaloTel,
-    type: "normal",
-  },
-  {
-    label: `Email: ${CONTACT_INFO.email}`,
-    href: CONTACT_LINKS.email,
-    type: "normal",
-  },
-  {
-    label: `Zalo: ${CONTACT_INFO.zalo}`,
-    href: CONTACT_LINKS.zalo,
-    type: "zalo",
-  },
-  {
-    label: `Telegram: ${CONTACT_INFO.telegram}`,
-    href: CONTACT_LINKS.telegram,
-    type: "telegram",
+    title: "Pháp lý",
+    links: [
+      { label: "Điều khoản sử dụng", href: "/terms" },
+      { label: "Chính sách bảo mật", href: "/privacy" },
+    ],
   },
 ];
 
@@ -58,52 +43,67 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-[#edf1ee] bg-white">
       <div className="container-page py-16">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
-          <div className="lg:col-span-1">
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_1.1fr]">
+          <div>
             <Link href="/" className="inline-flex items-center">
               <Image src="/logo.png" alt="TzoShop" width={160} height={42} className="h-10 w-auto" />
             </Link>
-
-            <p className="mt-4 text-sm leading-6 text-[#47524d]">
-              Nền tảng cung cấp API Credits cho nhiều dòng AI phổ biến, hỗ trợ người dùng sử dụng linh hoạt cùng các extension và công cụ làm việc.
+            <p className="mt-4 text-sm leading-7 text-[#47524d]">
+              Nền tảng giúp bạn quản lý credits, API key và tích hợp AI vào công việc một cách rõ ràng, ổn định.
             </p>
+            <p className="mt-4 text-xs text-[#66736d]">Phản hồi trong ngày làm việc.</p>
           </div>
 
           {footerColumns.map((column) => (
             <div key={column.title}>
               <h3 className="text-sm font-semibold text-[#0b0f0d]">{column.title}</h3>
-
               <div className="mt-4 space-y-3">
-                {column.links.map((link) => (
-                  <Link key={link.label} href={link.href} className="block text-sm text-[#66736d] transition hover:text-[#0b0f0d]">
-                    {link.label}
-                  </Link>
-                ))}
+                {column.title === "Hỗ trợ"
+                  ? column.links.map((link) => (
+                      <Link
+                        key={link.label}
+                        href={link.href}
+                        target={link.external ? "_blank" : undefined}
+                        rel={link.external ? "noopener noreferrer" : undefined}
+                        className="block text-sm transition"
+                      >
+                        {link.value ? (
+                          <span>
+                            <span className="text-slate-400">{link.label}: </span>
+                            <span className="text-slate-700 hover:text-indigo-600">{link.value}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[#66736d] hover:text-[#0b0f0d]">{link.label}</span>
+                        )}
+                      </Link>
+                    ))
+                  : column.links.map((link) => (
+                      <Link
+                        key={link.label}
+                        href={link.href}
+                        target={link.external ? "_blank" : undefined}
+                        rel={link.external ? "noopener noreferrer" : undefined}
+                        className="block text-sm text-[#66736d] transition hover:text-[#0b0f0d]"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
               </div>
             </div>
           ))}
 
           <div>
-            <h3 className="text-sm font-semibold text-[#0b0f0d]">Thông tin liên hệ</h3>
-
-            <div className="mt-4 space-y-3">
-              {contactLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  target={link.href.startsWith("http") ? "_blank" : undefined}
-                  rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                  className={
-                    link.type === "zalo"
-                      ? "block text-sm font-semibold text-[#0068ff] underline underline-offset-4 transition hover:text-[#0052cc]"
-                      : link.type === "telegram"
-                        ? "block text-sm font-semibold text-[#229ed9] underline underline-offset-4 transition hover:text-[#168ac0]"
-                        : "block text-sm text-[#66736d] transition hover:text-[#0b0f0d]"
-                  }
-                >
-                  {link.label}
+            <h3 className="text-sm font-semibold text-[#0b0f0d]">Liên hệ nhanh</h3>
+            <div className="mt-4 space-y-3 text-sm text-[#66736d]">
+              <p>{CONTACT_INFO.email}</p>
+              <div className="space-y-2">
+                <Link href={CONTACT_LINKS.zalo} target="_blank" rel="noopener noreferrer" className="block transition hover:text-[#0b0f0d]">
+                  Zalo
                 </Link>
-              ))}
+                <Link href={CONTACT_LINKS.telegram} target="_blank" rel="noopener noreferrer" className="block transition hover:text-[#0b0f0d]">
+                  Telegram
+                </Link>
+              </div>
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
@@ -13,17 +13,17 @@ type ToastMessageProps = {
 };
 
 const toastStyles: Record<ToastType, string> = {
-  success: "bg-[#C7F0D8] text-black",
-  error: "bg-[#FF6B6B] text-black",
-  warning: "bg-[#FFD93D] text-black",
-  info: "bg-[#C4B5FD] text-black",
+  success: "border-emerald-100",
+  error: "border-rose-100",
+  warning: "border-amber-100",
+  info: "border-indigo-100",
 };
 
 const iconStyles: Record<ToastType, string> = {
-  success: "bg-[#E9FAF0]",
-  error: "bg-[#FFD7D7]",
-  warning: "bg-[#FFF1A8]",
-  info: "bg-[#E0D8FF]",
+  success: "bg-emerald-50 text-emerald-600",
+  error: "bg-rose-50 text-rose-600",
+  warning: "bg-amber-50 text-amber-600",
+  info: "bg-indigo-50 text-indigo-600",
 };
 
 const icons: Record<ToastType, ComponentType<{ className?: string }>> = {
@@ -33,11 +33,7 @@ const icons: Record<ToastType, ComponentType<{ className?: string }>> = {
   info: Info,
 };
 
-export function ToastMessage({
-  message,
-  type = "success",
-  onClose,
-}: ToastMessageProps) {
+export function ToastMessage({ message, type = "success", onClose }: ToastMessageProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -53,26 +49,24 @@ export function ToastMessage({
 
   const toast = (
     <div
-      className="fixed right-4 top-20 z-[10000] w-[calc(100%-2rem)] max-w-sm animate-in fade-in slide-in-from-top-2 duration-200 sm:right-6 sm:top-24 sm:w-auto"
+      className="fixed right-4 top-20 z-[10000] w-[calc(100vw-2rem)] max-w-sm animate-in fade-in slide-in-from-top-2 duration-200 sm:right-6 sm:top-24"
       role="status"
       aria-live="polite"
     >
       <div
-        className={`flex min-h-[58px] items-center gap-3 border-4 border-black px-4 py-3 text-sm font-bold shadow-[4px_4px_0px_0px_#000] ${toastStyles[type]}`}
+        className={`flex min-h-[64px] items-center gap-3 rounded-2xl border bg-white/95 px-4 py-3 text-sm text-slate-950 shadow-[0_18px_45px_-22px_rgba(79,70,229,0.35)] backdrop-blur-xl ${toastStyles[type]}`}
       >
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center border-2 border-black ${iconStyles[type]}`}
-        >
-          <Icon className="h-4 w-4" />
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconStyles[type]}`}>
+          <Icon className="h-4.5 w-4.5" />
         </span>
 
-        <p className="flex-1 leading-5">{message}</p>
+        <p className="flex-1 text-sm font-semibold leading-6 text-slate-900">{message}</p>
 
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center border-2 border-black bg-white/70 text-black transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:bg-white active:translate-x-[1px] active:translate-y-[1px]"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
             aria-label="Đóng thông báo"
           >
             <X className="h-4 w-4" />

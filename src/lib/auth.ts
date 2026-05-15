@@ -38,6 +38,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
+          image: user.avatarUrl ?? undefined,
           role: user.role,
         };
       },
@@ -164,7 +165,7 @@ export const authOptions: NextAuthOptions = {
       if (token.id && !token.googleLoginBlocked && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: (token.email as string).toLowerCase() },
-          select: { id: true, role: true, name: true, email: true },
+          select: { id: true, role: true, name: true, email: true, avatarUrl: true },
         });
 
         if (dbUser) {
@@ -172,6 +173,7 @@ export const authOptions: NextAuthOptions = {
           token.role = dbUser.role;
           token.name = dbUser.name;
           token.email = dbUser.email;
+          token.picture = dbUser.avatarUrl ?? null;
         }
       }
       
@@ -194,6 +196,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = String(token.role ?? "USER");
         session.user.name = String(token.name ?? "");
         session.user.email = String(token.email ?? "");
+        session.user.image = token.picture ? String(token.picture) : null;
       }
       return session;
     },

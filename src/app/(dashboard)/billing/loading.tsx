@@ -1,4 +1,4 @@
-﻿import { BillingPageSkeleton } from "@/components/dashboard/billing/billing-page-skeleton";
+import { BillingPageSkeleton } from "@/components/dashboard/billing/billing-page-skeleton";
 
 export default function Loading() {
   return (

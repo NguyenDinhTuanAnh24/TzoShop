@@ -16,7 +16,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import { SiteHeader } from "@/components/layout/site-header";
-import { SiteFooter } from "@/components/layout/site-footer";
+import { LandingPublicFooter } from "@/components/layout/landing-public-chrome";
 
 const policyCards = [
   {
@@ -185,7 +185,7 @@ export default function PoliciesPage() {
 
       </div>
 
-      <SiteFooter />
+      <LandingPublicFooter />
     </main>
   );
 }

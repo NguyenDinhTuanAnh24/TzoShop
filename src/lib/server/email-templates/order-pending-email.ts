@@ -1,4 +1,4 @@
-﻿import { escapeHtml, renderTextEmail, renderTzoShopEmail } from "./base-email";
+import { escapeHtml, renderTextEmail, renderTzoShopEmail } from "./base-email";
 
 type OrderPendingEmailProps = {
   name?: string | null;

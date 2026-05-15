@@ -1,4 +1,4 @@
-﻿import { SupportPageSkeleton } from "@/components/dashboard/support/support-page-skeleton";
+import { SupportPageSkeleton } from "@/components/dashboard/support/support-page-skeleton";
 
 export default function Loading() {
   return (

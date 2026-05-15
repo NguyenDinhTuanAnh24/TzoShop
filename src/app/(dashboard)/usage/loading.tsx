@@ -1,4 +1,4 @@
-﻿import { UsagePageSkeleton } from "@/components/dashboard/usage/usage-page-skeleton";
+import { UsagePageSkeleton } from "@/components/dashboard/usage/usage-page-skeleton";
 
 export default function Loading() {
   return (

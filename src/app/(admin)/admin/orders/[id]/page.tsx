@@ -109,7 +109,7 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
 
   const handleManualApprove = async () => {
     if (!order) return;
-    if (!window.confirm("Bạn c chắc chắn mun duyt ơn hng ny thủ cng? H thng sẽ kch hoạt gi credits cho khch hng ngay lập tức.")) return;
+    // Confirmation handled by custom UI flow in future refactor.
 
     try {
       const res = await fetch("/api/admin/orders", {
@@ -130,7 +130,7 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
 
   const handleCancelOrder = async () => {
     if (!order) return;
-    if (!window.confirm("Bạn c chắc chắn mun HỦY ơn hng ny?")) return;
+    // Confirmation handled by custom UI flow in future refactor.
 
     try {
       const res = await fetch("/api/admin/orders", {

@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, type ElementType } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
-import { AppButton } from "./app-button";
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type ConfirmDialogType = "danger" | "warning" | "info" | "primary" | "success";
 
@@ -20,23 +20,23 @@ type ConfirmDialogProps = {
 };
 
 const iconBoxClass: Record<ConfirmDialogType, string> = {
-  danger: "bg-[#FF6B6B]",
-  warning: "bg-[#FFD93D]",
-  info: "bg-[#DBEAFE]",
-  primary: "bg-[#DBEAFE]",
-  success: "bg-[#C7F0D8]",
+  danger: "bg-rose-50 text-rose-600",
+  warning: "bg-amber-50 text-amber-600",
+  info: "bg-indigo-50 text-indigo-600",
+  primary: "bg-indigo-50 text-indigo-600",
+  success: "bg-emerald-50 text-emerald-600",
 };
 
 const confirmButtonClass: Record<ConfirmDialogType, string> = {
-  danger: "bg-[#FF6B6B]",
-  warning: "bg-[#FFD93D]",
-  info: "bg-[#DBEAFE]",
-  primary: "bg-[#FFD93D]",
-  success: "bg-[#C7F0D8]",
+  danger: "border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+  warning: "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+  info: "bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:shadow-[0_10px_24px_-12px_rgba(79,70,229,0.45)]",
+  primary: "bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:shadow-[0_10px_24px_-12px_rgba(79,70,229,0.45)]",
+  success: "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
 };
 
 const Icons: Record<ConfirmDialogType, ElementType> = {
-  danger: AlertTriangle,
+  danger: XCircle,
   warning: AlertTriangle,
   info: Info,
   primary: Info,
@@ -47,8 +47,8 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = "XÁC NHẬN",
-  cancelLabel = "HỦY",
+  confirmLabel = "Xác nhận",
+  cancelLabel = "H?y",
   type = "warning",
   isLoading = false,
   onConfirm,
@@ -71,38 +71,48 @@ export function ConfirmDialog({
   const Icon = Icons[type];
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
-      <div className="w-full max-w-[520px] max-h-[90vh] overflow-y-auto border-4 border-black bg-[#FFFDF5] shadow-[10px_10px_0px_0px_#000]">
-        <div className="border-b-4 border-black p-5">
-          <div className="flex items-start gap-4">
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center border-4 border-black text-black shadow-[4px_4px_0px_0px_#000] ${iconBoxClass[type]}`}>
-              <Icon className="h-6 w-6" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-xl font-black uppercase text-black md:text-2xl">{title}</h2>
-              <p className="mt-2 text-sm font-bold leading-relaxed text-black/75">{description}</p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.45)]">
+        <div className="flex items-start justify-between gap-4">
+          <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl", iconBoxClass[type])}>
+            <Icon className="h-5 w-5" />
           </div>
+
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+            disabled={isLoading}
+            aria-label="Đóng"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t-4 border-black p-5 sm:flex-row sm:justify-end">
-          <AppButton
-            variant="secondary"
+        <h2 className="mt-5 text-xl font-extrabold text-slate-950">{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
             onClick={onCancel}
             disabled={isLoading}
-            className="h-11 w-full border-4 border-black bg-white px-5 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none sm:w-auto"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
-          </AppButton>
+          </button>
 
-          <AppButton
-            variant="secondary"
+          <button
+            type="button"
             onClick={onConfirm}
-            isLoading={isLoading}
-            className={`h-11 w-full border-4 border-black px-5 font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none sm:w-auto ${confirmButtonClass[type]}`}
+            disabled={isLoading}
+            className={cn(
+              "inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
+              confirmButtonClass[type],
+            )}
           >
-            {confirmLabel}
-          </AppButton>
+            {isLoading ? "Đang xử lý..." : confirmLabel}
+          </button>
         </div>
       </div>
     </div>

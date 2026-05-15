@@ -1,4 +1,4 @@
-﻿export const CONTACT_INFO = {
+export const CONTACT_INFO = {
   email: "support@tzoshop.io.vn",
   zalo: "0866555468",
   telegram: "@tzora24",

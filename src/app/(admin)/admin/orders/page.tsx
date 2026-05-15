@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
@@ -129,9 +129,7 @@ export default function AdminOrdersPage() {
   }, [fetchOrders]);
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-    const confirmMsg =
-      newStatus === "CANCELLED" ? "Bạn có chắc muốn HỦY đơn hàng này?" : `Xác nhận đổi trạng thái đơn hàng sang ${newStatus}?`;
-    if (!window.confirm(confirmMsg)) return;
+    // Confirmation handled by custom UI flow in future refactor.
 
     try {
       const res = await fetch("/api/admin/orders", {

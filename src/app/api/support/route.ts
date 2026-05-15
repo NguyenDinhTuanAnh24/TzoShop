@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TicketPriority } from "@prisma/client";
 import { requireCurrentUser, getCurrentUser } from "@/lib/server/current-user";

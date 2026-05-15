@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import DashboardSidebar from "@/components/dashboard/dashboard-sidebar";
@@ -35,7 +35,7 @@ export default function DashboardLayout({
   const effectiveCollapsed = mounted ? collapsed : false;
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#FFFDF5]">
+    <div className="min-h-screen overflow-x-clip bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 text-slate-950">
       <DashboardSidebar
         collapsed={effectiveCollapsed}
         onToggleCollapsed={handleToggleCollapsed}
@@ -44,8 +44,8 @@ export default function DashboardLayout({
       />
 
       <div
-        className={`min-h-screen min-w-0 overflow-x-clip bg-[#FFFDF5] transition-[margin-left] duration-200 ${
-          effectiveCollapsed ? "lg:ml-20" : "lg:ml-[250px]"
+        className={`min-h-screen min-w-0 overflow-x-clip transition-[margin-left] duration-200 ${
+          effectiveCollapsed ? "lg:ml-24" : "lg:ml-[260px]"
         }`}
       >
         <DashboardTopbar onOpenMobile={() => setMobileOpen(true)} />

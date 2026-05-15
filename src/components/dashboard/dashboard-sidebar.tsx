@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -36,24 +36,62 @@ type NavGroup = {
   items: NavItem[];
 };
 
-function TzoShopLogo({
-  size = 36,
-  className = "",
+function SidebarNavItem({
+  href,
+  icon: Icon,
+  label,
+  active,
+  collapsed,
+  mobile,
+  onClick,
 }: {
-  size?: number;
-  className?: string;
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  active: boolean;
+  collapsed: boolean;
+  mobile: boolean;
+  onClick?: () => void;
 }) {
+  if (active) {
+    return (
+      <Link
+        href={href}
+        aria-current="page"
+        title={collapsed && !mobile ? label : undefined}
+        aria-label={collapsed && !mobile ? label : undefined}
+        onClick={onClick}
+        className={`group relative block overflow-hidden rounded-2xl p-[2px] ${collapsed && !mobile ? "mx-auto w-11" : ""}`}
+      >
+        <span className="pointer-events-none absolute inset-[-120%] bg-[conic-gradient(from_0deg,transparent,rgba(99,102,241,0.95),rgba(168,85,247,0.95),rgba(79,70,229,0.95),transparent)] opacity-100 tz-animate-gradient-spin" />
+        <span
+          className={`relative z-10 flex h-11 items-center gap-3 rounded-[14px] bg-white px-3 text-sm font-bold text-slate-900 shadow-[0_12px_30px_-16px_rgba(79,70,229,0.65)] ${
+            collapsed && !mobile ? "justify-center" : ""
+          }`}
+        >
+          <AppIcon icon={Icon} className="h-5 w-5 shrink-0 text-slate-900" strokeWidth={2.25} />
+          {(!collapsed || mobile) && <span className="truncate">{label}</span>}
+        </span>
+      </Link>
+    );
+  }
+
   return (
-    <Image
-      src="/logo.png"
-      alt="TzoShop"
-      width={size}
-      height={size}
-      className={`h-auto w-auto object-contain ${className}`}
-      priority
-    />
+    <Link
+      href={href}
+      title={collapsed && !mobile ? label : undefined}
+      aria-label={collapsed && !mobile ? label : undefined}
+      onClick={onClick}
+      className={`group flex h-11 items-center gap-3 rounded-2xl px-3 text-sm font-semibold text-slate-600 transition-all duration-200 hover:translate-x-1 hover:bg-indigo-50 hover:text-indigo-700 ${
+        collapsed && !mobile ? "mx-auto w-11 justify-center px-0 hover:translate-x-0" : ""
+      }`}
+    >
+      <AppIcon icon={Icon} className="h-5 w-5 shrink-0 text-slate-400 transition-colors group-hover:text-indigo-600" strokeWidth={2.25} />
+      {(!collapsed || mobile) && <span className="truncate">{label}</span>}
+    </Link>
   );
 }
+
 
 const navGroups: NavGroup[] = [
   { label: "TỔNG QUAN", items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
@@ -121,51 +159,55 @@ export default function DashboardSidebar({
 
   const sidebarBody = (mobile = false) => (
     <>
-      <div className="flex h-20 shrink-0 items-center justify-center border-b-4 border-black px-3">
+      <div className="flex h-20 shrink-0 items-center px-3">
         <Link
           href="/dashboard"
           onClick={() => mobile && onCloseMobile()}
           aria-label="TzoShop Dashboard"
           title={collapsed && !mobile ? "TzoShop Dashboard" : undefined}
-          className={`inline-flex max-w-full items-center gap-3 text-black transition-all duration-100 ease-linear ${
-            collapsed && !mobile ? "mx-auto justify-center" : ""
+          className={`flex h-16 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition-all duration-200 hover:border-indigo-200 ${
+            collapsed && !mobile ? "mx-auto w-16 justify-center px-0" : ""
           }`}
         >
-          {collapsed && !mobile ? <TzoShopLogo size={34} /> : <TzoShopLogo size={30} />}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+            <Image
+              src="/logo.png"
+              alt="TzoShop"
+              width={36}
+              height={36}
+              className="h-8 w-8 object-contain"
+              priority
+            />
+          </div>
+
           {(!collapsed || mobile) && (
-            <span className="min-w-0 truncate text-xl font-black uppercase leading-none tracking-tight text-black md:text-2xl">TZOSHOP</span>
+            <span className="text-[22px] font-extrabold leading-[1.1] tracking-tight text-slate-950">
+              TzoShop
+            </span>
           )}
         </Link>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {navGroups.map((group) => (
           <div key={group.label} className="mb-4">
             {(!collapsed || mobile) && (
-              <p className="mb-2 mt-5 px-3 text-[11px] font-black uppercase tracking-[0.12em] text-black/55">{group.label}</p>
+              <p className="mb-2 mt-5 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{group.label}</p>
             )}
             <div className="space-y-2">
               {group.items.map((item) => {
                 const active = isActivePath(pathname, item.href);
                 return (
-                  <Link
+                  <SidebarNavItem
                     key={item.href}
                     href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    title={collapsed && !mobile ? item.label : undefined}
-                    aria-label={collapsed && !mobile ? item.label : undefined}
+                    icon={item.icon}
+                    label={item.label}
+                    active={active}
+                    collapsed={collapsed}
+                    mobile={mobile}
                     onClick={() => mobile && onCloseMobile()}
-                    className={`flex h-11 items-center gap-3 border-4 px-3 text-sm font-bold text-black transition-all ${
-                      collapsed && !mobile ? "justify-center" : ""
-                    } ${
-                      active
-                        ? "border-black bg-[#FFD93D] font-black shadow-[4px_4px_0px_0px_#000]"
-                        : "border-transparent hover:-translate-y-0.5 hover:border-black hover:bg-[#FFD93D] hover:shadow-[3px_3px_0px_0px_#000]"
-                    }`}
-                  >
-                    <AppIcon icon={item.icon} className="h-5 w-5 shrink-0 text-black" strokeWidth={2.5} />
-                    {(!collapsed || mobile) && <span className="truncate">{item.label}</span>}
-                  </Link>
+                  />
                 );
               })}
             </div>
@@ -173,31 +215,35 @@ export default function DashboardSidebar({
         ))}
       </nav>
 
-      <div className="shrink-0 border-t-4 border-black bg-[#FFFDF5] p-3">
+      <div className="shrink-0 border-t border-slate-200 bg-white p-3">
         <button
           type="button"
           aria-label={collapsed && !mobile ? "Mở rộng sidebar" : "Thu gọn sidebar"}
           aria-expanded={!collapsed}
           title={collapsed && !mobile ? "Mở rộng sidebar" : undefined}
           onClick={onToggleCollapsed}
-          className={`mb-3 border-4 border-black bg-white font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all hover:bg-[#FFD93D] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-            collapsed && !mobile ? "mx-auto inline-flex h-11 w-11 items-center justify-center" : "inline-flex h-11 w-full items-center justify-center gap-2 text-center"
+          className={`mb-3 rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 ${
+            collapsed && !mobile
+              ? "mx-auto inline-flex h-11 w-11 items-center justify-center"
+              : "inline-flex h-11 w-full items-center justify-center gap-2 text-center text-sm font-semibold"
           }`}
         >
           {collapsed && !mobile ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-          {(!collapsed || mobile) && <span className="leading-none">THU GỌN</span>}
+          {(!collapsed || mobile) && <span className="leading-none">Thu gọn</span>}
         </button>
 
         <button
           type="button"
           title={collapsed && !mobile ? "Đăng xuất" : undefined}
           onClick={(event) => handleRequestLogout(event, mobile)}
-          className={`border-4 border-black bg-[#FF6B6B] font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-            collapsed && !mobile ? "mx-auto flex h-11 w-11 items-center justify-center" : "flex h-11 w-full items-center justify-center gap-2"
+          className={`rounded-xl border border-rose-200 bg-rose-50 text-rose-700 transition-colors duration-200 hover:bg-rose-100 ${
+            collapsed && !mobile
+              ? "mx-auto inline-flex h-11 w-11 items-center justify-center"
+              : "inline-flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold"
           }`}
         >
           <LogOut className="h-5 w-5" />
-          {(!collapsed || mobile) && "ĐĂNG XUẤT"}
+          {(!collapsed || mobile) && "Đăng xuất"}
         </button>
       </div>
     </>
@@ -206,8 +252,8 @@ export default function DashboardSidebar({
   return (
     <>
       <aside
-        className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r-4 border-black bg-[#FFFDF5] lg:flex ${
-          collapsed ? "w-20" : "w-[250px]"
+        className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-slate-200 bg-white lg:flex ${
+          collapsed ? "w-24" : "w-[260px]"
         }`}
       >
         {sidebarBody(false)}
@@ -215,8 +261,8 @@ export default function DashboardSidebar({
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button type="button" aria-label="Đóng menu" className="absolute inset-0 bg-black/50" onClick={onCloseMobile} />
-          <aside className="relative z-10 flex h-full w-[280px] flex-col border-r-4 border-black bg-[#FFFDF5]">{sidebarBody(true)}</aside>
+          <button type="button" aria-label="Đóng menu" className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]" onClick={onCloseMobile} />
+          <aside className="relative z-10 flex h-full w-[280px] max-w-[86vw] flex-col border-r border-slate-200 bg-white">{sidebarBody(true)}</aside>
         </div>
       )}
 

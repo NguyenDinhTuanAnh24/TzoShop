@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
@@ -151,103 +151,102 @@ export function NotificationBell() {
 
   const getIcon = (notif: Notification) => {
     if (notif.severity) {
-      if (notif.severity === "DANGER") return <AlertCircle className="h-4 w-4 text-black" />;
-      return <AlertTriangle className="h-4 w-4 text-black" />;
+      if (notif.severity === "DANGER") return <AlertCircle className="h-4 w-4" />;
+      return <AlertTriangle className="h-4 w-4" />;
     }
 
     switch (notif.type) {
       case "PAYMENT_SUCCESS":
-        return <CheckCircle2 className="h-4 w-4 text-black" />;
+        return <CheckCircle2 className="h-4 w-4" />;
       case "ORDER_CREATED":
-        return <ShoppingCart className="h-4 w-4 text-black" />;
+        return <ShoppingCart className="h-4 w-4" />;
       case "ORDER_CANCELLED":
-        return <XCircle className="h-4 w-4 text-black" />;
+        return <XCircle className="h-4 w-4" />;
       case "API_KEY_CREATED":
-        return <KeyRound className="h-4 w-4 text-black" />;
+        return <KeyRound className="h-4 w-4" />;
       case "SUPPORT_UPDATED":
       case "SUPPORT_CREATED":
-        return <LifeBuoy className="h-4 w-4 text-black" />;
+        return <LifeBuoy className="h-4 w-4" />;
       case "SYSTEM":
-        return <Info className="h-4 w-4 text-black" />;
+        return <Info className="h-4 w-4" />;
       case "ORDER_PAID":
-        return <CreditCard className="h-4 w-4 text-black" />;
+        return <CreditCard className="h-4 w-4" />;
       case "USER_REGISTERED":
-        return <UserPlus className="h-4 w-4 text-black" />;
+        return <UserPlus className="h-4 w-4" />;
       case "OUT_OF_CREDITS":
       case "HIGH_FAILED_REQUESTS":
-        return <AlertCircle className="h-4 w-4 text-black" />;
+        return <AlertCircle className="h-4 w-4" />;
       case "LOW_CREDITS":
       case "EXPIRING_BUCKET":
       case "EXPIRING_PLAN":
       case "STALE_PENDING_ORDER":
       case "MODEL_FAILED_SPIKE":
-        return <AlertTriangle className="h-4 w-4 text-black" />;
+        return <AlertTriangle className="h-4 w-4" />;
       default:
-        return <Bell className="h-4 w-4 text-black" />;
+        return <Bell className="h-4 w-4" />;
     }
   };
 
   const getIconBg = (notif: Notification) => {
-    if (notif.severity === "DANGER" || notif.type === "OUT_OF_CREDITS") return "bg-[#FF6B6B]";
+    if (notif.severity === "DANGER" || notif.type === "OUT_OF_CREDITS") return "bg-rose-50 text-rose-600";
     if (
       notif.severity === "WARNING" ||
       notif.type === "LOW_CREDITS" ||
       notif.type === "EXPIRING_PLAN" ||
       notif.type === "EXPIRING_BUCKET"
     )
-      return "bg-[#FFD93D]";
-    if (notif.type === "API_KEY_CREATED") return "bg-[#A78BFA]";
-    if (notif.type.includes("SUPPORT") || notif.type === "SYSTEM") return "bg-[#C7F0D8]";
-    return "bg-[#FFFDF5]";
+      return "bg-amber-50 text-amber-600";
+    if (notif.type === "API_KEY_CREATED") return "bg-violet-50 text-violet-600";
+    if (notif.type === "PAYMENT_SUCCESS" || notif.type === "ORDER_PAID") return "bg-emerald-50 text-emerald-600";
+    if (notif.type === "ORDER_CREATED" || notif.type === "ORDER_CANCELLED") return "bg-amber-50 text-amber-600";
+    if (notif.type.includes("SUPPORT") || notif.type === "SYSTEM") return "bg-indigo-50 text-indigo-600";
+    return "bg-slate-100 text-slate-600";
   };
 
   const getUnreadDot = (notif: Notification) => {
-    if (notif.type === "OUT_OF_CREDITS" || notif.severity === "DANGER") return "bg-[#FF6B6B]";
-    if (notif.type === "LOW_CREDITS" || notif.type === "EXPIRING_PLAN" || notif.severity === "WARNING") return "bg-[#FFD93D]";
-    return "bg-[#C7F0D8]";
+    if (notif.type === "OUT_OF_CREDITS" || notif.severity === "DANGER") return "bg-rose-400";
+    if (notif.type === "LOW_CREDITS" || notif.type === "EXPIRING_PLAN" || notif.severity === "WARNING") return "bg-amber-400";
+    return "bg-indigo-400";
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={handleToggle}
-        className={`relative inline-flex h-12 w-12 items-center justify-center border-4 border-black bg-white text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:bg-[#FFD93D] hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-          isOpen ? "bg-[#FFD93D]" : ""
+        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700 ${
+          isOpen ? "border-indigo-200 bg-indigo-50 text-indigo-700" : ""
         }`}
         aria-label="Mở thông báo"
       >
         <Bell className={`h-5 w-5 ${unreadCount > 0 && !isOpen ? "animate-[bell-swing_2s_infinite_ease-in-out]" : ""}`} />
         {unreadCount > 0 && (
-          <span className="absolute -right-2 -top-2 flex h-6 min-w-[24px] items-center justify-center border-2 border-black bg-[#FF6B6B] px-1 text-[10px] font-black text-black animate-pulse">
+          <span className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full border border-white bg-rose-500 px-1 text-[10px] font-bold text-white animate-pulse">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-[1000] mt-3 w-[calc(100vw-2rem)] max-w-[380px] origin-top-right animate-in fade-in slide-in-from-top-2 zoom-in-95 duration-200 sm:w-[360px]">
-          <div className="overflow-hidden border-4 border-black bg-[#FFFDF5] shadow-[8px_8px_0px_0px_#000]">
-            <div className="border-b-4 border-black bg-white px-5 py-4">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]">
-                  <Bell className="h-4 w-4 text-black" />
+        <div className="absolute right-0 z-[1000] mt-3 w-[calc(100vw-2rem)] max-w-[420px] origin-top-right animate-in fade-in slide-in-from-top-2 zoom-in-95 duration-200 sm:w-[420px]">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.35)]">
+            <div className="border-b border-slate-200 pb-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Bell className="h-5 w-5" />
                 </span>
-                <h3 className="text-lg font-black uppercase text-black">Thông báo</h3>
+                <h3 className="text-lg font-extrabold text-slate-950">Thông báo</h3>
               </div>
-              <p className="mt-2 text-xs font-bold uppercase tracking-wide text-black/70">
-                {unreadCount > 0 ? `BẠN CÓ ${unreadCount} THÔNG BÁO MỚI` : "BẠN ĐÃ ĐỌC HẾT THÔNG BÁO"}
+              <p className="mt-2 text-sm text-slate-500">
+                {unreadCount > 0 ? `Bạn có ${unreadCount} thông báo mới` : "Bạn đã đọc hết thông báo"}
               </p>
             </div>
 
-            <div className="max-h-[420px] space-y-3 overflow-y-auto p-4">
+            <div className="tz-notification-scroll mt-4 max-h-[340px] space-y-3 overflow-y-auto pr-1">
               {notifications.length === 0 ? (
-                <div className="py-8 text-center">
-                  <div className="mx-auto mb-4 flex h-[72px] w-[72px] items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000] animate-dashboard-float">
-                    <Bell className="h-8 w-8 text-black" />
-                  </div>
-                  <p className="text-lg font-black uppercase text-black">Chưa có thông báo mới</p>
-                  <p className="mx-auto mt-2 max-w-[270px] text-sm font-bold leading-6 text-black/70">
-                    Các cập nhật về đơn hàng, API key và hỗ trợ sẽ hiển thị tại đây.
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
+                  <p className="text-base font-bold text-slate-900">Chưa có thông báo mới</p>
+                  <p className="mx-auto mt-2 max-w-[270px] text-sm leading-6 text-slate-600">
+                    Các cập nhật về đơn hàng, credits và API key sẽ hiển thị tại đây.
                   </p>
                 </div>
               ) : (
@@ -255,28 +254,30 @@ export function NotificationBell() {
                   <button
                     key={notif.id}
                     onClick={() => handleClickNotification(notif)}
-                    className={`w-full border-4 border-black p-3 text-left shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:bg-[#FFF7CC] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
-                      notif.isRead ? "bg-white" : "bg-[#FFF2B0]"
+                    className={`group w-full rounded-2xl border p-4 text-left transition-all duration-300 ${
+                      notif.isRead
+                        ? "border-slate-200 bg-slate-50/70 hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-white hover:shadow-[0_14px_35px_-20px_rgba(79,70,229,0.35)]"
+                        : "border-indigo-200 bg-indigo-50/40 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-white hover:shadow-[0_14px_35px_-20px_rgba(79,70,229,0.35)]"
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center border-2 border-black ${getIconBg(notif)}`}>
+                      <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${getIconBg(notif)}`}>
                         {getIcon(notif)}
                       </span>
 
                       <div className="min-w-0 flex-1">
                         <div className="mb-1 flex items-start justify-between gap-2">
-                          <p className="truncate text-sm font-black uppercase text-black">{notif.title}</p>
-                          {!notif.isRead && <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 border border-black ${getUnreadDot(notif)}`} />}
+                          <p className="truncate text-sm font-bold text-slate-950">{notif.title}</p>
+                          {!notif.isRead && <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${getUnreadDot(notif)}`} />}
                         </div>
 
-                        <p className="line-clamp-2 text-xs font-bold leading-5 text-black/75">{notif.message}</p>
+                        <p className="line-clamp-2 text-sm leading-6 text-slate-600">{notif.message}</p>
 
                         <div className="mt-2 flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-wide text-black/60">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                             {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true, locale: vi })}
                           </span>
-                          {notif.href && <ChevronRight className="h-3 w-3 text-black/70" />}
+                          {notif.href && <ChevronRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-indigo-600" />}
                         </div>
                       </div>
                     </div>
@@ -285,13 +286,13 @@ export function NotificationBell() {
               )}
             </div>
 
-            <div className="border-t-4 border-black bg-white p-4">
+            <div className="mt-4 border-t border-slate-200 pt-4">
               <button
                 onClick={() => {
                   setIsOpen(false);
                   hasMarkedRef.current = false;
                 }}
-                className="inline-flex h-12 w-full items-center justify-center border-4 border-black bg-[#FF6B6B] text-sm font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                className="mt-0 inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50/60 hover:text-indigo-700 active:scale-[0.98]"
               >
                 Đóng thông báo
               </button>
@@ -323,6 +324,20 @@ export function NotificationBell() {
           100% {
             transform: rotate(0);
           }
+        }
+        .tz-notification-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+        }
+        .tz-notification-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .tz-notification-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .tz-notification-scroll::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 999px;
         }
       `}</style>
     </div>

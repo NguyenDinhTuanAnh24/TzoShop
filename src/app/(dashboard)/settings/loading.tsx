@@ -1,4 +1,4 @@
-﻿import { SettingsPageSkeleton } from "@/components/dashboard/settings/settings-page-skeleton";
+import { SettingsPageSkeleton } from "@/components/dashboard/settings/settings-page-skeleton";
 
 export default function Loading() {
   return (

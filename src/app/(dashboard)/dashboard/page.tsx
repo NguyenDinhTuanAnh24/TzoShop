@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -16,8 +16,8 @@ import { translateStatus } from "@/lib/format";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { cn } from "@/lib/utils";
+import { TextFadeInUp } from "@/components/ui/text-fade-in-up";
+import { CosmicButton } from "@/components/ui/cosmic-button";
 
 type DashboardData = {
   credits: { total: string; remaining: string; used: string; charged: string };
@@ -71,64 +71,95 @@ function getUsagePercent(remaining: string, total: string) {
   return Math.min(100, Math.max(0, Math.round((used / t) * 100)));
 }
 
-function brutalBtn(primary?: boolean) {
-  return cn(
-    "inline-flex h-12 items-center justify-center border-4 border-black px-6 text-sm font-black uppercase text-black shadow-[5px_5px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2",
-    primary ? "bg-[#FF6B6B]" : "bg-white hover:bg-[#FFD93D]"
+const cardClass =
+  "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-[0_18px_45px_-22px_rgba(79,70,229,0.28)]";
+
+const primaryBtnClass =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-semibold !text-white shadow-[0_4px_14px_0_rgba(79,70,229,0.30)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_-12px_rgba(79,70,229,0.45)] active:scale-[0.98]";
+
+const secondaryBtnClass =
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50/50 active:scale-[0.98]";
+
+function UsageStatusBadge({ status }: { status: string }) {
+  const translated = translateStatus(status);
+  const isSuccess = status === "SUCCESS";
+  const isPending = status === "PENDING";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+        isSuccess
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : isPending
+          ? "border-amber-200 bg-amber-50 text-amber-700"
+          : "border-rose-200 bg-rose-50 text-rose-700"
+      }`}
+    >
+      {translated}
+    </span>
   );
+}
+
+function OrderStatusBadge({ status }: { status: string }) {
+  const translated = translateStatus(status);
+  const cls =
+    status === "PAID"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "PENDING"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : "border-rose-200 bg-rose-50 text-rose-700";
+
+  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${cls}`}>{translated}</span>;
 }
 
 function DashboardPageSkeleton() {
   return (
     <div className="space-y-8" aria-hidden="true">
-      <section className="border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-14 w-14" />
-              <Skeleton className="h-5 w-28" />
-            </div>
-            <Skeleton className="h-9 w-52" />
-            <Skeleton className="h-4 w-full max-w-[420px]" />
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-24 rounded-full" />
+            <Skeleton className="h-10 w-48 rounded-xl" />
+            <Skeleton className="h-4 w-[440px] max-w-full rounded-full" />
           </div>
           <div className="flex flex-wrap gap-3">
-            <Skeleton className="h-12 w-36" />
-            <Skeleton className="h-12 w-36" />
+            <Skeleton className="h-11 w-28 rounded-xl" />
+            <Skeleton className="h-11 w-32 rounded-xl" />
           </div>
         </div>
       </section>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="min-h-[120px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] md:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-9 w-9" />
+            <div key={i} className={cardClass}>
+              <div className="flex items-start justify-between gap-4">
+                <Skeleton className="h-4 w-24 rounded-full" />
+                <Skeleton className="h-10 w-10 rounded-2xl" />
+              </div>
+              <Skeleton className="mt-5 h-8 w-28 rounded-xl" />
+              <Skeleton className="mt-2 h-4 w-28 rounded-full" />
             </div>
-            <Skeleton className="mt-5 h-8 w-20" />
-            <Skeleton className="mt-2 h-4 w-28" />
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <section className="space-y-5">
-        <Skeleton className="h-6 w-48" />
-        <div className="min-h-[260px] border-4 border-black bg-white p-8 shadow-[8px_8px_0px_0px_#000]" />
-      </section>
+        <section className="space-y-5">
+          <Skeleton className="h-7 w-48 rounded-xl" />
+          <div className="min-h-[240px] rounded-2xl border border-slate-200 bg-white p-8 shadow-sm" />
+        </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {[...Array(2)].map((_, i) => (
-          <div key={i} className="border-4 border-black bg-white p-6 shadow-[6px_6px_0px_0px_#000]">
-            <div className="mb-4 flex items-center justify-between">
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="h-10 w-28" />
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <Skeleton className="h-6 w-40 rounded-xl" />
+                <Skeleton className="h-10 w-24 rounded-xl" />
+              </div>
+              <div className="space-y-3">
+                {[...Array(3)].map((_, j) => (
+                  <Skeleton key={j} className="h-16 w-full rounded-2xl" />
+                ))}
+              </div>
             </div>
-            <div className="space-y-3">
-              {[...Array(3)].map((_, j) => (
-                <Skeleton key={j} className="h-16 w-full" />
-              ))}
-            </div>
-          </div>
         ))}
       </div>
     </div>
@@ -163,7 +194,7 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 overflow-x-hidden px-5 py-6 md:px-6 lg:px-8 lg:py-8" aria-busy="true">
+      <div className="space-y-8 overflow-x-hidden" aria-busy="true">
         <DashboardPageSkeleton />
       </div>
     );
@@ -171,8 +202,8 @@ export default function DashboardPage() {
 
   if (!data) {
     return (
-      <div className="space-y-8 overflow-x-hidden px-5 py-6 md:px-6 lg:px-8 lg:py-8">
-        <div className="border-4 border-black bg-white p-6 text-sm font-bold text-black shadow-[6px_6px_0px_0px_#000]">
+      <div className="space-y-8 overflow-x-hidden">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-700 shadow-sm">
           Không có dữ liệu dashboard.
         </div>
       </div>
@@ -180,46 +211,65 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8 overflow-x-hidden px-5 py-6 md:px-6 lg:px-8 lg:py-8">
-      <section className="relative border-4 border-black bg-[#FFFDF5] p-6 shadow-[8px_8px_0px_0px_#000] md:p-7">
-        <div className="pointer-events-none absolute -bottom-3 -right-3 h-10 w-10 border-4 border-black bg-[#A78BFA]" />
-        <div className="pointer-events-none absolute -left-3 -top-3 h-8 w-8 border-4 border-black bg-[#FFD93D]" />
-
+    <div className="space-y-8 overflow-x-hidden">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(79,70,229,0.25)] sm:p-8">
+        <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center border-4 border-black bg-[#C7F0D8] shadow-[5px_5px_0px_0px_#000]">
-                <LayoutDashboard className="h-7 w-7 text-black" strokeWidth={2.5} />
-              </div>
-              <span className="border-2 border-black bg-[#FFD93D] px-3 py-1 text-xs font-black uppercase text-black">Dashboard</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
+              <LayoutDashboard className="h-4 w-4" /> Tổng quan
             </div>
-            <h2 className="text-3xl font-black tracking-tight text-black md:text-4xl">TỔNG QUAN</h2>
-            <p className="text-sm font-bold text-black/70 md:text-base">Theo dõi credits, API key, đơn hàng và mức sử dụng của bạn.</p>
+            <TextFadeInUp as="h2" className="text-3xl font-extrabold tracking-tight text-slate-950 md:text-4xl">Tổng quan</TextFadeInUp>
+            <TextFadeInUp as="p" delay={0.08} className="text-sm text-slate-600 md:text-base">Theo dõi credits, API key, đơn hàng và mức sử dụng của bạn.</TextFadeInUp>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link href="/plans" className={brutalBtn(true)}>MUA CREDITS</Link>
-            <Link href="/api-keys" className={brutalBtn(false)}>TẠO API KEY</Link>
+            <CosmicButton href="/plans">Mua credits</CosmicButton>
+            <CosmicButton href="/api-keys" variant="secondary">Tạo API key</CosmicButton>
           </div>
         </div>
       </section>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Credits còn lại", value: formatCreditsValue(data?.credits.remaining ?? "0"), sub: "Có thể sử dụng", icon: Wallet, bg: "bg-[#C7F0D8]" },
-          { label: "Credits đã dùng", value: formatCreditsValue(data?.credits.used ?? "0"), sub: "Đã tiêu thụ", icon: Zap, bg: "bg-[#A78BFA]" },
-          { label: "API Keys", value: String(data?.apiKeys.active ?? 0), sub: "Đang hoạt động", icon: KeyRound, bg: "bg-[#FFD93D]" },
-          { label: "Đơn hàng chờ", value: String(data?.orders.pending ?? 0), sub: "Cần xử lý", icon: Clock3, bg: "bg-[#FF6B6B]" },
+          {
+            label: "Credits còn lại",
+            value: formatCreditsValue(data.credits.remaining),
+            sub: "Có thể sử dụng",
+            icon: Wallet,
+            iconClass: "bg-indigo-50 text-indigo-600",
+          },
+          {
+            label: "Credits đã dùng",
+            value: formatCreditsValue(data.credits.used),
+            sub: "Đã tiêu thụ",
+            icon: Zap,
+            iconClass: "bg-violet-50 text-violet-600",
+          },
+          {
+            label: "API Keys",
+            value: String(data.apiKeys.active),
+            sub: "Đang hoạt động",
+            icon: KeyRound,
+            iconClass: "bg-amber-50 text-amber-600",
+          },
+          {
+            label: "Đơn hàng chờ",
+            value: String(data.orders.pending),
+            sub: "Cần xử lý",
+            icon: Clock3,
+            iconClass: "bg-rose-50 text-rose-600",
+          },
         ].map((s) => (
-          <article key={s.label} className="min-h-[120px] border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] transition-all duration-100 ease-linear hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] md:p-6">
+          <article key={s.label} className={cardClass}>
             <div className="flex items-start justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-[0.08em] text-black">{s.label}</p>
-              <div className={`flex h-9 w-9 items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000] ${s.bg}`}>
-                <s.icon className="h-4 w-4 text-black" />
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{s.label}</p>
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${s.iconClass}`}>
+                <s.icon className="h-5 w-5" />
               </div>
             </div>
-            <p className="mt-5 text-3xl font-black leading-none text-black">{s.value}</p>
-            <p className="mt-2 text-xs font-bold uppercase text-black/70">{s.sub}</p>
+            <p className="mt-5 text-3xl font-extrabold leading-none text-slate-950">{s.value}</p>
+            <p className="mt-2 text-xs text-slate-600">{s.sub}</p>
           </article>
         ))}
       </div>
@@ -227,46 +277,48 @@ export default function DashboardPage() {
       <section className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]">
-              <Package className="h-5 w-5 text-black" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <Package className="h-5 w-5" />
             </span>
-            <h3 className="text-2xl font-black text-black">GÓI ĐANG HOẠT ĐỘNG</h3>
+            <h3 className="text-2xl font-extrabold text-slate-950">Gói đang hoạt động</h3>
           </div>
-          <Link href="/my-plans" className="inline-flex h-11 items-center justify-center border-4 border-black bg-white px-5 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition-all hover:bg-[#FFD93D] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none">XEM TẤT CẢ</Link>
+          <Link href="/my-plans" className={secondaryBtnClass}>Xem tất cả</Link>
         </div>
 
-        {data?.plans.length === 0 ? (
-          <div className="flex min-h-[260px] flex-col items-center justify-center border-4 border-black bg-[#FFFDF5] p-8 text-center shadow-[8px_8px_0px_0px_#000] md:p-10">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[5px_5px_0px_0px_#000]">
-              <Package className="h-8 w-8 text-black" />
+        {data.plans.length === 0 ? (
+          <div className="flex min-h-[240px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm md:p-10">
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Package className="h-7 w-7" />
             </div>
-            <h4 className="text-xl font-black text-black">BẠN CHƯA CÓ GÓI CREDITS NÀO</h4>
-            <p className="mt-2 max-w-2xl text-sm font-bold text-black/70">Mua gói credits đầu tiên để bắt đầu tạo API key và sử dụng các model AI.</p>
-            <Link href="/plans" className={`${brutalBtn(true)} mt-6`}>MUA CREDITS NGAY</Link>
+            <TextFadeInUp as="h4" className="text-xl font-bold text-slate-950">Bạn chưa có gói credits nào</TextFadeInUp>
+            <TextFadeInUp as="p" delay={0.08} className="mt-2 max-w-2xl text-sm text-slate-600">Mua gói credits đầu tiên để bắt đầu tạo API key và sử dụng các model AI.</TextFadeInUp>
+            <Link href="/plans" className={`${primaryBtnClass} mt-6`}>Xem gói credits</Link>
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {data.plans.slice(0, 3).map((plan) => {
               const usagePercent = getUsagePercent(plan.creditsRemaining, plan.creditsTotal);
               return (
-                <article key={plan.id} className="space-y-4 border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000]">
+                <article key={plan.id} className={cardClass}>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-lg font-black text-black">{plan.product?.name ?? "Gói tùy chỉnh"}</p>
-                    <StatusBadge status={plan.apiFamily} variant="neutral" />
+                    <p className="truncate text-lg font-bold text-slate-950">{plan.product?.name ?? "Gói tùy chỉnh"}</p>
+                    <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">{plan.apiFamily}</span>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-black uppercase tracking-wide text-black/70">Credits còn lại</p>
-                    <p className="text-2xl font-black text-black">{formatCreditsValue(plan.creditsRemaining)}</p>
+                  <div className="mt-4 space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Credits còn lại</p>
+                    <p className="text-2xl font-extrabold text-slate-950">{formatCreditsValue(plan.creditsRemaining)}</p>
                   </div>
-                  <div className="space-y-2">
-                    <div className="h-4 border-4 border-black bg-[#E9E1D0] p-[1px]">
-                      <div className="h-full bg-[#C7F0D8]" style={{ width: `${usagePercent}%` }} />
+                  <div className="mt-4 space-y-2">
+                    <div className="h-2.5 rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-violet-600" style={{ width: `${usagePercent}%` }} />
                     </div>
-                    <p className="text-xs font-bold text-black/70">{formatCreditsValue(plan.creditsRemaining)} / {formatCreditsValue(plan.creditsTotal)}</p>
+                    <p className="text-xs text-slate-600">
+                      {formatCreditsValue(plan.creditsRemaining)} / {formatCreditsValue(plan.creditsTotal)}
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-xs font-bold text-black/70">
+                  <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-600">
                     <span>Hạn dùng: {new Date(plan.expiresAt).toLocaleDateString("vi-VN")}</span>
-                    <Link href="/api-keys" className="font-black uppercase text-black underline">Tạo API key</Link>
+                    <Link href="/api-keys" className="font-semibold text-indigo-600 transition-colors duration-200 hover:text-indigo-700">Tạo API key</Link>
                   </div>
                 </article>
               );
@@ -276,35 +328,35 @@ export default function DashboardPage() {
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] md:p-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="mb-4 flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#C7F0D8] shadow-[2px_2px_0px_0px_#000]"><History className="h-5 w-5" /></span>
-              <h3 className="text-xl font-black text-black">SỬ DỤNG GẦN ĐÂY</h3>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><History className="h-5 w-5" /></span>
+              <h3 className="text-xl font-bold text-slate-950">Sử dụng gần đây</h3>
             </div>
-            <Link href="/usage" className="inline-flex h-10 items-center justify-center border-4 border-black bg-white px-4 text-xs font-black uppercase text-black shadow-[3px_3px_0px_0px_#000] hover:bg-[#FFD93D]">CHI TIẾT</Link>
+            <Link href="/usage" className={secondaryBtnClass}>Chi tiết</Link>
           </div>
 
-          {!data?.recentUsageLogs?.length ? (
-            <div className="border-4 border-black bg-[#FFFDF5] p-8 text-center">
-              <h4 className="text-lg font-black text-black">CHƯA CÓ LỊCH SỬ SỬ DỤNG</h4>
-              <p className="mt-2 text-sm font-bold text-black/70">Khi bạn gọi API, lịch sử sử dụng sẽ hiển thị tại đây.</p>
-              <Link href="/api-docs" className="mt-4 inline-flex h-11 items-center justify-center border-4 border-black bg-[#FFD93D] px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]">XEM HƯỚNG DẪN API</Link>
+          {!data.recentUsageLogs?.length ? (
+            <div className="rounded-2xl bg-slate-50 p-8 text-center">
+              <h4 className="text-lg font-bold text-slate-950">Chưa có lịch sử sử dụng</h4>
+              <p className="mt-2 text-sm text-slate-600">Khi bạn gọi API, lịch sử sử dụng sẽ hiển thị tại đây.</p>
+            <CosmicButton href="/api-docs" className="mt-4">Xem hướng dẫn API</CosmicButton>
             </div>
           ) : (
-            <div className="space-y-0 border-4 border-black">
+            <div className="divide-y divide-slate-200 rounded-2xl border border-slate-200">
               {[...data.recentUsageLogs]
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 .slice(0, 3)
                 .map((log) => (
-                  <div key={log.id} className="flex items-center justify-between gap-3 border-b-2 border-black bg-[#FFFDF5] p-4 last:border-b-0">
+                  <div key={log.id} className="flex items-center justify-between gap-3 bg-white p-4">
                     <div>
-                      <p className="text-sm font-black text-black">{log.model}</p>
-                      <p className="text-xs font-bold text-black/70">{new Date(log.createdAt).toLocaleString("vi-VN")}</p>
+                      <p className="text-sm font-semibold text-slate-900">{log.model}</p>
+                      <p className="text-xs text-slate-500">{new Date(log.createdAt).toLocaleString("vi-VN")}</p>
                     </div>
                     <div className="text-right">
-                      <StatusBadge status={translateStatus(log.status)} variant={log.status === "SUCCESS" ? "success" : "danger"} />
-                      <p className="mt-1 text-sm font-black text-black">{formatCreditsValue(log.creditsCharged)}</p>
+                      <UsageStatusBadge status={log.status} />
+                      <p className="mt-1 text-sm font-bold text-slate-900">{formatCreditsValue(log.creditsCharged)}</p>
                     </div>
                   </div>
                 ))}
@@ -312,33 +364,37 @@ export default function DashboardPage() {
           )}
         </section>
 
-        <section className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000] md:p-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="mb-4 flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FFD93D] shadow-[2px_2px_0px_0px_#000]"><ShoppingCart className="h-5 w-5" /></span>
-              <h3 className="text-xl font-black text-black">ĐƠN HÀNG GẦN ĐÂY</h3>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><ShoppingCart className="h-5 w-5" /></span>
+              <h3 className="text-xl font-bold text-slate-950">Đơn hàng gần đây</h3>
             </div>
-            <Link href="/billing" className="inline-flex h-10 items-center justify-center border-4 border-black bg-white px-4 text-xs font-black uppercase text-black shadow-[3px_3px_0px_0px_#000] hover:bg-[#FFD93D]">TẤT CẢ</Link>
+            <Link href="/billing" className={secondaryBtnClass}>Tất cả</Link>
           </div>
 
-          {!data?.recentOrders?.length ? (
-            <div className="border-4 border-black bg-[#FFFDF5] p-8 text-center">
-              <h4 className="text-lg font-black text-black">CHƯA CÓ ĐƠN HÀNG</h4>
-              <p className="mt-2 text-sm font-bold text-black/70">Các đơn mua credits của bạn sẽ được hiển thị tại đây.</p>
-              <Link href="/plans" className="mt-4 inline-flex h-11 items-center justify-center border-4 border-black bg-[#FF6B6B] px-4 text-xs font-black uppercase text-black shadow-[4px_4px_0px_0px_#000]">MUA CREDITS</Link>
+          {!data.recentOrders?.length ? (
+            <div className="rounded-2xl bg-slate-50 p-8 text-center">
+              <h4 className="text-lg font-bold text-slate-950">Chưa có đơn hàng</h4>
+              <p className="mt-2 text-sm text-slate-600">Các đơn mua credits của bạn sẽ được hiển thị tại đây.</p>
+              <CosmicButton href="/plans" className="mt-4">Mua credits</CosmicButton>
             </div>
           ) : (
-            <div className="space-y-0 border-4 border-black">
+            <div className="divide-y divide-slate-200 rounded-2xl border border-slate-200">
               {data.recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between gap-3 border-b-2 border-black bg-[#FFFDF5] p-4 last:border-b-0">
+                <div key={order.id} className="flex items-center justify-between gap-3 bg-white p-4">
                   <div>
-                    <p className="text-sm font-black text-black">{order.product?.name ?? "Gói nạp"}</p>
-                    <p className="text-xs font-bold text-black/70">#{order.orderCode} • {new Date(order.createdAt).toLocaleDateString("vi-VN")}</p>
+                    <p className="text-sm font-semibold text-slate-900">{order.product?.name ?? "Gói nạp"}</p>
+                    <p className="text-xs text-slate-500">
+                      #{order.orderCode} • {new Date(order.createdAt).toLocaleDateString("vi-VN")}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <StatusBadge status={translateStatus(order.status)} variant={order.status === "PAID" ? "success" : order.status === "PENDING" ? "warning" : "danger"} />
-                    <p className="mt-1 text-sm font-black text-black">{formatCurrency(order.amountVnd)}</p>
-                    {order.status === "PENDING" && <Link href="/billing" className="text-xs font-black uppercase text-black underline">Thanh toán</Link>}
+                    <OrderStatusBadge status={order.status} />
+                    <p className="mt-1 text-sm font-bold text-slate-900">{formatCurrency(order.amountVnd)}</p>
+                    {order.status === "PENDING" && (
+                      <Link href="/billing" className="text-xs font-semibold text-indigo-600 transition-colors duration-200 hover:text-indigo-700">Thanh toán</Link>
+                    )}
                   </div>
                 </div>
               ))}

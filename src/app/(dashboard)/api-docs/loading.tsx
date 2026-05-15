@@ -1,4 +1,4 @@
-﻿import { ApiDocsPageSkeleton } from "@/components/dashboard/api-docs/api-docs-page-skeleton";
+import { ApiDocsPageSkeleton } from "@/components/dashboard/api-docs/api-docs-page-skeleton";
 
 export default function Loading() {
   return (

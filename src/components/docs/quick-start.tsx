@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { ArrowRight, KeyRound, ShoppingBag, TerminalSquare, Wrench } from "lucide-react";

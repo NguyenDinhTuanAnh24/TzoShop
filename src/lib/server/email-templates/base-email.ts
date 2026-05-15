@@ -1,4 +1,4 @@
-﻿export type TzoShopEmailLayoutParams = {
+export type TzoShopEmailLayoutParams = {
   title: string;
   subtitle?: string;
   previewText?: string;
@@ -10,7 +10,7 @@
 
 export function escapeHtml(input: unknown) {
   return String(input ?? "")
-    .replaceAll("&", "&amp;")
+    .replaceAll("&", "&")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
