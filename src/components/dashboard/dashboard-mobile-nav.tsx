@@ -92,7 +92,7 @@ export default function DashboardMobileNav() {
 
   return (
     <>
-      {/* NĂºt menu trĂªn topbar mobile */}
+      {/* Nút menu trên topbar mobile */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -233,4 +233,3 @@ export default function DashboardMobileNav() {
     </>
   );
 }
-

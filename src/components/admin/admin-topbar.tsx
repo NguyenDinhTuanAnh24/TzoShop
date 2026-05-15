@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Bell } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { AdminMobileNav } from "@/components/admin/admin-mobile-nav";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,7 +15,7 @@ const routeConfigs: Record<string, { title: string; description: string }> = {
   "/admin/coupons": { title: "Mã giảm giá", description: "Quản lý ưu đãi và điều kiện áp dụng." },
   "/admin/models": { title: "Models", description: "Quản lý model theo từng dòng AI." },
   "/admin/providers": { title: "Providers", description: "Quản lý nhà cung cấp AI và kết nối." },
-  "/admin/usage": { title: "Lịch sử dùng", description: "Giám sát request API và credits tiêu thụ." },
+  "/admin/usage": { title: "Lịch sử sử dụng", description: "Giám sát request API và credits tiêu thụ." },
   "/admin/support": { title: "Ticket hỗ trợ", description: "Theo dõi yêu cầu hỗ trợ từ người dùng." },
   "/admin/support-tickets": { title: "Ticket hỗ trợ", description: "Theo dõi yêu cầu hỗ trợ từ người dùng." },
   "/admin/system": { title: "Trạng thái hệ thống", description: "Giám sát dịch vụ và hạ tầng." },
@@ -67,12 +66,7 @@ export default function AdminTopbar() {
           <AdminTopbarUserSkeleton />
         ) : (
           <div className="flex items-center gap-3">
-            <div className="hidden sm:block">
-              <NotificationBell />
-            </div>
-            <button className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.98] sm:hidden" aria-label="Thông báo">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
 
             <div className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 shadow-sm transition-colors" aria-label="Thông tin tài khoản admin">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">

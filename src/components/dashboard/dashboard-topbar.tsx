@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
-import { Bell, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -111,16 +111,7 @@ export default function DashboardTopbar({ onOpenMobile }: { onOpenMobile: () => 
           <TopbarUserSkeleton />
         ) : (
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden md:block">
-              <NotificationBell />
-            </div>
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700 md:hidden"
-              aria-label="Thông báo"
-            >
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
 
             <div className="flex h-11 max-w-[260px] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2" title={userName} aria-label="Tài khoản">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
@@ -141,3 +132,4 @@ export default function DashboardTopbar({ onOpenMobile }: { onOpenMobile: () => 
     </header>
   );
 }
+
