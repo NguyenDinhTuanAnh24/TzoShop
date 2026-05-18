@@ -31,11 +31,13 @@ import {
   generateJsExample,
   generatePythonExample,
 } from "@/lib/integration-config";
+import { getFamilyFromModelId } from "@/lib/model-registry";
+import { normalizeModelId } from "@/lib/model-id";
 
-const isCodexModel = (model: string) => model.toLowerCase().startsWith("codex/");
-const isClaudeModel = (model: string) => model.toLowerCase().startsWith("claude/");
-const isGeminiModel = (model: string) => model.toLowerCase().startsWith("gemini/");
-const isDeepSeekModel = (model: string) => model.toLowerCase().startsWith("deepseek/");
+const isCodexModel = (model: string) => getFamilyFromModelId(normalizeModelId(model)) === "CodexAI";
+const isClaudeModel = (model: string) => getFamilyFromModelId(normalizeModelId(model)) === "Claude";
+const isGeminiModel = (model: string) => getFamilyFromModelId(normalizeModelId(model)) === "Gemini";
+const isDeepSeekModel = (model: string) => getFamilyFromModelId(normalizeModelId(model)) === "DeepSeek";
 
 export interface AllowedModel {
   publicName: string;

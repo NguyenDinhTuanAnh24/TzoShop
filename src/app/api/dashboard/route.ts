@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireCurrentUser } from "@/lib/server/current-user";
+import { syncCreditsFromNewApi } from "@/lib/server/credit-sync";
+import { getAiLineLabelFromSlug } from "@/lib/ai-line";
+import { tokensToCredits } from "@/lib/credits";
 
 export const runtime = "nodejs";
 
@@ -24,6 +27,13 @@ export async function GET() {
                 slug: true,
                 apiFamily: true,
                 tier: true,
+              },
+            },
+            apiKeys: {
+              where: { isActive: true },
+              select: {
+                encryptedKey: true,
+                isActive: true,
               },
             },
           },
@@ -87,18 +97,44 @@ export async function GET() {
     type OrderItem = (typeof orders)[number];
     type RecentUsageLogItem = (typeof recentUsageLogs)[number];
 
-    const totalCredits = creditBuckets.reduce(
-      (total: bigint, bucket: CreditBucketItem) => total + bucket.creditsTotal,
-      BigInt(0),
+    const syncedPlans = await Promise.all(
+      creditBuckets.map(async (bucket: CreditBucketItem) => {
+        const usageAgg = await prisma.usageLog.aggregate({
+          where: {
+            creditBucketId: bucket.id,
+          },
+          _sum: {
+            inputTokens: true,
+            outputTokens: true,
+          },
+        });
+
+        const totalTokens =
+          Number(usageAgg._sum.inputTokens ?? 0) +
+          Number(usageAgg._sum.outputTokens ?? 0);
+
+        const creditsUsed = tokensToCredits(totalTokens);
+        const creditsTotal = Number(bucket.creditsTotal);
+        const creditsRemaining = Math.max(creditsTotal - creditsUsed, 0);
+
+        return {
+          id: bucket.id,
+          apiFamily: bucket.apiFamily,
+          aiLineLabel: bucket.product?.slug ? getAiLineLabelFromSlug(bucket.product.slug) : bucket.apiFamily,
+          creditsTotal: creditsTotal.toString(),
+          creditsRemaining: creditsRemaining.toString(),
+          creditsUsed: creditsUsed.toString(),
+          creditsSource: "USAGE_LOG",
+          startsAt: bucket.startsAt,
+          expiresAt: bucket.expiresAt,
+          product: bucket.product,
+        };
+      }),
     );
 
-    const remainingCredits = creditBuckets.reduce(
-      (total: bigint, bucket: CreditBucketItem) =>
-        total + bucket.creditsRemaining,
-      BigInt(0),
-    );
-
-    const usedCredits = totalCredits - remainingCredits;
+    const totalCredits = syncedPlans.reduce((sum, p) => sum + Number(p.creditsTotal), 0);
+    const remainingCredits = syncedPlans.reduce((sum, p) => sum + Number(p.creditsRemaining), 0);
+    const usedCredits = Math.max(totalCredits - remainingCredits, 0);
 
     const activeApiKeys = apiKeys.filter((key: ApiKeyItem) => key.isActive);
     const revokedApiKeys = apiKeys.filter((key: ApiKeyItem) => !key.isActive);
@@ -156,15 +192,7 @@ export async function GET() {
           pending: pendingOrders.length,
           totalPaidAmount,
         },
-        plans: creditBuckets.map((bucket: CreditBucketItem) => ({
-          id: bucket.id,
-          apiFamily: bucket.apiFamily,
-          creditsTotal: bucket.creditsTotal.toString(),
-          creditsRemaining: bucket.creditsRemaining.toString(),
-          startsAt: bucket.startsAt,
-          expiresAt: bucket.expiresAt,
-          product: bucket.product,
-        })),
+        plans: syncedPlans,
         recentUsageLogs: recentUsageLogs.map((log: RecentUsageLogItem) => ({
           id: log.id,
           apiFamily: log.apiFamily,

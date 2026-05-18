@@ -1,0 +1,15 @@
+services:
+  tzoshop-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        DIRECT_URL: ${DIRECT_URL}
+    image: tzoshop-web:latest
+    container_name: tzoshop-web
+    env_file:
+      - .env.docker
+    ports:
+      - "3004:3004"
+    restart: unless-stopped

@@ -1,38 +1,37 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 
 import { prisma } from "../src/lib/prisma";
 
 const CODEX_TRIAL_MINI_MODELS = [
-  "codexai/gpt-5.3-codex",
-  "codexai/gpt-5.1-codex",
-  "codexai/gpt-5-codex",
+  "GPT-5.3-Codex",
+  "GPT-5.1-Codex",
+  "GPT-5-Codex",
 ];
 
 const CODEX_PLUS_MODELS = [
   ...CODEX_TRIAL_MINI_MODELS,
-  "codexai/gpt-5.4-mini",
-  "codexai/gpt-5.1",
-  "codexai/gpt-5-mini",
+  "GPT-5.4-Mini",
+  "GPT-5.1",
+  "GPT-5-Mini",
 ];
 
 const CODEX_PRO_MODELS = [
   ...CODEX_PLUS_MODELS,
-  "codexai/gpt-5.5",
-  "codexai/gpt-5.4",
-  "codexai/gpt-5.2",
-  "codexai/gpt-5",
+  "GPT-5.5",
+  "GPT-5.4",
+  "GPT-5.2",
+  "GPT-5",
 ];
 
 const CODEX_MAX_MODELS = [
   ...CODEX_PRO_MODELS,
-  "codexai/gpt-5.4-pro",
-  "codexai/gpt-5.2-pro",
-  "codexai/gpt-5-pro",
+  "GPT-5.4-Pro",
+  "GPT-5-Pro",
 ];
 
 const CODEX_ULTRA_MODELS = [
   ...CODEX_MAX_MODELS,
-  "codexai/gpt-5.5-pro",
+  "GPT-5-Pro",
 ];
 
 function normalize(value?: string | null) {
@@ -103,7 +102,7 @@ async function main() {
   });
 
   if (products.length === 0) {
-    console.log("Không tìm thấy gói CodexAI nào.");
+    console.log("KhĂ´ng tĂ¬m tháº¥y gĂ³i CodexAI nĂ o.");
     return;
   }
 
@@ -137,16 +136,16 @@ async function main() {
     updatedCount++;
 
     console.log(
-      `Đã cập nhật ${product.name} (${tier}) → ${allowedModels.length} models`
+      `ÄĂ£ cáº­p nháº­t ${product.name} (${tier}) â†’ ${allowedModels.length} models`
     );
   }
 
   console.log("");
-  console.log(`Hoàn tất. Đã cập nhật ${updatedCount}/${products.length} gói CodexAI.`);
+  console.log(`HoĂ n táº¥t. ÄĂ£ cáº­p nháº­t ${updatedCount}/${products.length} gĂ³i CodexAI.`);
 
   if (skipped.length > 0) {
     console.log("");
-    console.log("Các gói bị bỏ qua vì không nhận diện được tier:");
+    console.log("CĂ¡c gĂ³i bá»‹ bá» qua vĂ¬ khĂ´ng nháº­n diá»‡n Ä‘Æ°á»£c tier:");
     for (const name of skipped) {
       console.log(`- ${name}`);
     }
@@ -155,9 +154,10 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("Lỗi khi cập nhật allowedModels:", error);
+    console.error("Lá»—i khi cáº­p nháº­t allowedModels:", error);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect?.();
   });
+

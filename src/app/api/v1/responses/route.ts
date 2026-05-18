@@ -116,8 +116,8 @@ export async function POST(request: NextRequest) {
     let response = await ChatCompletionPost(newRequest);
 
     if (!response.ok) {
-      if (response.status === 400 && (model === "codexai/gpt-5.3-codex" || model === "gpt-5.3-codex")) {
-        chatBody.model = model.startsWith("codexai/") ? "codexai/gpt-5-mini" : "gpt-5-mini";
+      if (response.status === 400 && (model === "GPT-5.3-Codex" || model === "gpt-5.3-codex")) {
+        chatBody.model = "GPT-5-Mini";
         const fallbackRequest = new NextRequest(request.url.replace("/responses", "/chat/completions"), {
           method: "POST",
           headers: reqHeaders,

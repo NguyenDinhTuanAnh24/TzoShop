@@ -3,6 +3,7 @@
 
 import { PlanSetupInstructions } from "@/components/dashboard/plan-setup-instructions";
 import { formatModelName } from "@/lib/model-display";
+import { formatCredits } from "@/lib/credits";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useToast } from "@/hooks/use-toast";
@@ -63,14 +64,7 @@ function getDisplayAiFamily(bucket: { product?: { slug: string } | null; apiFami
   return getAiLineLabelFromApiFamily(bucket.apiFamily);
 }
 
-function formatCredits(value: string | number) {
-  const num = typeof value === "string" ? Number(value) : value;
-  if (Number.isInteger(num)) {
-    return new Intl.NumberFormat("vi-VN").format(num);
-  }
-  const formatted = num.toFixed(2).replace(".", ",");
-  return formatted.replace(/,00$/, "");
-}
+
 
 function getPlanStatus(bucket: MyPlanItem, nowTs: number): "active" | "expiring" | "expired" {
   if (!bucket.isActive) return "expired";

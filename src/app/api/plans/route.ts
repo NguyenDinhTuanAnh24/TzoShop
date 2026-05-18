@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { normalizeModelIds } from "@/lib/model-id";
 
 export const runtime = "nodejs";
 
@@ -64,9 +65,10 @@ export async function GET() {
     const data = products.map((product: ProductItem) => {
       // Nếu không có model nào được kích hoạt trong DB (hoặc DB đã được dọn sạch),
       // sử dụng danh sách allowedModels gốc của Product để hiển thị đầy đủ tính năng.
+      const normalizedAllowed = normalizeModelIds(product.allowedModels);
       const activeAllowedModels = activeModelNames.size > 0
-        ? product.allowedModels.filter(m => activeModelNames.has(m))
-        : product.allowedModels;
+        ? normalizedAllowed.filter(m => activeModelNames.has(m))
+        : normalizedAllowed;
       
       return {
         ...product,

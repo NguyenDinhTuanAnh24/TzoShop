@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { encryptText, decryptText } from "@/lib/crypto";
 import { requireCurrentUser } from "@/lib/server/current-user";
 import { getAiLineLabelFromApiFamily, getNewApiGroupFromProductSlug, getTokenNamePrefixFromProductSlug } from "@/lib/ai-line";
+import { normalizeModelIds } from "@/lib/model-id";
+import { creditsToNewApiQuota } from "@/lib/credits";
 
 export const runtime = "nodejs";
 
@@ -71,7 +73,7 @@ export async function GET() {
         name: apiKey.name,
         apiFamily: apiKey.apiFamily,
         keyPrefix: apiKey.keyPrefix,
-        key: null, // Báº£o máº­t: KhĂ´ng tráº£ full key trong GET list
+        key: null, // Bảo mật: Không trả full key trong GET list
         maskedKey,
         isActive: apiKey.isActive,
         lastUsedAt: apiKey.lastUsedAt,
@@ -96,10 +98,10 @@ export async function GET() {
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "UNAUTHORIZED") {
-        return NextResponse.json({ error: { message: "Vui lĂ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ tiáº¿p tá»¥c." } }, { status: 401 });
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
       }
       if (error.message === "FORBIDDEN") {
-        return NextResponse.json({ error: { message: "KhĂ´ng cĂ³ quyá»n truy cáº­p." } }, { status: 403 });
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
       }
     }
     console.error("GET /api/api-keys failed:", error);
@@ -107,7 +109,7 @@ export async function GET() {
     return NextResponse.json(
       {
         error: {
-          message: "KhĂ´ng thá»ƒ táº£i danh sĂ¡ch API key.",
+          message: "Không thể tải danh sách API key.",
         },
       },
       {
@@ -130,7 +132,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: {
-            message: "Vui lĂ²ng nháº­p tĂªn API key.",
+            message: "Vui lòng nhập tên API key.",
           },
         },
         {
@@ -143,7 +145,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: {
-            message: "Thiáº¿u creditBucketId.",
+            message: "Thiếu creditBucketId.",
           },
         },
         {
@@ -184,7 +186,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: {
-            message: "GĂ³i credits khĂ´ng tá»“n táº¡i, Ä‘Ă£ háº¿t háº¡n hoáº·c khĂ´ng cĂ²n hoáº¡t Ä‘á»™ng.",
+            message: "Gói credits không tồn tại, đã hết hạn hoặc không còn hoạt động.",
           },
         },
         {
@@ -205,7 +207,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: {
-            message: `GĂ³i nĂ y Ä‘Ă£ Ä‘áº¡t giá»›i háº¡n ${creditBucket.apiKeyLimit} API key.`,
+            message: `Gói này đã đạt giới hạn ${creditBucket.apiKeyLimit} API key.`,
           },
         },
         {
@@ -219,7 +221,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: {
-            message: "KhĂ´ng tĂ¬m tháº¥y thĂ´ng tin sáº£n pháº©m cho gĂ³i nĂ y.",
+            message: "Không tìm thấy thông tin sản phẩm cho gói này.",
           },
         },
         {
@@ -231,27 +233,29 @@ export async function POST(request: NextRequest) {
     const newApiGroup = getNewApiGroupFromProductSlug(product.slug);
     const tokenPrefix = getTokenNamePrefixFromProductSlug(product.slug);
 
-    // Log debug an toĂ n (khĂ´ng log token, khĂ´ng log admin key)
+    // Log debug an toàn (không log token, không log admin key)
     console.log("[NewAPI Group Debug]", {
       productSlug: product.slug,
       newApiGroup,
       allowedModelsCount: product.allowedModels.length,
     });
 
-    // TĂ­nh háº¡n dĂ¹ng tá»« product.durationDays
+    // Tính hạn dùng từ product.durationDays
     let expiredAt: Date | null = null;
     if (product.durationDays) {
       expiredAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
     }
 
-    // Gá»i NewAPI Gateway Ä‘á»ƒ táº¡o token tháº­t
+    // Gọi NewAPI Gateway để tạo token thật
     const { createNewApiToken } = await import("@/lib/newapi");
+    const productCredits = Number(creditBucket.creditsTotal ?? product.credits ?? 0);
+    const newApiQuota = creditsToNewApiQuota(productCredits);
     const newApiResult = await createNewApiToken({
       name: `${tokenPrefix}_${nanoid(6)}_${name.trim().replace(/\s+/g, "_")}`,
       group: newApiGroup,
       expiredAt: expiredAt,
-      creditsRemaining: Number(product.credits),
-      allowedModels: product.allowedModels,
+      creditsRemaining: newApiQuota,
+      allowedModels: normalizeModelIds(product.allowedModels),
     });
 
     const rawKey = newApiResult.key;
@@ -282,7 +286,7 @@ export async function POST(request: NextRequest) {
           metadata: {
             actorName: user.name || user.email,
             actorEmail: user.email,
-            description: `Táº¡o API key: ${apiKey.name}`,
+            description: `Tạo API key: ${apiKey.name}`,
             module: "API Keys",
             status: "success",
           },
@@ -292,14 +296,14 @@ export async function POST(request: NextRequest) {
       console.error("Create audit log for API key create failed:", error);
     }
 
-    // ThĂ´ng bĂ¡o cho user
+    // Thông báo cho user
     try {
       const { createNotificationOnce } = await import("@/lib/server/notifications");
       await createNotificationOnce({
         userId: user.id,
         type: "API_KEY_CREATED",
-        title: "API key Ä‘Ă£ Ä‘Æ°á»£c táº¡o",
-        message: `API key cho gĂ³i ${creditBucket.product?.name || creditBucket.apiFamily} Ä‘Ă£ sáºµn sĂ ng.`,
+        title: "API key đã được tạo",
+        message: `API key cho gói ${creditBucket.product?.name || creditBucket.apiFamily} đã sẵn sàng.`,
         href: "/api-keys",
         dedupeKey: `api-key-created:${apiKey.id}`,
         metadata: { apiKeyId: apiKey.id }
@@ -340,10 +344,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "UNAUTHORIZED") {
-        return NextResponse.json({ error: { message: "Vui lĂ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ tiáº¿p tá»¥c." } }, { status: 401 });
+        return NextResponse.json({ error: { message: "Vui lòng đăng nhập để tiếp tục." } }, { status: 401 });
       }
       if (error.message === "FORBIDDEN") {
-        return NextResponse.json({ error: { message: "KhĂ´ng cĂ³ quyá»n truy cáº­p." } }, { status: 403 });
+        return NextResponse.json({ error: { message: "Không có quyền truy cập." } }, { status: 403 });
       }
     }
     console.error("POST /api/api-keys failed:", error);
@@ -351,7 +355,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: {
-          message: "KhĂ´ng thá»ƒ táº¡o API key.",
+          message: "Không thể tạo API key.",
         },
       },
       {

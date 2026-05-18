@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { ArrowRight, KeyRound, ShoppingBag, TerminalSquare, Wrench } from "lucide-react";
@@ -28,7 +28,7 @@ export function DocsQuickStart({ baseUrl, onGoCode }: QuickStartProps) {
       color: "bg-[#C7F0D8]",
     },
     {
-      title: "Cấu hình Base URL",
+      title: "Cấu hĂ¬nh Base URL",
       desc: `Sử dụng Base URL production: ${baseUrl}`,
       href: "#",
       label: "Xem cấu hình",
@@ -46,7 +46,7 @@ export function DocsQuickStart({ baseUrl, onGoCode }: QuickStartProps) {
   ];
 
   const minBody = `{
-  "model": "codexai/gpt-5.3-codex",
+  "model": "GPT-5.3-Codex",
   "messages": [
     {
       "role": "user",
@@ -97,3 +97,4 @@ export function DocsQuickStart({ baseUrl, onGoCode }: QuickStartProps) {
     </div>
   );
 }
+

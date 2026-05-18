@@ -38,6 +38,7 @@ lerna-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.docker
 
 # Nếu bạn có file env mẫu thì vẫn cho phép commit
 !.env.example

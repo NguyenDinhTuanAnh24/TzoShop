@@ -1,3 +1,6 @@
+import { normalizeModelId, normalizeModelIds } from "@/lib/model-id";
+import { MODEL_REGISTRY } from "@/lib/model-registry";
+
 export type AdminAiFamilyKey = "all_models" | "codex" | "claude" | "gemini" | "deepseek";
 export type AdminPlanTypeKey = "trial" | "monthly" | "quarterly" | "yearly";
 
@@ -24,41 +27,18 @@ export const NEWAPI_GROUP_BY_PREFIX: Record<AdminAiFamilyKey, string> = {
   deepseek: "deepseek_full",
 };
 
-export const MODEL_REGISTRY: Record<Exclude<AdminAiFamilyKey, "all_models">, Array<{ id: string; label: string }>> = {
-  codex: [
-    { id: "codexai/gpt-5.5", label: "GPT-5.5" },
-    { id: "codexai/gpt-5.5-pro", label: "GPT-5.5 Pro" },
-    { id: "codexai/gpt-5.4", label: "GPT-5.4" },
-    { id: "codexai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
-    { id: "codexai/gpt-5.4-pro", label: "GPT-5.4 Pro" },
-    { id: "codexai/gpt-5.3-codex", label: "GPT-5.3 Codex" },
-    { id: "codexai/gpt-5.2", label: "GPT-5.2" },
-    { id: "codexai/gpt-5.2-pro", label: "GPT-5.2 Pro" },
-    { id: "codexai/gpt-5.1-codex", label: "GPT-5.1 Codex" },
-    { id: "codexai/gpt-5.1", label: "GPT-5.1" },
-    { id: "codexai/gpt-5-codex", label: "GPT-5 Codex" },
-    { id: "codexai/gpt-5", label: "GPT-5" },
-    { id: "codexai/gpt-5-pro", label: "GPT-5 Pro" },
-    { id: "codexai/gpt-5-mini", label: "GPT-5 Mini" },
-  ],
-  claude: [
-    { id: "claude/claude-haiku-4.5", label: "Claude Haiku 4.5" },
-    { id: "claude/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
-    { id: "claude/claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
-    { id: "claude/claude-opus-4.5", label: "Claude Opus 4.5" },
-    { id: "claude/claude-opus-4.6", label: "Claude Opus 4.6" },
-    { id: "claude/claude-opus-4.7", label: "Claude Opus 4.7" },
-  ],
-  gemini: [
-    { id: "gemini/gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite Preview" },
-    { id: "gemini/gemini-3-flash-preview", label: "Gemini 3 Flash Preview" },
-    { id: "gemini/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { id: "gemini/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  ],
-  deepseek: [
-    { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
-    { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
-  ],
+const FAMILY_MAP: Record<Exclude<AdminAiFamilyKey, "all_models">, string> = {
+  codex: "CodexAI",
+  claude: "Claude",
+  gemini: "Gemini",
+  deepseek: "DeepSeek",
+};
+
+export const MODEL_REGISTRY_BY_FAMILY: Record<Exclude<AdminAiFamilyKey, "all_models">, Array<{ id: string; label: string }>> = {
+  codex: MODEL_REGISTRY.filter((m) => m.family === "CodexAI").map((m) => ({ id: m.id, label: m.label })),
+  claude: MODEL_REGISTRY.filter((m) => m.family === "Claude").map((m) => ({ id: m.id, label: m.label })),
+  gemini: MODEL_REGISTRY.filter((m) => m.family === "Gemini").map((m) => ({ id: m.id, label: m.label })),
+  deepseek: MODEL_REGISTRY.filter((m) => m.family === "DeepSeek").map((m) => ({ id: m.id, label: m.label })),
 };
 
 export function detectFamilyKeyFromSlug(slug: string): AdminAiFamilyKey {
@@ -84,8 +64,7 @@ export function buildPlanSuggestion(familyKey: AdminAiFamilyKey, planType: Admin
   const prefix = familyKey;
   const plan = ADMIN_PLAN_TYPES.find((p) => p.key === planType) ?? ADMIN_PLAN_TYPES[0];
   const slug = `${prefix}_${planType}`;
-  const nameSuffix =
-    planType === "trial" ? "Trial 7 ngày" : planType === "monthly" ? "1 tháng" : planType === "quarterly" ? "3 tháng" : "1 năm";
+  const nameSuffix = planType === "trial" ? "Trial 7 ngày" : planType === "monthly" ? "1 tháng" : planType === "quarterly" ? "3 tháng" : "1 năm";
   return {
     name: `API ${familyLabel} ${nameSuffix}`,
     slug,
@@ -96,30 +75,52 @@ export function buildPlanSuggestion(familyKey: AdminAiFamilyKey, planType: Admin
 
 export function getSelectableModels(familyKey: AdminAiFamilyKey) {
   if (familyKey === "all_models") {
-    return [...MODEL_REGISTRY.codex, ...MODEL_REGISTRY.claude, ...MODEL_REGISTRY.gemini, ...MODEL_REGISTRY.deepseek];
+    return [
+      ...MODEL_REGISTRY_BY_FAMILY.codex,
+      ...MODEL_REGISTRY_BY_FAMILY.claude,
+      ...MODEL_REGISTRY_BY_FAMILY.gemini,
+      ...MODEL_REGISTRY_BY_FAMILY.deepseek,
+    ];
   }
-  return MODEL_REGISTRY[familyKey];
+  return MODEL_REGISTRY_BY_FAMILY[familyKey];
+}
+
+export function normalizeAllowedModelsForSlug(slug: string, models: string[]) {
+  const familyKey = detectFamilyKeyFromSlug(slug);
+  const normalized = normalizeModelIds(models);
+  const selectable = new Set(getSelectableModels(familyKey).map((m) => m.id));
+  return normalized.filter((m) => selectable.has(m));
 }
 
 export function validateAllowedModelsBySlug(slug: string, allowedModels: string[]) {
   const familyKey = detectFamilyKeyFromSlug(slug);
-  if (!Array.isArray(allowedModels) || allowedModels.length === 0) {
+  const normalized = normalizeModelIds(allowedModels);
+
+  if (!Array.isArray(normalized) || normalized.length === 0) {
     return "Danh sách model hỗ trợ không được để trống.";
   }
 
+  const all = getSelectableModels("all_models").map((m) => m.id);
+  const allSet = new Set(all);
+  const invalid = normalized.find((m) => !allSet.has(m));
+  if (invalid) {
+    return `Model "${normalizeModelId(invalid)}" không có trong registry NewAPI.`;
+  }
+
   if (familyKey === "all_models") {
-    const groups = new Set(
-      allowedModels.map((m) => (m.startsWith("codexai/") ? "codex" : m.startsWith("claude/") ? "claude" : m.startsWith("gemini/") ? "gemini" : m.startsWith("deepseek/") ? "deepseek" : "other"))
+    const familySet = new Set(
+      normalized.map((m) => MODEL_REGISTRY.find((model) => model.id === m)?.family ?? "Other"),
     );
-    if (groups.has("other")) return "Model của gói All Models chứa prefix không hợp lệ.";
-    if (groups.size < 2) return "Gói all_models_* cần chứa model từ nhiều dòng AI.";
+    if (familySet.has("Other")) return "Model của gói All Models chứa id không hợp lệ.";
+    if (familySet.size < 2) return "Gói all_models_* cần chứa model từ nhiều dòng AI.";
     return null;
   }
 
-  const prefix = familyKey === "codex" ? "codexai/" : `${familyKey}/`;
-  const invalid = allowedModels.find((m) => !m.startsWith(prefix));
-  if (invalid) {
-    return `Model "${invalid}" không thuộc dòng ${familyKey}.`;
+  const familyName = FAMILY_MAP[familyKey];
+  const familyModelSet = new Set(MODEL_REGISTRY.filter((m) => m.family === familyName).map((m) => m.id));
+  const wrong = normalized.find((m) => !familyModelSet.has(m));
+  if (wrong) {
+    return `Model "${wrong}" không thuộc dòng ${familyKey}.`;
   }
   return null;
 }

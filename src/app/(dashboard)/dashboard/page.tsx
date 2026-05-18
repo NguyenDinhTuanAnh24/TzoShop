@@ -27,8 +27,11 @@ type DashboardData = {
   plans: {
     id: string;
     apiFamily: string;
+    aiLineLabel?: string;
     creditsTotal: string;
     creditsRemaining: string;
+    creditsUsed?: string;
+    creditsSource?: "NEWAPI" | "DB";
     startsAt: string;
     expiresAt: string;
     product: { id: string; name: string; slug: string; apiFamily: string; tier: string } | null;
@@ -305,7 +308,7 @@ export default function DashboardPage() {
                 <article key={plan.id} className={cardClass}>
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-lg font-bold text-slate-950">{plan.product?.name ?? "Gói tùy chỉnh"}</p>
-                    <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">{plan.apiFamily}</span>
+                    <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">{plan.aiLineLabel ?? plan.apiFamily}</span>
                   </div>
                   <div className="mt-4 space-y-1">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Credits còn lại</p>
@@ -316,7 +319,7 @@ export default function DashboardPage() {
                       <div className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-violet-600" style={{ width: `${usagePercent}%` }} />
                     </div>
                     <p className="text-xs text-slate-600">
-                      {formatCreditsValue(plan.creditsRemaining)} / {formatCreditsValue(plan.creditsTotal)}
+                      {formatCreditsValue(plan.creditsRemaining)} / {formatCreditsValue(plan.creditsTotal)} credits
                     </p>
                   </div>
                   <div className="mt-4 flex justify-end">

@@ -10,9 +10,11 @@ import { CosmicButton } from "@/components/ui/cosmic-button";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useToast } from "@/hooks/use-toast";
 import { formatTokenCount } from "@/lib/format";
+import { formatCredits } from "@/lib/credits";
 import { cn } from "@/lib/utils";
+import { getAiLineLabel } from "@/lib/ai-family-from-model";
 
-type ApiFamily = "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
+type ApiFamily = "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK" | "UNKNOWN";
 type TimeFilter = "today" | "7d" | "30d" | "all";
 
 type UsageLogItem = {
@@ -30,17 +32,15 @@ type UsageLogItem = {
 };
 
 function getFamilyLabel(apiFamily: ApiFamily) {
-  if (apiFamily === "CODEXAI") return "CodexAI";
-  if (apiFamily === "CLAUDE") return "Claude";
-  if (apiFamily === "GEMINI") return "Gemini";
-  return "DeepSeek";
+  return getAiLineLabel(apiFamily);
 }
 
 function getFamilyBadgeClass(apiFamily: ApiFamily) {
   if (apiFamily === "CODEXAI") return "bg-indigo-50 text-indigo-700 border border-indigo-100";
   if (apiFamily === "CLAUDE") return "bg-orange-50 text-orange-700 border border-orange-100";
   if (apiFamily === "GEMINI") return "bg-sky-50 text-sky-700 border border-sky-100";
-  return "bg-violet-50 text-violet-700 border border-violet-100";
+  if (apiFamily === "DEEPSEEK") return "bg-violet-50 text-violet-700 border border-violet-100";
+  return "bg-slate-100 text-slate-700 border border-slate-200";
 }
 
 function FilterChip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
@@ -196,7 +196,7 @@ export default function UsagePage() {
           <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {[
               { label: "Tổng request", value: stats.totalRequests.toLocaleString("vi-VN"), desc: "Trong phạm vi đã lọc", icon: ChartNoAxesColumnIncreasing, iconClass: "bg-indigo-50 text-indigo-600" },
-              { label: "Credits đã dùng", value: new Intl.NumberFormat("vi-VN").format(stats.creditsUsed), desc: "Đã phát sinh", icon: Zap, iconClass: "bg-violet-50 text-violet-600" },
+              { label: "Credits đã dùng", value: formatCredits(stats.creditsUsed), desc: "Đã phát sinh", icon: Zap, iconClass: "bg-violet-50 text-violet-600" },
               { label: "Tokens đã dùng", value: formatTokenCount(stats.tokensUsed), desc: "Prompt + Completion", icon: Activity, iconClass: "bg-emerald-50 text-emerald-600" },
               { label: "Model dùng nhiều nhất", value: stats.mostUsedModel, desc: "Theo dữ liệu đã lọc", icon: Clock3, iconClass: "bg-amber-50 text-amber-700" },
             ].map((item) => (
@@ -287,7 +287,7 @@ export default function UsagePage() {
                         <td className="px-4 py-4">{formatTokenCount(log.inputTokens)}</td>
                         <td className="px-4 py-4">{formatTokenCount(log.outputTokens)}</td>
                         <td className="px-4 py-4">{formatTokenCount(log.totalTokens)}</td>
-                        <td className="px-4 py-4">{new Intl.NumberFormat("vi-VN").format(log.creditsUsed)}</td>
+                        <td className="px-4 py-4">{formatCredits(log.creditsUsed)}</td>
                         <td className="px-4 py-4">
                           <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-semibold", log.status === "SUCCESS" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700")}>
                             {log.status === "SUCCESS" ? "Thành công" : "Lỗi"}

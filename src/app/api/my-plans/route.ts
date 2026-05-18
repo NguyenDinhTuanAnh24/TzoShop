@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCurrentUser } from "@/lib/server/current-user";
 import { getAiLineFromProductSlug, getAiLineLabelFromSlug } from "@/lib/ai-line";
+import { normalizeModelId, normalizeModelIds } from "@/lib/model-id";
+import { syncCreditsFromNewApi } from "@/lib/server/credit-sync";
+import { tokensToCredits } from "@/lib/credits";
 
 export const runtime = "nodejs";
 
@@ -70,33 +73,32 @@ export async function GET() {
       const usedCredits = bucket.creditsTotal - bucket.creditsRemaining;
 
       // Determine allowedModels list with fallback & automatic database self-healing backfill
-      let baseAllowedModels = bucket.allowedModels;
+      let baseAllowedModels = normalizeModelIds(bucket.allowedModels);
       if ((!baseAllowedModels || baseAllowedModels.length === 0) && bucket.product?.allowedModels) {
-        baseAllowedModels = bucket.product.allowedModels;
+        baseAllowedModels = normalizeModelIds(bucket.product.allowedModels);
         
         // Trigger asynchronous backfill in the database
         prisma.creditBucket.update({
           where: { id: bucket.id },
           data: {
-            allowedModels: bucket.product.allowedModels,
+            allowedModels: normalizeModelIds(bucket.product.allowedModels),
             allowedReasoning: bucket.product.allowedReasoning || [],
           }
         }).catch(err => console.error(`[backfill] Failed to update CreditBucket ${bucket.id}:`, err));
       } else if (!baseAllowedModels || baseAllowedModels.length === 0) {
-        baseAllowedModels = bucket.product?.allowedModels || [];
+        baseAllowedModels = normalizeModelIds(bucket.product?.allowedModels || []);
       }
 
       // Filter and map active models for the bucket
       const activeAllowedModels = baseAllowedModels
-        .map(name => {
-          const model = activeModelsMap.get(name);
+        .map((name) => {
+          const normalizedName = normalizeModelId(name);
+          const model = activeModelsMap.get(normalizedName);
           if (!model) {
-            // Fallback: If AiModel is not registered in the database, return a default presentation object
-            const parts = name.split("/");
-            const publicNameOnly = parts[parts.length - 1] || name;
+            // Fallback: If AiModel is not registered in DB, still return normalized model id.
             return {
-              publicName: name,
-              upstreamModel: publicNameOnly,
+              publicName: normalizedName,
+              upstreamModel: normalizedName,
               apiFamily: bucket.apiFamily,
               inputCreditRate: 1,
               outputCreditRate: 1,
@@ -131,52 +133,36 @@ export async function GET() {
         };
       });
 
-      let newApiQuotaRemaining = null;
-      let newApiQuotaTotal = null;
-      let newApiQuotaUsed = null;
-      let quotaSource = "DB";
+      const usageAgg = await prisma.usageLog.aggregate({
+        where: {
+          creditBucketId: bucket.id,
+        },
+        _sum: {
+          inputTokens: true,
+          outputTokens: true,
+        },
+      });
 
-      if (apiKeys.length > 0) {
-        let totalRemain = 0;
-        let totalUsed = 0;
-        let successFetchCount = 0;
+      const totalTokens =
+        Number(usageAgg._sum.inputTokens ?? 0) +
+        Number(usageAgg._sum.outputTokens ?? 0);
 
-        for (const ak of apiKeys) {
-          if (ak.key && ak.isActive) {
-            try {
-              const { getNewApiTokenByKey } = await import("@/lib/newapi");
-              const tokenDetails = await getNewApiTokenByKey(ak.key);
-              if (tokenDetails) {
-                totalRemain += tokenDetails.remainQuota;
-                totalUsed += tokenDetails.usedQuota;
-                successFetchCount++;
-              }
-            } catch (e) {
-              console.error(`Failed to fetch NewAPI token for keyPrefix ${ak.keyPrefix}:`, e);
-            }
-          }
-        }
-
-        if (successFetchCount > 0) {
-          newApiQuotaRemaining = totalRemain.toString();
-          newApiQuotaUsed = totalUsed.toString();
-          newApiQuotaTotal = (totalRemain + totalUsed).toString();
-          quotaSource = "NEWAPI";
-        }
-      }
+      const creditsUsed = tokensToCredits(totalTokens);
+      const creditsTotal = Number(bucket.creditsTotal);
+      const creditsRemaining = Math.max(creditsTotal - creditsUsed, 0);
 
       return {
         id: bucket.id,
         apiFamily: bucket.apiFamily,
         aiLine: bucket.product?.slug ? getAiLineFromProductSlug(bucket.product.slug) : null,
         aiLineLabel: bucket.product?.slug ? getAiLineLabelFromSlug(bucket.product.slug) : null,
-        creditsTotal: bucket.creditsTotal.toString(),
-        creditsRemaining: bucket.creditsRemaining.toString(),
-        usedCredits: usedCredits.toString(),
-        newApiQuotaRemaining,
-        newApiQuotaTotal,
-        newApiQuotaUsed,
-        quotaSource,
+        creditsTotal: creditsTotal.toString(),
+        creditsRemaining: creditsRemaining.toString(),
+        usedCredits: creditsUsed.toString(),
+        newApiQuotaRemaining: creditsRemaining.toString(),
+        newApiQuotaTotal: creditsTotal.toString(),
+        newApiQuotaUsed: creditsUsed.toString(),
+        quotaSource: "USAGE_LOG",
         apiKeyLimit: bucket.apiKeyLimit,
         activeApiKeys: apiKeys.length,
         apiKeys: apiKeys,
@@ -190,7 +176,7 @@ export async function GET() {
           ? {
               ...bucket.product,
               credits: bucket.product.credits.toString(),
-              allowedModels: bucket.product.allowedModels,
+              allowedModels: normalizeModelIds(bucket.product.allowedModels),
             }
           : null,
       };

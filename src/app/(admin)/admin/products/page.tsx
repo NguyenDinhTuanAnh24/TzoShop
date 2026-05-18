@@ -21,6 +21,7 @@ import {
   type AdminAiFamilyKey,
   type AdminPlanTypeKey,
 } from "@/lib/admin-product-catalog";
+import { normalizeModelIds } from "@/lib/model-id";
 
 type Product = {
   id: string;
@@ -165,7 +166,7 @@ export default function AdminProductsPage() {
       durationDays: suggestion.durationDays,
       priceVnd: 39000,
       apiKeyLimit: 1,
-      allowedModels: ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-pro"],
+      allowedModels: ["DeepSeek-V4-Flash", "DeepSeek-V4-Pro"],
       isActive: true,
       isPopular: false,
       isContactOnly: false,
@@ -189,7 +190,7 @@ export default function AdminProductsPage() {
       durationDays: product.durationDays || 7,
       priceVnd: product.priceVnd,
       apiKeyLimit: product.apiKeyLimit,
-      allowedModels: product.allowedModels || [],
+      allowedModels: normalizeModelIds(product.allowedModels || []),
       isActive: product.isActive,
       isPopular: product.isPopular,
       isContactOnly: product.isContactOnly,

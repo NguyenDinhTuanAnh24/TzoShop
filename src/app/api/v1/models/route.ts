@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { findActiveApiKeyByPlainTextKey } from "@/lib/api-key-auth";
+import { normalizeModelIds } from "@/lib/model-id";
 
 export const runtime = "nodejs";
 
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
     if (token) {
       const apiKey = await findActiveApiKeyByPlainTextKey(token);
       if (apiKey && !apiKey.revokedAt && apiKey.creditBucket?.isActive) {
-        allowedModels = apiKey.creditBucket.allowedModels;
+        allowedModels = normalizeModelIds(apiKey.creditBucket.allowedModels);
       }
     }
 

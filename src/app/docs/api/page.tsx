@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -31,7 +31,7 @@ export default function ApiDocsPage() {
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "deepseek/deepseek-v4-flash",
+    "model": "DeepSeek-V4-Flash",
     "messages": [
       {
         "role": "user",
@@ -47,7 +47,7 @@ export default function ApiDocsPage() {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    model: "deepseek/deepseek-v4-flash",
+    model: "DeepSeek-V4-Flash",
     messages: [
       {
         role: "user",
@@ -64,7 +64,7 @@ console.log(data);`;
   "id": "chatcmpl-123",
   "object": "chat.completion",
   "created": 1677652288,
-  "model": "deepseek/deepseek-v4-flash",
+  "model": "DeepSeek-V4-Flash",
   "choices": [
     {
       "index": 0,
@@ -101,7 +101,7 @@ console.log(data);`;
           <div className="max-w-4xl">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#edf1ee] bg-white px-4 py-2 text-sm font-black text-[#00d4a4] shadow-sm">
               <BookOpen className="h-4 w-4" />
-              TAI LIỆU KỸ THUẬT
+              TÀI LIỆU KỸ THUẬT
             </div>
             <h1 className={cn(ui.h1, "mb-6")}>
               Tài liệu API
@@ -318,13 +318,13 @@ console.log(data);`;
             </AppCard>
           </section>
 
-          {/* Section 7.5: Cấu hình IDE */}
+          {/* Section 7.5: Cấu hĂ¬nh IDE */}
           <section id="ide-config" className="scroll-mt-24">
             <div className="flex items-center gap-4 mb-8">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e7fff7] text-[#00d4a4] ring-1 ring-[#00d4a4]/20 shadow-sm">
                 <Code2 className="h-6 w-6" />
               </div>
-              <h2 className={ui.h3}>Cấu hình IDE / Extension</h2>
+              <h2 className={ui.h3}>Cấu hĂ¬nh IDE / Extension</h2>
             </div>
             
             <AppCard className="p-8 space-y-6">
@@ -347,7 +347,7 @@ console.log(data);`;
 
                 <div className="p-5 bg-[#fbfbf8] rounded-2xl border border-[#edf1ee]">
                   <h4 className="font-black text-sm text-[#0b0f0d] mb-1">Model Name</h4>
-                  <code className="text-xs text-[#00d4a4] font-black break-all">deepseek/deepseek-v4-flash</code>
+                  <code className="text-xs text-[#00d4a4] font-black break-all">DeepSeek-V4-Flash</code>
                   <p className="text-xs text-[#8a9690] mt-2">Hoặc model bất kỳ thuộc gói bạn đã mua.</p>
                 </div>
               </div>
@@ -365,7 +365,7 @@ console.log(data);`;
             
             <div className="grid gap-6 sm:grid-cols-2">
               {[
-                { title: "Bảo mật", content: "Tuyệt đối không chia sẻ API key công khai trên GitHub, mạng xã hội hoặc các diễn đàn." },
+                { title: "Bảo mật", content: "Tuyệt đối không chia sẻ API key công khai trên GitHub, mạng xã hộii hoặc các diễn đàn." },
                 { title: "Gói Credits", content: "Mỗi API key liên kết với một gói credits cụ thể mà bạn đã mua." },
                 { title: "Cách tính phí", content: "Credits sẽ bị trừ theo usage thực tế (tokens) của model bạn sử dụng." },
                 { title: "Quản lý", content: "Bạn có thể xem lịch sử sử dụng chi tiết và quản lý key tại dashboard cá nhân." },
@@ -394,7 +394,7 @@ console.log(data);`;
                   { id: "chat-completions", label: "Chat Completions" },
                   { id: "response", label: "Response mẫu" },
                   { id: "errors", label: "Lỗi thường gặp" },
-                  { id: "ide-config", label: "Cấu hình IDE" },
+                  { id: "ide-config", label: "Cấu hĂ¬nh IDE" },
                   { id: "notes", label: "Lưu ý quan trọng" },
                 ].map((item) => (
                   <a 
@@ -440,3 +440,4 @@ console.log(data);`;
     </main>
   );
 }
+

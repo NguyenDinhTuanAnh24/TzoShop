@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireCurrentUser } from "@/lib/server/current-user";
+import { getAiLineFromModel } from "@/lib/ai-family-from-model";
+import { tokensToCredits } from "@/lib/credits";
 
 export const runtime = "nodejs";
 
 type UsageRow = {
   id: string;
-  apiFamily: "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK";
+  apiFamily: "CODEXAI" | "CLAUDE" | "GEMINI" | "DEEPSEEK" | "UNKNOWN";
   model: string;
   endpoint: string;
   inputTokens: number;
@@ -22,14 +24,6 @@ type UsageRow = {
   createdAt: string;
   apiKey: { id: string; name: string; keyPrefix: string } | null;
 };
-
-function inferFamilyFromName(tokenName: string): UsageRow["apiFamily"] {
-  const lower = tokenName.toLowerCase();
-  if (lower.startsWith("codex")) return "CODEXAI";
-  if (lower.startsWith("claude")) return "CLAUDE";
-  if (lower.startsWith("gemini")) return "GEMINI";
-  return "DEEPSEEK";
-}
 
 async function getLocalUsageLogs(userId: string): Promise<UsageRow[]> {
   const localLogs = await prisma.usageLog.findMany({
@@ -49,7 +43,7 @@ async function getLocalUsageLogs(userId: string): Promise<UsageRow[]> {
 
   return localLogs.map((log) => ({
     id: log.id,
-    apiFamily: log.apiFamily,
+    apiFamily: getAiLineFromModel(log.model),
     model: log.model,
     endpoint: log.endpoint,
     inputTokens: log.inputTokens,
@@ -147,8 +141,9 @@ export async function GET() {
       .flatMap((item) => item.logs)
       .map((log: any) => {
         const mappedKey = keyMap.get(log.tokenName);
-        const apiFamily = mappedKey?.apiFamily ?? inferFamilyFromName(log.tokenName);
-        const creditsUsed = Number(log.quota || 0) / 500000;
+        const apiFamily = getAiLineFromModel(log.modelName);
+        const totalTokens = Number(log.promptTokens ?? 0) + Number(log.completionTokens ?? 0);
+        const creditsUsed = tokensToCredits(totalTokens);
 
         const status: UsageRow["status"] = log.status === "SUCCESS" ? "SUCCESS" : "FAILED";
 
@@ -159,7 +154,7 @@ export async function GET() {
           endpoint: "/v1/chat/completions",
           inputTokens: Number(log.promptTokens || 0),
           outputTokens: Number(log.completionTokens || 0),
-          totalTokens: Number(log.totalTokens || 0),
+          totalTokens,
           creditsCharged: String(creditsUsed),
           status,
           errorCode: null,

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
 import { buildPagination, getPagination } from "@/lib/pagination";
-import { detectFamilyKeyFromSlug, validateAllowedModelsBySlug } from "@/lib/admin-product-catalog";
+import { detectFamilyKeyFromSlug, normalizeAllowedModelsForSlug, validateAllowedModelsBySlug } from "@/lib/admin-product-catalog";
 
 export const runtime = "nodejs";
 
@@ -191,7 +191,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Giới hạn API key phải từ 1 trở lên." }, { status: 400 });
     }
 
-    const modelValidationError = validateAllowedModelsBySlug(slug, normalizedAllowedModels);
+    const normalizedForSlug = normalizeAllowedModelsForSlug(slug, normalizedAllowedModels);
+    const modelValidationError = validateAllowedModelsBySlug(slug, normalizedForSlug);
     if (modelValidationError) {
       return NextResponse.json({ success: false, message: modelValidationError }, { status: 400 });
     }
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
         durationDays: normalizedDurationDays,
         priceVnd: Number(priceVnd || 0),
         apiKeyLimit: Number(apiKeyLimit || 1),
-        allowedModels: normalizedAllowedModels,
+        allowedModels: normalizedForSlug,
         allowedReasoning: [],
         isActive: isActive !== undefined ? isActive : true,
         isPopular: isPopular !== undefined ? isPopular : false,

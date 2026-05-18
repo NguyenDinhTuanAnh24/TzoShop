@@ -2,7 +2,7 @@ import { ApiFamily, Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminUser } from "@/lib/server/current-user";
-import { validateAllowedModelsBySlug } from "@/lib/admin-product-catalog";
+import { normalizeAllowedModelsForSlug, validateAllowedModelsBySlug } from "@/lib/admin-product-catalog";
 
 export const runtime = "nodejs";
 
@@ -22,9 +22,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const nextSlug = body.slug !== undefined ? String(body.slug).trim() : current.slug;
-    const nextAllowedModels = body.allowedModels !== undefined
+    const rawNextAllowedModels = body.allowedModels !== undefined
       ? (Array.isArray(body.allowedModels) ? body.allowedModels.map((item: unknown) => String(item).trim()).filter(Boolean) : [])
       : current.allowedModels;
+    const nextAllowedModels = normalizeAllowedModelsForSlug(nextSlug, rawNextAllowedModels);
     const nextCredits = body.credits !== undefined ? Number(body.credits) : Number(current.credits);
     const nextDurationDays = body.durationDays !== undefined ? Number(body.durationDays) : current.durationDays;
     const nextPriceVnd = body.priceVnd !== undefined ? Number(body.priceVnd) : current.priceVnd;

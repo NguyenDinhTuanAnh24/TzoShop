@@ -9,7 +9,7 @@ export function getApiBaseUrl() {
   return (
     process.env.NEXT_PUBLIC_NEWAPI_PUBLIC_BASE_URL ||
     process.env.NEWAPI_PUBLIC_BASE_URL ||
-    "http://localhost:3000/v1"
+    "https://api.tzoshop.io.vn/v1"
   );
 }
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -39,8 +39,8 @@ export function DocsIdeConfig({ baseUrl }: IdeConfigProps) {
           <div className="border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000]">
             <p className="text-xs font-black uppercase tracking-wide text-black">Model</p>
             <div className="mt-2 flex items-center justify-between gap-3">
-              <code className="break-all font-mono text-sm font-bold text-black">codexai/gpt-5.3-codex</code>
-              <DocsCopyButton text="codexai/gpt-5.3-codex" ariaLabel="Sao chép model mẫu" className="h-8 w-8" />
+              <code className="break-all font-mono text-sm font-bold text-black">GPT-5.3-Codex</code>
+              <DocsCopyButton text="GPT-5.3-Codex" ariaLabel="Sao chép model mẫu" className="h-8 w-8" />
             </div>
           </div>
         </div>
@@ -75,3 +75,4 @@ export function DocsIdeConfig({ baseUrl }: IdeConfigProps) {
     </div>
   );
 }
+

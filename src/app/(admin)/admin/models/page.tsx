@@ -628,7 +628,7 @@ export default function AdminModelsPage() {
               <input
                 value={formData.upstreamModel}
                 onChange={(event) => setFormData((prev) => ({ ...prev, upstreamModel: event.target.value }))}
-                placeholder="codexai/gpt-5.3-codex"
+                placeholder="GPT-5.3-Codex"
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-950"
               />
             </Field>

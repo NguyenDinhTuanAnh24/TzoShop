@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { ChevronDown, Code2, Terminal } from "lucide-react";
@@ -23,7 +23,7 @@ export function DocsCodeExamples({ apiBaseUrl, apiUrl }: CodeExamplesProps) {
   -H "Authorization: Bearer YOUR_TZOSHOP_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "codexai/gpt-5.3-codex",
+    "model": "GPT-5.3-Codex",
     "messages": [
       { "role": "user", "content": "Hello, TzoShop API" }
     ]
@@ -39,7 +39,7 @@ export function DocsCodeExamples({ apiBaseUrl, apiUrl }: CodeExamplesProps) {
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    model: "codexai/gpt-5.3-codex",
+    model: "GPT-5.3-Codex",
     messages: [{ role: "user", content: "Hello, TzoShop API" }]
   })
 });
@@ -56,7 +56,7 @@ console.log(data);`,
 }
 
 $body = @{
-  model = "codexai/gpt-5.3-codex"
+  model = "GPT-5.3-Codex"
   messages = @(@{ role = "user"; content = "Hello, TzoShop API" })
 } | ConvertTo-Json -Depth 10
 
@@ -65,7 +65,7 @@ Invoke-RestMethod -Uri "${apiUrl}" -Method POST -Headers $headers -Body $body`,
   };
 
   const requestBody = `{
-  "model": "codexai/gpt-5.3-codex",
+  "model": "GPT-5.3-Codex",
   "messages": [
     {
       "role": "user",
@@ -78,7 +78,7 @@ Invoke-RestMethod -Uri "${apiUrl}" -Method POST -Headers $headers -Body $body`,
   "id": "chatcmpl-922",
   "object": "chat.completion",
   "created": 1715412345,
-  "model": "codexai/gpt-5.3-codex",
+  "model": "GPT-5.3-Codex",
   "choices": [
     {
       "index": 0,
@@ -172,3 +172,4 @@ Invoke-RestMethod -Uri "${apiUrl}" -Method POST -Headers $headers -Body $body`,
     </div>
   );
 }
+

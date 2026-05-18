@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiFamily } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { findActiveApiKeyByPlainTextKey } from "@/lib/api-key-auth";
+import { normalizeModelId, normalizeModelIds } from "@/lib/model-id";
 import { decryptText } from "@/lib/crypto";
 import { checkRateLimit } from "@/lib/server/rate-limit";
 import { calculateCreditsUsed, consumeCredits } from "@/lib/server/credits";
@@ -715,7 +716,7 @@ export async function POST(request: NextRequest) {
         : [],
     });
 
-    const modelName = body.model;
+    const modelName = normalizeModelId(body.model);
     const messages = Array.isArray(body.messages) ? body.messages : [];
     const stream = body.stream === true;
 
@@ -726,7 +727,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!bucket.allowedModels.includes(modelName)) {
+    const normalizedAllowedModels = normalizeModelIds(bucket.allowedModels);
+    if (!normalizedAllowedModels.includes(modelName)) {
       return NextResponse.json(
         {
           error: {

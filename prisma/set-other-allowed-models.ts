@@ -1,62 +1,62 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 
 import { prisma } from "../src/lib/prisma";
 
 const CLAUDE_TRIAL_MODELS = [
-  "claude/claude-haiku-4.5",
+  "Claude-Haiku-4.5",
 ];
 
 const CLAUDE_MINI_MODELS = [
   ...CLAUDE_TRIAL_MODELS,
-  "claude/claude-sonnet-4.5",
+  "Claude-Sonnet-4.5",
 ];
 
 const CLAUDE_PLUS_MODELS = [
   ...CLAUDE_MINI_MODELS,
-  "claude/claude-sonnet-4.6",
+  "Claude-Sonnet-4.6",
 ];
 
 const CLAUDE_PRO_MODELS = [
   ...CLAUDE_PLUS_MODELS,
-  "claude/claude-opus-4.5",
+  "Claude-Opus-4.5",
 ];
 
 const CLAUDE_MAX_MODELS = [
   ...CLAUDE_PRO_MODELS,
-  "claude/claude-opus-4.6",
+  "Claude-Opus-4.6",
 ];
 
 const CLAUDE_ULTRA_MODELS = [
   ...CLAUDE_MAX_MODELS,
-  "claude/claude-opus-4.7",
+  "Claude-Opus-4.7",
 ];
 
 const GEMINI_TRIAL_MODELS = [
-  "gemini/gemini-3.1-flash-lite-preview",
+  "Gemini-3.1-Flash-Lite-Preview",
 ];
 
 const GEMINI_MINI_MODELS = [
   ...GEMINI_TRIAL_MODELS,
-  "gemini/gemini-3-flash-preview",
+  "Gemini-3-Flash-Preview",
 ];
 
 const GEMINI_PLUS_MODELS = [
   ...GEMINI_MINI_MODELS,
-  "gemini/gemini-2.5-pro",
+  "Gemini-2.5-Pro",
 ];
 
 const GEMINI_PRO_MODELS = [
   ...GEMINI_PLUS_MODELS,
-  "gemini/gemini-3.1-pro-preview",
+  "Gemini-3.1-Pro-Preview",
 ];
 
 const DEEPSEEK_TRIAL_MINI_MODELS = [
-  "deepseek/deepseek-v4-flash",
+  "DeepSeek-V4-Flash",
 ];
 
 const DEEPSEEK_PLUS_AND_UP_MODELS = [
-  "deepseek/deepseek-v4-flash",
-  "deepseek/deepseek-v4-pro",
+  "DeepSeek-V4-Flash",
+  "DeepSeek-V4-Pro",
 ];
 
 type ApiFamily = "CLAUDE" | "GEMINI" | "DEEPSEEK";
@@ -163,7 +163,7 @@ async function updateFamily(apiFamily: ApiFamily) {
   });
 
   if (products.length === 0) {
-    console.log(`Không tìm thấy gói ${apiFamily}.`);
+    console.log(`KhĂ´ng tĂ¬m tháº¥y gĂ³i ${apiFamily}.`);
     return;
   }
 
@@ -197,15 +197,15 @@ async function updateFamily(apiFamily: ApiFamily) {
     updatedCount++;
 
     console.log(
-      `Đã cập nhật ${product.name} (${apiFamily}/${tier}) → ${allowedModels.length} models`
+      `ÄĂ£ cáº­p nháº­t ${product.name} (${apiFamily}/${tier}) â†’ ${allowedModels.length} models`
     );
   }
 
   console.log("");
-  console.log(`Hoàn tất ${apiFamily}: ${updatedCount}/${products.length} gói.`);
+  console.log(`HoĂ n táº¥t ${apiFamily}: ${updatedCount}/${products.length} gĂ³i.`);
 
   if (skipped.length > 0) {
-    console.log(`Các gói ${apiFamily} bị bỏ qua:`);
+    console.log(`CĂ¡c gĂ³i ${apiFamily} bá»‹ bá» qua:`);
     for (const name of skipped) {
       console.log(`- ${name}`);
     }
@@ -218,14 +218,15 @@ async function main() {
   await updateFamily("GEMINI");
   await updateFamily("DEEPSEEK");
 
-  console.log("Đã cập nhật xong allowedModels cho Claude, Gemini, DeepSeek.");
+  console.log("ÄĂ£ cáº­p nháº­t xong allowedModels cho Claude, Gemini, DeepSeek.");
 }
 
 main()
   .catch((error) => {
-    console.error("Lỗi khi cập nhật allowedModels:", error);
+    console.error("Lá»—i khi cáº­p nháº­t allowedModels:", error);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect?.();
   });
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 
 import { useMemo, useState } from "react";
@@ -30,7 +30,7 @@ export default function ApiDocsPage() {
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "deepseek/deepseek-v4-flash",
+    "model": "DeepSeek-V4-Flash",
     "messages": [
       {
         "role": "user",
@@ -46,7 +46,7 @@ export default function ApiDocsPage() {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    model: "deepseek/deepseek-v4-flash",
+    model: "DeepSeek-V4-Flash",
     messages: [
       {
         role: "user",
@@ -68,7 +68,7 @@ response = requests.post(
         "Content-Type": "application/json",
     },
     json={
-        "model": "deepseek/deepseek-v4-flash",
+        "model": "DeepSeek-V4-Flash",
         "messages": [
             {
                 "role": "user",
@@ -88,7 +88,7 @@ print(response.json())`;
   const responseCode = `{
   "id": "chatcmpl_xxx",
   "object": "chat.completion",
-  "model": "deepseek/deepseek-v4-flash",
+  "model": "DeepSeek-V4-Flash",
   "choices": [
     {
       "index": 0,
@@ -269,7 +269,7 @@ print(response.json())`;
             </thead>
             <tbody>
               {[
-                ["model", "Bắt buộc", "Model bạn muốn dùng, ví dụ deepseek/deepseek-v4-flash"],
+                ["model", "Bắt buộc", "Model bạn muốn dùng, ví dụ DeepSeek-V4-Flash"],
                 ["messages", "Bắt buộc", "Danh sách hội thoại gồm role và content"],
                 ["temperature", "Tùy chọn", "Điều chỉnh độ sáng tạo của phản hồi"],
                 ["max_tokens", "Tùy chọn", "Giới hạn số token phản hồi nếu model hỗ trợ"],
@@ -286,7 +286,7 @@ print(response.json())`;
 
         <div className="grid grid-cols-1 gap-3 md:hidden">
           {[
-            ["model", "Bắt buộc", "Model bạn muốn dùng, ví dụ deepseek/deepseek-v4-flash"],
+            ["model", "Bắt buộc", "Model bạn muốn dùng, ví dụ DeepSeek-V4-Flash"],
             ["messages", "Bắt buộc", "Danh sách hội thoại gồm role và content"],
             ["temperature", "Tùy chọn", "Điều chỉnh độ sáng tạo của phản hồi"],
             ["max_tokens", "Tùy chọn", "Giới hạn số token phản hồi nếu model hỗ trợ"],
@@ -302,13 +302,13 @@ print(response.json())`;
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-2xl font-extrabold text-slate-950">Model format</h2>
-        <p className="mt-1 text-sm text-slate-600">Model được viết theo dạng dòng AI/model-name.</p>
+        <p className="mt-1 text-sm text-slate-600">Model dùng đúng model ID NewAPI (ví dụ: DeepSeek-V4-Flash, GPT-5.3-Codex).</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {[
-            "codexai/gpt-5.3-codex",
-            "claude/claude-sonnet-4.5",
-            "gemini/gemini-3-flash-preview",
-            "deepseek/deepseek-v4-flash",
+            "GPT-5.3-Codex",
+            "Claude-Sonnet-4.5",
+            "Gemini-3-Flash-Preview",
+            "DeepSeek-V4-Flash",
           ].map((m) => (
             <span key={m} className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
               {m}
@@ -319,7 +319,7 @@ print(response.json())`;
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-extrabold text-slate-950">Cấu hình IDE / Extension</h2>
+        <h2 className="text-2xl font-extrabold text-slate-950">Cấu hĂ¬nh IDE / Extension</h2>
         <p className="mt-1 text-sm text-slate-600 font-medium">
           Bạn có thể tích hợp API Key của TzoShop vào các công cụ như VS Code Continue, Cursor, Cline, Copilot...
         </p>
@@ -338,7 +338,7 @@ print(response.json())`;
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <h4 className="font-bold text-sm text-slate-900 mb-1">Model</h4>
-            <code className="text-xs text-indigo-600 font-bold break-all">deepseek/deepseek-v4-flash</code>
+            <code className="text-xs text-indigo-600 font-bold break-all">DeepSeek-V4-Flash</code>
             <p className="text-xs text-slate-500 mt-2">Chọn model thuộc gói đã mua.</p>
           </div>
         </div>
@@ -423,3 +423,6 @@ function CodeBlock({ title, code, onCopy }: { title: string; code: string; onCop
     </div>
   );
 }
+
+
+
